@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Login - Smart Department Asset Manager</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -10,7 +10,7 @@
         body { font-family: 'Inter', sans-serif; }
     </style>
 </head>
-<body class="min-h-screen w-full flex flex-col lg:flex-row antialiased bg-gray-50 overflow-y-auto lg:overflow-hidden">
+<body class="min-h-screen w-full flex flex-col lg:flex-row antialiased bg-gray-50 overflow-x-hidden">
 
     <div class="hidden lg:flex w-1/2 bg-gradient-to-br from-blue-900 via-blue-800 to-blue-400 flex-col justify-center items-center p-8 relative overflow-hidden">
         
@@ -45,9 +45,25 @@
         </div>
     </div>
 
-    <div class="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8 lg:p-12 relative z-10 min-h-screen lg:min-h-0">
+    <div class="w-full lg:w-1/2 flex flex-col items-center justify-center p-4 sm:p-8 lg:p-12 relative z-10 min-h-screen lg:min-h-0">
         
-        <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl hover:shadow-blue-500/10 transition-shadow duration-300 p-6 sm:p-8 relative z-20 flex flex-col border border-gray-100/50">
+        <div class="flex lg:hidden flex-col items-center text-center mb-8 mt-4">
+            <div class="w-24 h-24 bg-white rounded-2xl flex items-center justify-center mb-4 shadow-lg overflow-hidden p-3 border border-gray-100">
+                <img 
+                    src="https://scontent.famd8-1.fna.fbcdn.net/v/t39.30808-6/482345949_1144079087415361_6640568596786112832_n.jpg?stp=dst-jpg_tt6&cstp=mx1379x1379&ctp=s1379x1379&_nc_cat=111&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=dqzfFwO_7hEQ7kNvwHlS2Lc&_nc_oc=AdqNTZYLxmQKL2WaL9V7X7C6O9y9HIZNlpZiBqOTr3chZ-WT57nGAbpKFdbH0IayXk4&_nc_zt=23&_nc_ht=scontent.famd8-1.fna&_nc_gid=512jtex-NyXTQ9YEE2yRCg&_nc_ss=7b289&oh=00_AQCFoi8YrRQThI_Qg2e3SPWGXJTNIXX5tSQO7LOxr-Rw5w&oe=6A5E8523" 
+                    alt="K.D. Polytechnic Logo" 
+                    class="w-full h-full object-contain"
+                >
+            </div>
+            <h1 class="text-xl font-extrabold text-gray-900 tracking-tight">
+                K.D. Polytechnic, Patan
+            </h1>
+            <p class="text-sm font-semibold text-blue-600 mt-1">
+                Asset Manager Portal
+            </p>
+        </div>
+
+        <div class="w-full max-w-md bg-white rounded-2xl shadow-xl lg:shadow-2xl hover:shadow-blue-500/10 transition-shadow duration-300 p-6 sm:p-8 relative z-20 flex flex-col border border-gray-100/80 mx-auto">
             
             <div class="mb-6 xl:mb-8">
                 <h2 class="text-2xl xl:text-3xl font-extrabold text-gray-900 tracking-tight">
@@ -58,37 +74,37 @@
                 </p>
             </div>
 
-            <form class="space-y-4 xl:space-y-5 flex-grow" action="login.php" method="POST">
+            <form class="space-y-4 xl:space-y-5 flex-grow w-full" action="login.php" method="POST">
                 
-                <div>
+                <div class="w-full">
                     <label for="email" class="block text-sm font-semibold text-gray-700 mb-1.5">
                         Email address
                     </label>
-                    <div class="relative">
+                    <div class="relative w-full">
                         <input 
                             id="email" 
                             name="email" 
                             type="email" 
                             autocomplete="email" 
                             required
-                            class="appearance-none block w-full px-4 py-2.5 xl:py-3 bg-gray-50 border border-gray-200 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm font-medium text-gray-900"
+                            class="appearance-none block w-full px-4 py-2.5 xl:py-3 bg-gray-50 border border-gray-200 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm font-medium text-gray-900 box-border"
                             placeholder="admin@example.com"
                         >
                     </div>
                 </div>
 
-                <div>
+                <div class="w-full">
                     <label for="password" class="block text-sm font-semibold text-gray-700 mb-1.5">
                         Password
                     </label>
-                    <div class="relative">
+                    <div class="relative w-full">
                         <input 
                             id="password" 
                             name="password" 
                             type="password" 
                             autocomplete="current-password" 
                             required
-                            class="appearance-none block w-full px-4 py-2.5 xl:py-3 bg-gray-50 border border-gray-200 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm font-medium text-gray-900 pr-12"
+                            class="appearance-none block w-full px-4 py-2.5 xl:py-3 bg-gray-50 border border-gray-200 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm font-medium text-gray-900 pr-12 box-border"
                             placeholder="••••••••"
                         >
                         <div class="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5">
@@ -105,21 +121,21 @@
                     </div>
                 </div>
 
-                <div class="flex items-center justify-between pt-1">
+                <div class="flex flex-row items-center justify-between pt-1 w-full gap-2">
                     <div class="flex items-center">
-                        <input id="remember-me" name="remember-me" type="checkbox" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300 transition duration-150 ease-in-out cursor-pointer">
-                        <label for="remember-me" class="ml-2 block text-sm text-gray-600 font-medium cursor-pointer">
+                        <input id="remember-me" name="remember-me" type="checkbox" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300 transition duration-150 ease-in-out cursor-pointer flex-shrink-0">
+                        <label for="remember-me" class="ml-2 block text-xs sm:text-sm text-gray-600 font-medium cursor-pointer whitespace-nowrap">
                             Remember me
                         </label>
                     </div>
-                    <div class="text-sm">
-                        <a href="#" class="font-semibold text-blue-600 hover:text-blue-500 transition-colors duration-200">
+                    <div class="text-xs sm:text-sm text-right">
+                        <a href="#" class="font-semibold text-blue-600 hover:text-blue-500 transition-colors duration-200 whitespace-nowrap">
                             Forgot Password?
                         </a>
                     </div>
                 </div>
 
-                <div class="pt-3 xl:pt-4">
+                <div class="pt-3 xl:pt-4 w-full">
                     <button 
                         type="submit" 
                         id="loginBtn"
@@ -130,6 +146,8 @@
                 </div>
             </form>
         </div>
+        
+        <div class="h-8 lg:hidden"></div>
     </div>
 
     <script>
