@@ -13,6 +13,48 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     exit();
 }
 
+// --- START: CONSOLIDATED ACTION HANDLER ---
+
+// Handle Add User (POST request)
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['action'] === 'add_user') {
+    $full_name = $_POST['full_name'];
+    $email = $_POST['email'];
+    $role = $_POST['role'];
+
+    $plain_password = bin2hex(random_bytes(8));
+    $password_hash = password_hash($plain_password, PASSWORD_DEFAULT);
+
+    $stmt = $conn->prepare("INSERT INTO users (full_name, email, password_hash, role) VALUES (?, ?, ?, ?)");
+    $stmt->bind_param("ssss", $full_name, $email, $password_hash, $role);
+
+    if ($stmt->execute()) {
+        header("Location: manage-users.php?status=user_added&new_password=" . urlencode($plain_password) . "&user_name=" . urlencode($full_name));
+    } else {
+        header("Location: manage-users.php?status=error&message=" . urlencode($stmt->error));
+    }
+    $stmt->close();
+    exit();
+}
+
+// Handle Delete User (GET request)
+if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_GET['action']) && $_GET['action'] === 'delete_user') {
+    $user_id_to_delete = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+
+    if ($user_id_to_delete === $_SESSION['user_id']) {
+        header("Location: manage-users.php?status=error&message=" . urlencode("You cannot delete your own account."));
+    } elseif ($user_id_to_delete > 0) {
+        $stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
+        $stmt->bind_param("i", $user_id_to_delete);
+        if ($stmt->execute()) {
+            header("Location: manage-users.php?status=user_deleted");
+        } else {
+            header("Location: manage-users.php?status=error&message=" . urlencode($stmt->error));
+        }
+        $stmt->close();
+    }
+    exit();
+}
+
 // Helper function to generate initials
 function getInitials($name) {
     $words = explode(' ', $name);
@@ -118,7 +160,8 @@ if ($result) {
         <!-- Add New User Form -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
           <h2 class="text-lg font-semibold text-gray-900 mb-4">Add New User</h2>
-          <form action="add_user.php" method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <form action="manage-users.php" method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <input type="hidden" name="action" value="add_user">
             <div>
               <label for="full_name" class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
               <input type="text" name="full_name" id="full_name" required class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -128,10 +171,6 @@ if ($result) {
               <input type="email" name="email" id="email" required class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
             <div>
-              <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-              <input type="password" name="password" id="password" required class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-            <div>
               <label for="role" class="block text-sm font-medium text-gray-700 mb-1">Access Level (Role)</label>
               <select name="role" id="role" required class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="staff">Normal User (Staff)</option>
@@ -139,6 +178,9 @@ if ($result) {
               </select>
             </div>
             <div class="md:col-span-2">
+                <p class="text-xs text-gray-500 -mt-4 mb-4">
+                    A secure, random password will be automatically generated for the new user.
+                </p>
               <button type="submit" class="w-full sm:w-auto inline-flex justify-center items-center px-6 py-2.5 border border-transparent text-sm font-bold rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                 Add User
               </button>
@@ -174,8 +216,12 @@ if ($result) {
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap text-gray-500"><?php echo date('M d, Y', strtotime($user['created_at'])); ?></td>
                   <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <a href="#" class="text-indigo-600 hover:text-indigo-900">Edit</a>
-                    <a href="#" class="text-red-600 hover:text-red-900 ml-4">Delete</a>
+                    <a href="edit_user.php?id=<?php echo $user['id']; ?>" class="text-indigo-600 hover:text-indigo-900">Edit</a>
+                    <?php if ($user['id'] !== $_SESSION['user_id']): // Prevent showing delete for self ?>
+                      <a href="manage-users.php?action=delete_user&id=<?php echo $user['id']; ?>" 
+                         class="text-red-600 hover:text-red-900 ml-4"
+                         onclick="return confirm('Are you sure you want to permanently delete this user? This action cannot be undone.');">Delete</a>
+                    <?php endif; ?>
                   </td>
                 </tr>
                 <?php endforeach; ?>
@@ -186,6 +232,41 @@ if ($result) {
       </div>
     </main>
   </div>
+</div>
+
+<!-- Success Modal for New User Password -->
+<div id="passwordModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+  <div class="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all" id="passwordModalContent">
+    <div class="p-6 text-center">
+      <div class="w-16 h-16 mx-auto flex items-center justify-center bg-emerald-100 rounded-full mb-4">
+        <i data-lucide="check-circle-2" class="text-emerald-600 w-8 h-8"></i>
+      </div>
+      <h3 class="text-lg font-bold text-gray-900">User Created Successfully!</h3>
+      <p class="text-sm text-gray-500 mt-2">The user <strong id="modalUserName" class="font-semibold text-gray-700"></strong> has been added.</p>
+      <p class="text-sm text-gray-500 mt-1">Please provide them with their auto-generated password. This is the only time it will be shown.</p>
+
+      <div class="mt-6">
+        <label class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Generated Password</label>
+        <div class="relative mt-1">
+          <input id="generatedPassword" type="text" readonly class="w-full bg-gray-100 border-2 border-gray-200 rounded-lg text-center text-lg font-mono tracking-widest py-3 text-gray-800 focus:outline-none">
+          <button id="copyPasswordBtn" title="Copy to clipboard" class="absolute top-1/2 right-3 -translate-y-1/2 p-2 rounded-md text-gray-400 hover:bg-gray-200 hover:text-gray-700 transition">
+            <i data-lucide="clipboard" class="w-5 h-5"></i>
+          </button>
+        </div>
+        <span id="copyFeedback" class="text-xs font-medium text-emerald-600 h-4 block mt-1 transition-opacity opacity-0">Copied to clipboard!</span>
+      </div>
+    </div>
+    <div class="bg-gray-50 px-6 py-4 rounded-b-xl">
+      <button id="closeModalBtn" class="w-full inline-flex justify-center rounded-lg border border-transparent bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+        Done
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Error/Success Notification -->
+<div id="notification" class="fixed top-5 right-5 bg-red-500 text-white py-2.5 px-5 rounded-lg shadow-xl text-sm font-medium hidden">
+  <!-- Message will be inserted here -->
 </div>
 
 <script>
@@ -212,6 +293,63 @@ if ($result) {
       userMenuDropdown.classList.add('hidden');
     }
   });
+
+  // --- New Modal and Notification Logic ---
+  document.addEventListener('DOMContentLoaded', () => {
+    const passwordModal = document.getElementById('passwordModal');
+    const modalUserName = document.getElementById('modalUserName');
+    const generatedPasswordInput = document.getElementById('generatedPassword');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const copyPasswordBtn = document.getElementById('copyPasswordBtn');
+    const copyFeedback = document.getElementById('copyFeedback');
+    const notification = document.getElementById('notification');
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const status = urlParams.get('status');
+
+    if (status === 'user_added') {
+      const newPassword = urlParams.get('new_password');
+      const userName = urlParams.get('user_name');
+      
+      modalUserName.textContent = userName;
+      generatedPasswordInput.value = newPassword;
+      passwordModal.classList.remove('hidden');
+      lucide.createIcons(); // Re-render icons inside the modal
+
+    } else if (status === 'error') {
+      const message = urlParams.get('message') || 'An unknown error occurred.';
+      notification.textContent = `Error: ${message}`;
+      notification.classList.remove('hidden', 'bg-emerald-500');
+      notification.classList.add('bg-red-500');
+      setTimeout(() => notification.classList.add('hidden'), 5000);
+    }
+    else if (status === 'user_deleted') {
+        notification.textContent = 'User has been successfully deleted.';
+        notification.classList.remove('hidden', 'bg-red-500');
+        notification.classList.add('bg-emerald-500'); // Green for success
+        setTimeout(() => notification.classList.add('hidden'), 4000);
+    }
+
+
+    // Clean the URL to prevent the modal from reappearing on refresh
+    if (urlParams.has('status')) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    closeModalBtn.addEventListener('click', () => {
+      passwordModal.classList.add('hidden');
+    });
+
+    copyPasswordBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(generatedPasswordInput.value).then(() => {
+        copyFeedback.classList.remove('opacity-0');
+        setTimeout(() => {
+          copyFeedback.classList.add('opacity-0');
+        }, 2000);
+      });
+    });
+  });
+
 </script>
 
 </body>

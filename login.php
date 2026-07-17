@@ -18,8 +18,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($result->num_rows === 1) {
         $user = $result->fetch_assoc();
         
-        // Since we are testing, we are checking the plain text password we entered earlier
-        if ($password === $user['password_hash']) {
+        // Verify the submitted password against the stored hash
+        if (password_verify($password, $user['password_hash'])) {
             // Success! Store their data in the session
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['user_name'] = $user['full_name'];
