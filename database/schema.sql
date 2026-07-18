@@ -12,5 +12,5 @@ CREATE TABLE users (
 -- Note: We are inserting plain text for the password right now just to test the connection.
 -- When we write the PHP API, we will upgrade these to securely encrypted hashes.
 INSERT INTO users (full_name, email, password_hash, role) VALUES 
-('Head of Department', 'hod@example.com', 'password123', 'admin'),
-('Lab Incharge Mam', 'incharge@example.com', 'password123', 'staff');
+('Head of Department', 'hod@example.com', '$2y$10$nys6AerBbkB55pLN/w/6TOvntua69gptIIqrhnVVO0m.UrHxafoh.', 'admin'),
+('Lab Incharge Mam', 'incharge@example.com', '$2y$10$nys6AerBbkB55pLN/w/6TOvntua69gptIIqrhnVVO0m.UrHxafoh.', 'staff');--you have to enter"password123" on web for both users to login. The password is hashed using PHP's password_hash function.
