@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit Asset - KD-COMP-001</title>
+    <title>Edit Asset - KDP/COMP/2026/EXP/P-19/-125/10/30</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -25,7 +25,7 @@
         class="bg-white border-b border-slate-200 px-6 py-5 flex justify-between items-center sticky top-0 z-10 shadow-sm">
         <div>
             <h1 class="text-xl font-bold text-[#0f172a]">Edit Asset Details</h1>
-            <p class="text-sm text-slate-500 mt-1">Updating information for KD-COMP-001</p>
+            <p class="text-sm text-slate-500 mt-1">Updating information for KDP/COMP/2026/EXP/P-19/-125/10/30</p>
         </div>
         <button onclick="window.location.href='category-list.html'"
             class="text-slate-400 hover:text-slate-600 transition-colors">
@@ -55,7 +55,7 @@
                 <div>
                     <label for="itemNo" class="block text-sm font-medium text-slate-700 mb-1">Item No
                         (Auto-generated)</label>
-                    <input type="text" id="itemNo" value="KD-COMP-001" disabled
+                    <input type="text" id="itemNo" value="KDP/COMP/2026/EXP/P-19/-125/10/30" disabled
                         class="w-full px-4 py-2 bg-slate-100 border border-slate-200 text-slate-500 rounded-lg cursor-not-allowed">
                 </div>
 
@@ -64,11 +64,11 @@
                     <label for="category" class="block text-sm font-medium text-slate-700 mb-1">Category</label>
                     <select id="category"
                         class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#1e3271] focus:border-[#1e3271] outline-none transition-all bg-white">
-                        <option value="hardware">Hardware</option>
-                        <option value="consumables" selected>Consumables</option>
+                        <option value="hardware" selected>Expandable</option>
+                        <option value="consumables" >Consumables</option>
                         <option value="furniture">Furniture</option>
-                        <option value="software">Software License</option>
-                    </select>
+                        <option value="software">Deadstock</option>
+                    </select> 
                 </div>
 
                 <!-- Location -->
@@ -109,6 +109,15 @@
                         <option value="retired">Retired</option>
                     </select>
                 </div>
+                <!-- NEW: Assigned to Faculty (Dynamic Dropdown) -->
+                <div>
+                    <label for="assignedFaculty" class="block text-sm font-medium text-slate-700 mb-1">Assigned to
+                        Faculty</label>
+                    <select id="assignedFaculty" name="assigned_to"
+                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#1e3271] focus:border-[#1e3271] outline-none transition-all bg-white">
+                        <option value="">Loading faculty...</option>
+                    </select>
+                </div>
             </div>
 
             <!-- Remarks (Full Width) -->
@@ -141,20 +150,45 @@
     </div>
 
     <!-- Script to handle saving -->
-    <script>
-        function saveAndClose() {
-            // In a real application, you would handle the form submission via AJAX/Fetch here.
-            alert('Asset details updated successfully!');
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const assignedToSelect = document.getElementById('assignedFaculty');
+        
+        // In a real edit form, you would get this value from your database/backend
+        // We set it here so the form automatically pre-selects the currently assigned faculty.
+        const currentAssignedFaculty = "Prof. A. Sharma"; 
 
-            // Refreshes the parent window to show new data (optional)
-            if (window.opener && !window.opener.closed) {
-                window.opener.location.reload();
-            }
+        fetch('get-faculty.php')
+            .then(response => response.json())
+            .then(data => {
+                assignedToSelect.innerHTML = '<option value="">Select faculty</option>';
+                data.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.full_name;
+                    option.textContent = user.full_name;
+                    
+                    // If the fetched name matches the currently assigned faculty, select it
+                    if (user.full_name === currentAssignedFaculty) {
+                        option.selected = true;
+                    }
+                    
+                    assignedToSelect.appendChild(option);
+                });
+            })
+            .catch(() => {
+                assignedToSelect.innerHTML = '<option value="">No faculty available</option>';
+            });
+    });
 
-            // Closes the popup
-            window.close();
+    // Your existing saveAndClose() function goes here...
+    function saveAndClose() {
+        alert('Asset details updated successfully!');
+        if (window.opener && !window.opener.closed) {
+            window.opener.location.reload();
         }
-    </script>
+        window.close();
+    }
+</script>
 </body>
 
 </html>
