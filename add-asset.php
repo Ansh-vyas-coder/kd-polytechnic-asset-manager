@@ -1,5 +1,50 @@
 <?php
-$embedMode = isset($_GET['embed']) && $_GET['embed'] === '1';
+// This file is designed to be included by dashboard.php, so we assume session_start() and db.php are already handled.
+if (!defined('IS_EMBEDDED')) { // If accessed directly, establish a context.
+    session_start();
+    require 'db.php';
+    if (!isset($_SESSION['user_id'])) {
+        header("Location: login.html");
+        exit();
+    }
+}
+
+// --- START: ACTION HANDLER FOR ADDING AN ASSET ---
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['action'] === 'add_asset') {
+    
+    // Sanitize and retrieve POST data from the form
+    $asset_name = trim($_POST['asset_name']);
+    $category_id = (int)$_POST['category_id'];
+    $quantity = (int)$_POST['quantity'];
+    $item_no = trim($_POST['item_no']);
+    $cost = (float)$_POST['cost'];
+    $location = trim($_POST['location']);
+    $date_of_issue = $_POST['date_of_issue'];
+    $assigned_to = !empty($_POST['assigned_to']) ? trim($_POST['assigned_to']) : null;
+    $remarks = !empty($_POST['remarks']) ? trim($_POST['remarks']) : null;
+
+    // Prepare the SQL INSERT statement
+    $stmt = $conn->prepare(
+        "INSERT INTO assets (asset_name, category_id, quantity, item_no, cost, location, date_of_issue, assigned_to, remarks) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    );
+
+    // Bind parameters to the statement
+    $stmt->bind_param("siisdssss", $asset_name, $category_id, $quantity, $item_no, $cost, $location, $date_of_issue, $assigned_to, $remarks);
+
+    // Execute and redirect
+    if ($stmt->execute()) {
+        // Redirect to the category view page to show the newly added item
+        header("Location: view-assets.php?category_id=" . $category_id . "&status=asset_added");
+    } else {
+        // Redirect back to the add item form with an error
+        $error_message = urlencode($stmt->error);
+        header("Location: dashboard.php?view=add-asset&status=error&message=" . $error_message);
+    }
+    $stmt->close();
+    exit();
+}
+$embedMode = defined('IS_EMBEDDED');
 if (!$embedMode) {
 ?>
 <!DOCTYPE html>
@@ -27,7 +72,8 @@ if (!$embedMode) {
 
             <div>
 
-                <form id="assetForm" class="grid gap-6 lg:grid-cols-2" action="#" method="post" novalidate>
+                <form id="assetForm" class="grid gap-6 lg:grid-cols-2" action="add-asset.php" method="post">
+                    <input type="hidden" name="action" value="add_asset">
                     <div class="space-y-5 lg:col-span-2">
                         <div class="grid gap-5 md:grid-cols-2">
                             <div>
@@ -150,7 +196,8 @@ if (!$embedMode) {
         const year = new Date().getFullYear();
 
         if (categoryCode) {
-            itemNoInput.value = `KDP/COMP/${year}/${categoryCode}`;
+            const uniqueSuffix = Date.now().toString().slice(-5); // Use last 5 digits of timestamp for uniqueness
+            itemNoInput.value = `KDP/COMP/${year}/${categoryCode}/${uniqueSuffix}`;
         } else {
             itemNoInput.value = '';
         }

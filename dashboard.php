@@ -1,5 +1,6 @@
 <?php
 session_start();
+require 'db.php'; // Include the database connection
 
 // If the user is not logged in, redirect them to the login page
 
@@ -15,6 +16,22 @@ if (!isset($_SESSION['user_id'])) {
 
 $pageView = isset($_GET['view']) ? $_GET['view'] : 'dashboard';
 $showAddAsset = $pageView === 'add-asset';
+
+// --- START: Fetch asset counts for dashboard widgets ---
+$category_counts = [
+    1 => 0, // Expandable
+    2 => 0, // Consumables
+    3 => 0, // Deadstock
+    4 => 0  // Furniture
+];
+
+$result = $conn->query("SELECT category_id, SUM(quantity) as total_quantity FROM assets GROUP BY category_id");
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $category_counts[$row['category_id']] = (int)$row['total_quantity'];
+    }
+}
+// --- END: Fetch asset counts ---
 
 // Helper function to generate initials from a name
 function getInitials($name) {
@@ -158,57 +175,57 @@ function getInitials($name) {
 
         <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mt-6">
 
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
+        <a href="view-assets.php?category_id=1" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-blue-200 transition-all duration-200">
           <div class="flex items-start justify-between">
             <p class="text-sm font-medium text-gray-500">Expandable</p>
             <div class="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
               <i data-lucide="package" class="text-blue-600" style="width:18px;height:18px"></i>
             </div>
           </div>
-          <p class="text-3xl font-bold text-gray-900 mt-3 tracking-tight">1,248</p>
+          <p class="text-3xl font-bold text-gray-900 mt-3 tracking-tight"><?php echo number_format($category_counts[1]); ?></p>
           <p class="text-xs font-medium text-emerald-600 mt-2 inline-flex items-center gap-1">
             <i data-lucide="trending-up" style="width:13px;height:13px"></i> +12% from last month
           </p>
-        </div>
+        </a>
 
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
+        <a href="view-assets.php?category_id=2" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-purple-200 transition-all duration-200">
           <div class="flex items-start justify-between">
             <p class="text-sm font-medium text-gray-500">Consumables</p>
             <div class="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center shrink-0">
               <i data-lucide="flask-conical" class="text-purple-600" style="width:18px;height:18px"></i>
             </div>
           </div>
-          <p class="text-3xl font-bold text-gray-900 mt-3 tracking-tight">450</p>
+          <p class="text-3xl font-bold text-gray-900 mt-3 tracking-tight"><?php echo number_format($category_counts[2]); ?></p>
           <p class="text-xs font-medium text-emerald-600 mt-2 inline-flex items-center gap-1">
             <i data-lucide="trending-up" style="width:13px;height:13px"></i> +3 new this month
           </p>
-        </div>
+        </a>
 
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
+        <a href="view-assets.php?category_id=3" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-amber-200 transition-all duration-200">
           <div class="flex items-start justify-between">
             <p class="text-sm font-medium text-gray-500">Deadstock</p>
             <div class="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
               <i data-lucide="alert-triangle" class="text-amber-600" style="width:18px;height:18px"></i>
             </div>
           </div>
-          <p class="text-3xl font-bold text-gray-900 mt-3 tracking-tight">34</p>
+          <p class="text-3xl font-bold text-gray-900 mt-3 tracking-tight"><?php echo number_format($category_counts[3]); ?></p>
           <p class="text-xs font-medium text-rose-600 mt-2 inline-flex items-center gap-1">
             <i data-lucide="alert-circle" style="width:13px;height:13px"></i> Needs attention
           </p>
-        </div>
+        </a>
 
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
+        <a href="view-assets.php?category_id=4" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-emerald-200 transition-all duration-200">
           <div class="flex items-start justify-between">
             <p class="text-sm font-medium text-gray-500">Furniture</p>
             <div class="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
               <i data-lucide="armchair" class="text-emerald-600" style="width:18px;height:18px"></i>
             </div>
           </div>
-          <p class="text-3xl font-bold text-gray-900 mt-3 tracking-tight">156</p>
+          <p class="text-3xl font-bold text-gray-900 mt-3 tracking-tight"><?php echo number_format($category_counts[4]); ?></p>
           <p class="text-xs font-medium text-emerald-600 mt-2 inline-flex items-center gap-1">
             <i data-lucide="trending-up" style="width:13px;height:13px"></i> +4 new this month
           </p>
-        </div>
+        </a>
       </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
@@ -294,7 +311,7 @@ function getInitials($name) {
       </div>
       <?php else: ?>
       <div id="assetView" class="w-full">
-        <?php $_GET['embed'] = '1'; include 'add-asset.php'; ?>
+        <?php define('IS_EMBEDDED', true); include 'add-asset.php'; ?>
       </div>
       <?php endif; ?>
 
