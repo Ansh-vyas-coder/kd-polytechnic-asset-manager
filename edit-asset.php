@@ -1,34 +1,67 @@
+<?php
+$assetName = 'Logitech Wireless Keyboard';
+$assetItemNo = 'KDP/COMP/2026/EXP/P-19/-125/10/30';
+$assetCategoryValue = 'hardware';
+$assetLocation = 'Lab F004';
+$assetQuantity = '5';
+$assetCost = '1250.50';
+$assetDateIssue = '2026-07-13';
+$assetStatusValue = 'active';
+$assetRemarks = 'Issued to main lab. Excellent condition.';
+$currentAssignedFaculty = 'Prof. A. Sharma';
+?>
+
+
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit Asset - KDP/COMP/2026/EXP/P-19/-125/10/30</title>
-    <!-- Tailwind CSS CDN -->
+    <title>Edit Asset - <?php echo htmlspecialchars($assetItemNo); ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Custom Font Import */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
 
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        img,
+        svg {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        button,
+        input,
+        select,
+        textarea {
+            font: inherit;
         }
     </style>
 </head>
 
 <body class="text-slate-800 flex flex-col min-h-screen">
 
-    <!-- Header -->
-    <div
-        class="bg-white border-b border-slate-200 px-6 py-5 flex justify-between items-center sticky top-0 z-10 shadow-sm">
-        <div>
-            <h1 class="text-xl font-bold text-[#0f172a]">Edit Asset Details</h1>
-            <p class="text-sm text-slate-500 mt-1">Updating information for KDP/COMP/2026/EXP/P-19/-125/10/30</p>
+    <div class="bg-white border-b border-slate-200 px-4 sm:px-6 py-4 sm:py-5 flex flex-wrap justify-between items-start sm:items-center gap-3 sticky top-0 z-10 shadow-sm">
+        <div class="min-w-0">
+            <h1 class="text-lg sm:text-xl font-bold text-[#0f172a]">Edit Asset Details</h1>
+            <p class="text-sm text-slate-500 mt-1 break-all">Updating information for <?php echo htmlspecialchars($assetItemNo); ?></p>
         </div>
-        <button onclick="window.location.href='category-list.html'"
-            class="text-slate-400 hover:text-slate-600 transition-colors">
+        <button onclick="window.location.href='category-list.php'"
+            class="text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -37,79 +70,69 @@
         </button>
     </div>
 
-    <!-- Form Content -->
-    <div class="flex-grow p-6 overflow-y-auto">
+    <div class="flex-grow p-4 sm:p-6 overflow-y-auto">
         <form id="editAssetForm" class="max-w-2xl mx-auto space-y-6">
 
-            <!-- Asset Name (Full Width) -->
             <div>
                 <label for="assetName" class="block text-sm font-medium text-slate-700 mb-1">Asset Name</label>
-                <input type="text" id="assetName" value="Logitech Wireless Keyboard"
+                <input type="text" id="assetName" value="<?php echo htmlspecialchars($assetName); ?>"
                     class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#1e3271] focus:border-[#1e3271] outline-none transition-all">
             </div>
 
-            <!-- Grid for shorter inputs -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
 
-                <!-- Item No (Read Only) -->
                 <div>
                     <label for="itemNo" class="block text-sm font-medium text-slate-700 mb-1">Item No
                         (Auto-generated)</label>
-                    <input type="text" id="itemNo" value="KDP/COMP/2026/EXP/P-19/-125/10/30" disabled
+                    <input type="text" id="itemNo" value="<?php echo htmlspecialchars($assetItemNo); ?>" disabled
                         class="w-full px-4 py-2 bg-slate-100 border border-slate-200 text-slate-500 rounded-lg cursor-not-allowed">
                 </div>
 
-                <!-- Category -->
                 <div>
                     <label for="category" class="block text-sm font-medium text-slate-700 mb-1">Category</label>
                     <select id="category"
                         class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#1e3271] focus:border-[#1e3271] outline-none transition-all bg-white">
-                        <option value="hardware" selected>Expandable</option>
-                        <option value="consumables" >Consumables</option>
-                        <option value="furniture">Furniture</option>
-                        <option value="software">Deadstock</option>
-                    </select> 
+                        <option value="hardware" <?php echo $assetCategoryValue === 'hardware' ? 'selected' : ''; ?>>Expandable</option>
+                        <option value="consumables" <?php echo $assetCategoryValue === 'consumables' ? 'selected' : ''; ?>>Consumables</option>
+                        <option value="furniture" <?php echo $assetCategoryValue === 'furniture' ? 'selected' : ''; ?>>Furniture</option>
+                        <option value="software" <?php echo $assetCategoryValue === 'software' ? 'selected' : ''; ?>>Deadstock</option>
+                    </select>
                 </div>
 
-                <!-- Location -->
                 <div>
                     <label for="location" class="block text-sm font-medium text-slate-700 mb-1">Location</label>
-                    <input type="text" id="location" value="Lab F004"
+                    <input type="text" id="location" value="<?php echo htmlspecialchars($assetLocation); ?>"
                         class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#1e3271] focus:border-[#1e3271] outline-none transition-all">
                 </div>
 
-                <!-- Quantity -->
                 <div>
                     <label for="quantity" class="block text-sm font-medium text-slate-700 mb-1">Quantity</label>
-                    <input type="number" id="quantity" value="5" min="0"
+                    <input type="number" id="quantity" value="<?php echo htmlspecialchars($assetQuantity); ?>" min="0"
                         class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#1e3271] focus:border-[#1e3271] outline-none transition-all">
                 </div>
 
-                <!-- Cost -->
                 <div>
                     <label for="cost" class="block text-sm font-medium text-slate-700 mb-1">Cost (₹)</label>
-                    <input type="number" id="cost" value="1250.50" step="0.01"
+                    <input type="number" id="cost" value="<?php echo htmlspecialchars($assetCost); ?>" step="0.01"
                         class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#1e3271] focus:border-[#1e3271] outline-none transition-all">
                 </div>
 
-                <!-- Date of Issue -->
                 <div>
                     <label for="dateIssue" class="block text-sm font-medium text-slate-700 mb-1">Date of Issue</label>
-                    <input type="date" id="dateIssue" value="2026-07-13"
+                    <input type="date" id="dateIssue" value="<?php echo htmlspecialchars($assetDateIssue); ?>"
                         class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#1e3271] focus:border-[#1e3271] outline-none transition-all">
                 </div>
 
-                <!-- Status -->
                 <div>
                     <label for="status" class="block text-sm font-medium text-slate-700 mb-1">Asset Status</label>
                     <select id="status"
                         class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#1e3271] focus:border-[#1e3271] outline-none transition-all bg-white">
-                        <option value="active" selected>Active</option>
-                        <option value="maintenance">Under Maintenance</option>
-                        <option value="retired">Retired</option>
+                        <option value="active" <?php echo $assetStatusValue === 'active' ? 'selected' : ''; ?>>Active</option>
+                        <option value="maintenance" <?php echo $assetStatusValue === 'maintenance' ? 'selected' : ''; ?>>Under Maintenance</option>
+                        <option value="retired" <?php echo $assetStatusValue === 'retired' ? 'selected' : ''; ?>>Retired</option>
                     </select>
                 </div>
-                <!-- NEW: Assigned to Faculty (Dynamic Dropdown) -->
+
                 <div>
                     <label for="assignedFaculty" class="block text-sm font-medium text-slate-700 mb-1">Assigned to
                         Faculty</label>
@@ -120,25 +143,22 @@
                 </div>
             </div>
 
-            <!-- Remarks (Full Width) -->
             <div>
                 <label for="remarks" class="block text-sm font-medium text-slate-700 mb-1">Remarks / Notes</label>
                 <textarea id="remarks" rows="4"
-                    class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#1e3271] focus:border-[#1e3271] outline-none transition-all resize-none">Issued to main lab. Excellent condition.</textarea>
+                    class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#1e3271] focus:border-[#1e3271] outline-none transition-all resize-none"><?php echo htmlspecialchars($assetRemarks); ?></textarea>
             </div>
 
         </form>
     </div>
 
-    <!-- Footer Actions (Sticky to bottom) -->
-    <div class="bg-white border-t border-slate-200 px-6 py-4 flex justify-end gap-3 sticky bottom-0">
-        <!-- Replace your current Cancel button with this -->
-        <button type="button" onclick="window.location.href='category-list.html'"
+    <div class="bg-white border-t border-slate-200 px-4 sm:px-6 py-4 flex flex-col-reverse sm:flex-row justify-end gap-3 sticky bottom-0">
+        <button type="button" onclick="window.location.href='category-list.php'"
             class="px-5 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
             Cancel
         </button>
         <button type="button" onclick="saveAndClose()"
-            class="px-5 py-2.5 text-sm font-medium text-white bg-[#20347a] rounded-lg hover:bg-[#18275c] transition-colors flex items-center gap-2">
+            class="px-5 py-2.5 text-sm font-medium text-white bg-[#20347a] rounded-lg hover:bg-[#18275c] transition-colors flex items-center justify-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
@@ -149,46 +169,40 @@
         </button>
     </div>
 
-    <!-- Script to handle saving -->
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const assignedToSelect = document.getElementById('assignedFaculty');
-        
-        // In a real edit form, you would get this value from your database/backend
-        // We set it here so the form automatically pre-selects the currently assigned faculty.
-        const currentAssignedFaculty = "Prof. A. Sharma"; 
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const assignedToSelect = document.getElementById('assignedFaculty');
+            const currentAssignedFaculty = <?php echo json_encode($currentAssignedFaculty, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
 
-        fetch('get-faculty.php')
-            .then(response => response.json())
-            .then(data => {
-                assignedToSelect.innerHTML = '<option value="">Select faculty</option>';
-                data.forEach(user => {
-                    const option = document.createElement('option');
-                    option.value = user.full_name;
-                    option.textContent = user.full_name;
-                    
-                    // If the fetched name matches the currently assigned faculty, select it
-                    if (user.full_name === currentAssignedFaculty) {
-                        option.selected = true;
-                    }
-                    
-                    assignedToSelect.appendChild(option);
+            fetch('get-faculty.php')
+                .then(response => response.json())
+                .then(data => {
+                    assignedToSelect.innerHTML = '<option value="">Select faculty</option>';
+                    data.forEach(user => {
+                        const option = document.createElement('option');
+                        option.value = user.full_name;
+                        option.textContent = user.full_name;
+
+                        if (user.full_name === currentAssignedFaculty) {
+                            option.selected = true;
+                        }
+
+                        assignedToSelect.appendChild(option);
+                    });
+                })
+                .catch(() => {
+                    assignedToSelect.innerHTML = '<option value="">No faculty available</option>';
                 });
-            })
-            .catch(() => {
-                assignedToSelect.innerHTML = '<option value="">No faculty available</option>';
-            });
-    });
+        });
 
-    // Your existing saveAndClose() function goes here...
-    function saveAndClose() {
-        alert('Asset details updated successfully!');
-        if (window.opener && !window.opener.closed) {
-            window.opener.location.reload();
+        function saveAndClose() {
+            alert('Asset details updated successfully!');
+            if (window.opener && !window.opener.closed) {
+                window.opener.location.reload();
+            }
+            window.close();
         }
-        window.close();
-    }
-</script>
+    </script>
 </body>
 
 </html>
