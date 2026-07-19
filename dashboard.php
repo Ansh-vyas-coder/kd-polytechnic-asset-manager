@@ -13,6 +13,9 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+$pageView = isset($_GET['view']) ? $_GET['view'] : 'dashboard';
+$showAddAsset = $pageView === 'add-asset';
+
 // Helper function to generate initials from a name
 function getInitials($name) {
     $words = explode(' ', $name);
@@ -67,11 +70,11 @@ function getInitials($name) {
     </div>
 
     <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-      <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-blue-50 text-blue-600 text-sm font-medium">
+      <a href="dashboard.php?view=dashboard" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo !$showAddAsset ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium">
         <i data-lucide="layout-dashboard" style="width:18px;height:18px"></i>
         Dashboard
       </a>
-      <a href="add-asset.html" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
+      <a href="dashboard.php?view=add-asset" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showAddAsset ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
         <i data-lucide="plus-square" style="width:18px;height:18px"></i>
         Add Item(s)
       </a>
@@ -134,24 +137,26 @@ function getInitials($name) {
 
     <main class="flex-1 overflow-y-auto bg-gray-50 p-4 lg:p-6">
 
-      <div class="flex items-start sm:items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Dashboard</h1>
-          <p class="text-sm text-gray-500 mt-1">Welcome back, here's your department overview</p>
+      <?php if (!$showAddAsset): ?>
+      <div id="dashboardView">
+        <div class="flex items-start sm:items-center justify-between flex-wrap gap-3">
+          <div>
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Dashboard</h1>
+            <p class="text-sm text-gray-500 mt-1">Welcome back, here's your department overview</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button class="text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg px-3.5 py-2 hover:bg-gray-50 transition-colors inline-flex items-center gap-1.5">
+              <i data-lucide="calendar" style="width:15px;height:15px"></i>
+              <span class="hidden sm:inline">This month</span>
+            </button>
+            <button class="text-sm font-medium text-white bg-blue-600 rounded-lg px-3.5 py-2 hover:bg-blue-700 transition-colors inline-flex items-center gap-1.5">
+              <i data-lucide="download" style="width:15px;height:15px"></i>
+              Export
+            </button>
+          </div>
         </div>
-        <div class="flex items-center gap-2">
-          <button class="text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg px-3.5 py-2 hover:bg-gray-50 transition-colors inline-flex items-center gap-1.5">
-            <i data-lucide="calendar" style="width:15px;height:15px"></i>
-            <span class="hidden sm:inline">This month</span>
-          </button>
-          <button class="text-sm font-medium text-white bg-blue-600 rounded-lg px-3.5 py-2 hover:bg-blue-700 transition-colors inline-flex items-center gap-1.5">
-            <i data-lucide="download" style="width:15px;height:15px"></i>
-            Export
-          </button>
-        </div>
-      </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mt-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mt-6">
 
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
           <div class="flex items-start justify-between">
@@ -206,7 +211,7 @@ function getInitials($name) {
         </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
 
         <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:p-6">
           <div class="flex items-center justify-between mb-4">
@@ -285,7 +290,13 @@ function getInitials($name) {
             </div>
           </div>
         </div>
+        </div>
       </div>
+      <?php else: ?>
+      <div id="assetView" class="w-full">
+        <?php $_GET['embed'] = '1'; include 'add-asset.php'; ?>
+      </div>
+      <?php endif; ?>
 
     </main>
   </div>
