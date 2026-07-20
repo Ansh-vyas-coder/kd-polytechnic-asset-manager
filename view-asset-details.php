@@ -149,7 +149,7 @@ if (!function_exists('getInitials')) {
                     </tr>
                 <?php else: ?>
                     <?php foreach ($assets as $asset): ?>
-                    <tr>
+                    <tr class="hover:bg-gray-50 cursor-pointer transition-colors" onclick="window.location.href='category_list.php?id=<?php echo (int)$asset['id']; ?>'">
                       <td class="px-6 py-4 whitespace-nowrap text-gray-600 font-mono text-xs"><?php echo htmlspecialchars($asset['item_no']); ?></td>
                       <td class="px-6 py-4 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($asset['quantity']); ?></td>
                       <td class="px-6 py-4 whitespace-nowrap text-gray-600">₹<?php echo htmlspecialchars(number_format($asset['cost'], 2)); ?></td>

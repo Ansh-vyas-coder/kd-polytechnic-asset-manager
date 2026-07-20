@@ -1,5 +1,6 @@
 <?php
 session_start();
+require 'db.php';
 
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Pragma: no-cache");
@@ -10,7 +11,47 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-function getInitials($name) {
+// Get asset ID from URL
+$asset_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+
+// If no ID or invalid ID, redirect with error
+if ($asset_id <= 0) {
+    header("Location: dashboard.php?status=error&message=" . urlencode("Invalid asset ID"));
+    exit();
+}
+
+// Fetch asset from database using prepared statement
+$stmt = $conn->prepare("SELECT * FROM assets WHERE id = ?");
+if (!$stmt) {
+    header("Location: dashboard.php?status=error&message=" . urlencode("Database error"));
+    exit();
+}
+
+$stmt->bind_param("i", $asset_id);
+$stmt->execute();
+$result = $stmt->get_result();
+
+// Check if asset exists
+if ($result->num_rows === 0) {
+    $stmt->close();
+    header("Location: dashboard.php?status=error&message=" . urlencode("Asset not found"));
+    exit();
+}
+
+$asset = $result->fetch_assoc();
+$stmt->close();
+
+// Get category name from category_id
+$categories = [
+    1 => 'Expandable',
+    2 => 'Consumables',
+    3 => 'Deadstock',
+    4 => 'Furniture'
+];
+$category_name = $categories[$asset['category_id']] ?? 'Unknown';
+
+function getInitials($name)
+{
     $words = explode(' ', $name);
     $initials = '';
     foreach ($words as $word) {
@@ -18,26 +59,11 @@ function getInitials($name) {
     }
     return substr($initials, 0, 2);
 }
-
-$assetName = 'Logitech Wireless Keyboard';
-$assetItemNo = 'KDP/COMP/2026/EXP/P-19/-125/10/30';
-$assetCategory = 'Expandable';
-$assetCategoryType = 'Hardware Asset';
-$assetLocation = 'Lab F004';
-$assetQuantity = '5 units';
-$assetCost = '₹1250.50';
-$assetDateIssue = '2026-07-13';
-$assetAssignedTo = 'Dr. John Doe';
-$assetRemarks = 'Issued to main lab. Excellent condition.';
-$assetStatus = 'Active';
-$assetStatusTone = 'bg-[#dcfce7] text-[#166534]';
-$assetStatusDot = 'bg-[#16a34a]';
-$assetLastAudited = 'Today, 09:41 AM';
-$assetMaintainedBy = 'CE Dept';
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -48,22 +74,42 @@ $assetMaintainedBy = 'CE Dept';
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
-          },
-        },
-      };
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif']
+                    },
+                },
+            },
+        };
     </script>
     <style>
-        html, body { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 9999px; }
-        ::-webkit-scrollbar-thumb:hover { background: #D1D5DB; }
+        html,
+        body {
+            font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #E5E7EB;
+            border-radius: 9999px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #D1D5DB;
+        }
     </style>
 </head>
+
 <body class="h-screen bg-gray-50 text-gray-900 antialiased">
 
     <div class="h-screen flex overflow-hidden">
@@ -71,7 +117,7 @@ $assetMaintainedBy = 'CE Dept';
             <div class="h-16 flex items-center gap-3 px-4 border-b border-gray-200 shrink-0">
                 <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center shrink-0 p-1">
                     <img src="https://scontent.famd8-1.fna.fbcdn.net/v/t39.30808-6/482345949_1144079087415361_6640568596786112832_n.jpg?stp=dst-jpg_tt6&cstp=mx1379x1379&ctp=s1379x1379&_nc_cat=111&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=dqzfFwO_7hEQ7kNvwHlS2Lc&_nc_oc=AdqNTZYLxmQKL2WaL9V7X7C6O9y9HIZNlpZiBqOTr3chZ-WT57nGAbpKFdbH0IayXk4&_nc_zt=23&_nc_ht=scontent.famd8-1.fna&_nc_gid=512jtex-NyXTQ9YEE2yRCg&_nc_ss=7b289&oh=00_AQCFoi8YrRQThI_Qg2e3SPWGXJTNIXX5tSQO7LOxr-Rw5w&oe=6A5E8523"
-                         alt="KDP Logo" class="w-full h-full object-contain">
+                        alt="KDP Logo" class="w-full h-full object-contain">
                 </div>
                 <span class="font-bold text-sm tracking-tight text-gray-900">Smart Asset Manager</span>
             </div>
@@ -85,10 +131,10 @@ $assetMaintainedBy = 'CE Dept';
                     Add Item(s)
                 </a>
                 <?php if ($_SESSION['role'] === 'admin'): ?>
-                <a href="manage-users.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
-                    <i data-lucide="users" style="width:18px;height:18px"></i>
-                    Manage Users
-                </a>
+                    <a href="manage-users.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
+                        <i data-lucide="users" style="width:18px;height:18px"></i>
+                        Manage Users
+                    </a>
                 <?php endif; ?>
             </nav>
         </aside>
@@ -144,16 +190,16 @@ $assetMaintainedBy = 'CE Dept';
                     <nav class="flex flex-wrap items-center text-sm text-slate-500 mb-6 gap-2">
                         <a href="dashboard.php" class="hover:text-slate-800">Dashboard</a>
                         <span>&gt;</span>
-                        <a href="#" class="hover:text-slate-800">Expandable</a>
+                        <a href="view-assets.php?category_id=<?php echo (int)$asset['category_id']; ?>" class="hover:text-slate-800"><?php echo htmlspecialchars($category_name); ?></a>
                         <span>&gt;</span>
-                        <a href="#" class="hover:text-slate-800">Keyboards</a>
+                        <a href="view-asset-details.php?category_id=<?php echo (int)$asset['category_id']; ?>&asset_name=<?php echo urlencode($asset['asset_name']); ?>" class="hover:text-slate-800"><?php echo htmlspecialchars($asset['asset_name']); ?></a>
                         <span>&gt;</span>
-                        <span class="text-slate-800 font-medium break-all"><?php echo htmlspecialchars($assetItemNo); ?></span>
+                        <span class="text-slate-800 font-medium break-all"><?php echo htmlspecialchars($asset['asset_no']); ?></span>
                     </nav>
 
                     <!-- Original Asset Card Structure Unchanged (except max width adapted for Dashboard layout) -->
                     <div class="bg-white border border-slate-200 rounded-xl shadow-sm flex flex-col lg:flex-row overflow-hidden">
-                        
+
                         <div class="w-full lg:w-2/3 p-5 sm:p-7 lg:p-8 min-w-0">
                             <div class="mb-6">
                                 <div class="flex items-center gap-2 text-[#1e3271] font-medium text-sm mb-3">
@@ -170,22 +216,76 @@ $assetMaintainedBy = 'CE Dept';
                                         <line x1="1" y1="9" x2="4" y2="9"></line>
                                         <line x1="1" y1="14" x2="4" y2="14"></line>
                                     </svg>
-                                    <?php echo htmlspecialchars($assetCategoryType); ?>
+                                    <?php echo htmlspecialchars($category_name); ?>
                                 </div>
-                                <h1 class="text-2xl sm:text-3xl font-bold text-[#0f172a] break-words"><?php echo htmlspecialchars($assetName); ?></h1>
+                                <h1 class="text-2xl sm:text-3xl font-bold text-[#0f172a] break-words"><?php echo htmlspecialchars($asset['asset_name']); ?></h1>
                             </div>
 
                             <hr class="border-slate-100 mb-8">
 
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-y-8 sm:gap-x-4 mb-10">
+                                <!-- Row 1: Asset Name | Asset No. -->
                                 <div class="break-words">
-                                    <p class="text-sm text-slate-500 mb-1">Item No</p>
-                                    <p class="font-semibold text-slate-900 break-all"><?php echo htmlspecialchars($assetItemNo); ?></p>
+                                    <p class="text-sm text-slate-500 mb-1">Asset Name</p>
+                                    <p class="font-semibold text-slate-900"><?php echo htmlspecialchars($asset['asset_name']); ?></p>
                                 </div>
+                                <div class="break-words">
+                                    <p class="text-sm text-slate-500 mb-1">Asset No.</p>
+                                    <p class="font-semibold text-slate-900 break-all"><?php echo htmlspecialchars($asset['asset_no']); ?></p>
+                                </div>
+
+                                <!-- Row 2: Category | Quantity -->
                                 <div class="break-words">
                                     <p class="text-sm text-slate-500 mb-1">Category</p>
-                                    <p class="font-semibold text-slate-900"><?php echo htmlspecialchars($assetCategory); ?></p>
+                                    <p class="font-semibold text-slate-900"><?php echo htmlspecialchars($category_name); ?></p>
                                 </div>
+                                <div class="break-words">
+                                    <p class="text-sm text-slate-500 mb-1">Quantity</p>
+                                    <p class="font-semibold text-slate-900"><?php echo htmlspecialchars($asset['quantity']); ?></p>
+                                </div>
+
+                                <!-- Row 3: Page No. | Item No. -->
+                                <div class="break-words">
+                                    <p class="text-sm text-slate-500 mb-1">Page No.</p>
+                                    <p class="font-semibold text-slate-900"><?php echo htmlspecialchars($asset['page_no']); ?></p>
+                                </div>
+                                <div class="break-words">
+                                    <p class="text-sm text-slate-500 mb-1">Item No.</p>
+                                    <p class="font-semibold text-slate-900"><?php echo htmlspecialchars($asset['item_no']); ?></p>
+                                </div>
+
+                                <!-- Row 4: Gem Order No. | Gem Invoice No. -->
+                                <div class="break-words">
+                                    <p class="text-sm text-slate-500 mb-1">Gem Order No.</p>
+                                    <p class="font-semibold text-slate-900"><?php echo htmlspecialchars($asset['gem_order_no']); ?></p>
+                                </div>
+                                <div class="break-words">
+                                    <p class="text-sm text-slate-500 mb-1">Gem Invoice No.</p>
+                                    <p class="font-semibold text-slate-900"><?php echo htmlspecialchars($asset['gem_invoice_no']); ?></p>
+                                </div>
+
+                                <!-- Row 5: GPR No. | GPR Page No. | GPR Item No. (spans full width with 3-column grid) -->
+                                <div class="col-span-1 sm:col-span-2">
+                                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 sm:gap-x-4">
+
+                                        <div class="sm:col-span-2 break-words">
+                                            <p class="text-sm text-slate-500 mb-1">GPR No.</p>
+                                            <p class="font-semibold text-slate-900"><?php echo htmlspecialchars($asset['gpr_no']); ?></p>
+                                        </div>
+
+                                        <div class="break-words">
+                                            <p class="text-sm text-slate-500 mb-1">GPR Page No.</p>
+                                            <p class="font-semibold text-slate-900"><?php echo htmlspecialchars($asset['pr_page_no']); ?></p>
+                                        </div>
+
+                                        <div class="break-words">
+                                            <p class="text-sm text-slate-500 mb-1">GPR Item No.</p>
+                                            <p class="font-semibold text-slate-900"><?php echo htmlspecialchars($asset['gpr_item_no']); ?></p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Row 6: Location | Date of Issue -->
                                 <div class="break-words">
                                     <p class="text-sm text-slate-500 mb-1">Location</p>
                                     <p class="font-semibold text-slate-900 flex items-center gap-1">
@@ -195,62 +295,52 @@ $assetMaintainedBy = 'CE Dept';
                                             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
                                             <circle cx="12" cy="10" r="3"></circle>
                                         </svg>
-                                        <?php echo htmlspecialchars($assetLocation); ?>
+                                        <?php echo htmlspecialchars($asset['location']); ?>
                                     </p>
                                 </div>
                                 <div class="break-words">
-                                    <p class="text-sm text-slate-500 mb-1">Quantity</p>
-                                    <p class="font-semibold text-slate-900"><?php echo htmlspecialchars($assetQuantity); ?></p>
+                                    <p class="text-sm text-slate-500 mb-1">Date of Issue</p>
+                                    <p class="font-semibold text-slate-900"><?php echo date('M d, Y', strtotime($asset['date_of_issue'])); ?></p>
                                 </div>
+
+                                <!-- Row 7: Cost | Assign to Faculty -->
                                 <div class="break-words">
                                     <p class="text-sm text-slate-500 mb-1">Cost</p>
-                                    <p class="font-semibold text-slate-900"><?php echo htmlspecialchars($assetCost); ?></p>
+                                    <p class="font-semibold text-slate-900">₹<?php echo htmlspecialchars(number_format($asset['cost'], 2)); ?></p>
                                 </div>
                                 <div class="break-words">
-                                    <p class="text-sm text-slate-500 mb-1">Date of Issue</p>
-                                    <p class="font-semibold text-slate-900"><?php echo htmlspecialchars($assetDateIssue); ?></p>
-                                </div>
-                                <div class="break-words sm:col-span-2 lg:col-span-1">
-                                    <p class="text-sm text-slate-500 mb-1">Assigned to Faculty</p>
-                                    <p class="font-semibold text-slate-900"><?php echo htmlspecialchars($assetAssignedTo); ?></p>
+                                    <p class="text-sm text-slate-500 mb-1">Assign to Faculty</p>
+                                    <p class="font-semibold text-slate-900"><?php echo htmlspecialchars($asset['assigned_to']); ?></p>
                                 </div>
                             </div>
 
                             <div>
                                 <p class="text-sm text-slate-500 mb-2">Remarks</p>
                                 <div class="bg-slate-50 rounded-lg p-4 text-slate-700 text-sm border border-slate-100 break-words">
-                                    <?php echo htmlspecialchars($assetRemarks); ?>
+                                    <?php echo htmlspecialchars($asset['remarks']); ?>
                                 </div>
                             </div>
                         </div>
 
                         <div class="w-full lg:w-1/3 bg-[#fcfdfd] p-5 sm:p-7 lg:p-8 border-t lg:border-t-0 lg:border-l border-slate-100 flex flex-col min-w-0">
 
-                            <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4">Asset Status</h3>
-
-                            <div class="mb-8">
-                                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-semibold <?php echo htmlspecialchars($assetStatusTone); ?>">
-                                    <span class="w-2 h-2 rounded-full <?php echo htmlspecialchars($assetStatusDot); ?>"></span>
-                                    Status: <?php echo htmlspecialchars($assetStatus); ?>
-                                </span>
-                            </div>
+                            <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4">Asset Information</h3>
 
                             <div class="space-y-4 mb-auto">
                                 <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 text-sm">
-                                    <span class="text-slate-500">Last audited:</span>
-                                    <span class="text-slate-800 font-medium"><?php echo htmlspecialchars($assetLastAudited); ?></span>
+                                    <span class="text-slate-500">Category:</span>
+                                    <span class="text-slate-800 font-medium"><?php echo htmlspecialchars($category_name); ?></span>
                                 </div>
                                 <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 text-sm">
-                                    <span class="text-slate-500">Maintained by:</span>
-                                    <span class="text-slate-800 font-medium"><?php echo htmlspecialchars($assetMaintainedBy); ?></span>
+                                    <span class="text-slate-500">Item No:</span>
+                                    <span class="text-slate-800 font-medium"><?php echo htmlspecialchars($asset['item_no']); ?></span>
                                 </div>
                             </div>
 
                             <div class="mt-8"></div>
 
                             <div class="space-y-3">
-                                <!-- Changed from redirect to trigger openEditModal() -->
-                                <button onclick="openEditModal()"
+                                <button onclick="openEditModal(<?php echo (int)$asset['id']; ?>)"
                                     class="w-full bg-[#20347a] hover:bg-[#18275c] text-white font-medium py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                                         stroke="currentColor" stroke-width="2">
@@ -282,25 +372,9 @@ $assetMaintainedBy = 'CE Dept';
         </div>
     </div>
 
-    <!-- Edit Asset Modal Container -->
-    <div id="editModal" class="fixed inset-0 z-[100] hidden flex-col items-center justify-center p-4 sm:p-6">
-        <!-- Dark Background Overlay -->
-        <div id="editModalOverlay" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300 opacity-0"></div>
-        
-        <!-- Modal Content Container -->
-        <div id="editModalContent" class="relative w-full max-w-5xl h-full max-h-[90vh] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden transform scale-95 opacity-0 transition-all duration-300 z-10">
-            
-            <!-- Dynamic Content Body -->
-            <div id="editModalBody" class="flex-1 flex flex-col overflow-hidden w-full h-full"></div>
-            
-            <!-- Loading State -->
-            <div id="editModalLoader" class="absolute inset-0 bg-white flex flex-col items-center justify-center z-20">
-                <svg class="animate-spin h-10 w-10 text-blue-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <p class="text-slate-500 font-medium">Loading editor...</p>
-            </div>
+    <div id="editAssetModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div id="editAssetModalContent" class="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+            <!-- Content will be loaded here from edit_asset.php -->
         </div>
     </div>
 
@@ -336,87 +410,36 @@ $assetMaintainedBy = 'CE Dept';
             }
         });
 
-        const modal = document.getElementById('editModal');
-        const editModalOverlay = document.getElementById('editModalOverlay');
-        const modalContent = document.getElementById('editModalContent');
-        const modalBody = document.getElementById('editModalBody');
-        const loader = document.getElementById('editModalLoader');
-
-        function openEditModal() {
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-            document.body.classList.add('overflow-hidden');
-            document.documentElement.classList.add('overflow-hidden');
+        function openEditModal(assetId) {
+            const modal = document.getElementById('editAssetModal');
+            const content = document.getElementById('editAssetModalContent');
             
-            // Trigger open animation
-            setTimeout(() => {
-                editModalOverlay.classList.remove('opacity-0');
-                modalContent.classList.remove('scale-95', 'opacity-0');
-                modalContent.classList.add('scale-100', 'opacity-100');
-            }, 10);
+            content.innerHTML = '<div class="p-8 text-center">Loading...</div>';
+            modal.classList.remove('hidden');
 
-            loader.classList.remove('hidden');
-            loader.classList.add('flex');
-            modalBody.innerHTML = '';
-
-            // Fetch form in embed mode
-            fetch('edit_asset.php?embed=1')
-                .then(res => {
-                    if (!res.ok) throw new Error('Failed to load asset details');
-                    return res.text();
-                })
+            fetch(`edit_asset.php?id=${assetId}&embed=1`)
+                .then(response => response.text())
                 .then(html => {
-                    modalBody.innerHTML = html;
-                    
-                    // Re-execute any scripts injected via innerHTML
-                    Array.from(modalBody.querySelectorAll("script")).forEach(oldScript => {
-                        const newScript = document.createElement("script");
-                        Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
-                        newScript.appendChild(document.createTextNode(oldScript.innerHTML));
-                        oldScript.parentNode.replaceChild(newScript, oldScript);
-                    });
-                    
-                    loader.classList.add('hidden');
-                    loader.classList.remove('flex');
+                    content.innerHTML = html;
+                    const scriptElement = content.querySelector('script');
+                    if (scriptElement) {
+                        const newScript = document.createElement('script');
+                        newScript.innerHTML = scriptElement.innerHTML;
+                        document.body.appendChild(newScript);
+                    }
                 })
-                .catch(err => {
-                    modalBody.innerHTML = `<div class="p-10 flex flex-col items-center justify-center text-center h-full">
-                        <div class="text-red-500 mb-3"><svg class="w-12 h-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
-                        <h3 class="text-lg font-semibold text-slate-800">Error Loading Editor</h3>
-                        <p class="text-slate-500 mt-1">Unable to load the asset form. Please try again.</p>
-                        <button onclick="closeEditModal()" class="mt-4 px-4 py-2 bg-slate-200 hover:bg-slate-300 rounded-lg text-slate-700 transition">Close</button>
-                    </div>`;
-                    loader.classList.add('hidden');
-                    loader.classList.remove('flex');
+                .catch(error => {
+                    content.innerHTML = `<div class="p-8 text-center text-red-500">Error loading content: ${error}</div>`;
                 });
         }
-
+        
         function closeEditModal() {
-            // Trigger close animation
-            editModalOverlay.classList.add('opacity-0');
-            modalContent.classList.remove('scale-100', 'opacity-100');
-            modalContent.classList.add('scale-95', 'opacity-0');
-            document.body.classList.remove('overflow-hidden');
-            document.documentElement.classList.remove('overflow-hidden');
-
-            setTimeout(() => {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-                modalBody.innerHTML = '';
-            }, 300); // Matches transition duration
+            const modal = document.getElementById('editAssetModal');
+            modal.classList.add('hidden');
+            document.getElementById('editAssetModalContent').innerHTML = '';
         }
 
-        window.closeEditModal = closeEditModal;
-
-        // Close on overlay click
-        editModalOverlay.addEventListener('click', closeEditModal);
-        
-        // Close on ESC key
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
-                closeEditModal();
-            }
-        });
     </script>
 </body>
+
 </html>
