@@ -11,6 +11,66 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+// --- START: Retire asset handling (merged from retire_asset.php) ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    $retireId = isset($_POST['id']) ? (int)$_POST['id'] : 0;
+
+    if ($retireId <= 0) {
+        header("Location: dashboard.php");
+        exit();
+    }
+
+    // Get asset information before deleting
+    $stmt = $conn->prepare("
+        SELECT category_id, asset_name
+        FROM assets
+        WHERE id = ?
+    ");
+
+    $stmt->bind_param("i", $retireId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows === 0) {
+        $stmt->close();
+        header("Location: dashboard.php");
+        exit();
+    }
+
+    $retiredAsset = $result->fetch_assoc();
+    $stmt->close();
+
+    // Delete asset
+    $stmt = $conn->prepare("
+        DELETE FROM assets
+        WHERE id = ?
+    ");
+
+    $stmt->bind_param("i", $retireId);
+
+    if ($stmt->execute()) {
+
+        header(
+            "Location: view-asset-details.php?category_id=" .
+            $retiredAsset['category_id'] .
+            "&asset_name=" .
+            urlencode($retiredAsset['asset_name'])
+        );
+
+    } else {
+
+        header(
+            "Location: category-list.php?id=" .
+            $retireId
+        );
+    }
+
+    $stmt->close();
+    exit();
+}
+// --- END: Retire asset handling ---
+
 // Get asset ID from URL
 $asset_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
@@ -224,7 +284,6 @@ function getInitials($name)
                             <hr class="border-slate-100 mb-8">
 
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-y-8 sm:gap-x-4 mb-10">
-                                <!-- Row 1: Asset Name | Asset No. -->
                                 <div class="break-words">
                                     <p class="text-sm text-slate-500 mb-1">Asset Name</p>
                                     <p class="font-semibold text-slate-900"><?php echo htmlspecialchars($asset['asset_name']); ?></p>
@@ -234,7 +293,6 @@ function getInitials($name)
                                     <p class="font-semibold text-slate-900 break-all"><?php echo htmlspecialchars($asset['asset_no']); ?></p>
                                 </div>
 
-                                <!-- Row 2: Category | Quantity -->
                                 <div class="break-words">
                                     <p class="text-sm text-slate-500 mb-1">Category</p>
                                     <p class="font-semibold text-slate-900"><?php echo htmlspecialchars($category_name); ?></p>
@@ -244,7 +302,6 @@ function getInitials($name)
                                     <p class="font-semibold text-slate-900"><?php echo htmlspecialchars($asset['quantity']); ?></p>
                                 </div>
 
-                                <!-- Row 3: Page No. | Item No. -->
                                 <div class="break-words">
                                     <p class="text-sm text-slate-500 mb-1">Page No.</p>
                                     <p class="font-semibold text-slate-900"><?php echo htmlspecialchars($asset['page_no']); ?></p>
@@ -254,7 +311,6 @@ function getInitials($name)
                                     <p class="font-semibold text-slate-900"><?php echo htmlspecialchars($asset['item_no']); ?></p>
                                 </div>
 
-                                <!-- Row 4: Gem Order No. | Gem Invoice No. -->
                                 <div class="break-words">
                                     <p class="text-sm text-slate-500 mb-1">Gem Order No.</p>
                                     <p class="font-semibold text-slate-900"><?php echo htmlspecialchars($asset['gem_order_no']); ?></p>
@@ -264,7 +320,6 @@ function getInitials($name)
                                     <p class="font-semibold text-slate-900"><?php echo htmlspecialchars($asset['gem_invoice_no']); ?></p>
                                 </div>
 
-                                <!-- Row 5: GPR No. | GPR Page No. | GPR Item No. (spans full width with 3-column grid) -->
                                 <div class="col-span-1 sm:col-span-2">
                                     <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 sm:gap-x-4">
 
@@ -285,7 +340,6 @@ function getInitials($name)
                                     </div>
                                 </div>
 
-                                <!-- Row 6: Location | Date of Issue -->
                                 <div class="break-words">
                                     <p class="text-sm text-slate-500 mb-1">Location</p>
                                     <p class="font-semibold text-slate-900 flex items-center gap-1">
@@ -303,7 +357,6 @@ function getInitials($name)
                                     <p class="font-semibold text-slate-900"><?php echo date('M d, Y', strtotime($asset['date_of_issue'])); ?></p>
                                 </div>
 
-                                <!-- Row 7: Cost | Assign to Faculty -->
                                 <div class="break-words">
                                     <p class="text-sm text-slate-500 mb-1">Cost</p>
                                     <p class="font-semibold text-slate-900">₹<?php echo htmlspecialchars(number_format($asset['cost'], 2)); ?></p>
@@ -350,7 +403,7 @@ function getInitials($name)
                                     Edit Asset
                                 </button>
 
-                                <form id="retireForm" action="retire_asset.php" method="POST">
+                                <form id="retireForm" action="category_list.php" method="POST">
 
                                     <input
                                         type="hidden"
