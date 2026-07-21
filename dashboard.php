@@ -120,10 +120,58 @@ function getInitials($name)
     <aside id="sidebar"
       class="w-64 border-r border-gray-200 bg-white flex flex-col fixed inset-y-0 left-0 z-40 -translate-x-full lg:translate-x-0 lg:static transition-transform duration-200 ease-out">
 
-      <div class="h-16 flex items-center gap-3 px-4 border-b border-gray-200 shrink-0">
-        <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center shrink-0 p-1">
-          <img src="https://scontent.famd8-1.fna.fbcdn.net/v/t39.30808-6/482345949_1144079087415361_6640568596786112832_n.jpg?stp=dst-jpg_tt6&cstp=mx1379x1379&ctp=s1379x1379&_nc_cat=111&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=dqzfFwO_7hEQ7kNvwHlS2Lc&_nc_oc=AdqNTZYLxmQKL2WaL9V7X7C6O9y9HIZNlpZiBqOTr3chZ-WT57nGAbpKFdbH0IayXk4&_nc_zt=23&_nc_ht=scontent.famd8-1.fna&_nc_gid=512jtex-NyXTQ9YEE2yRCg&_nc_ss=7b289&oh=00_AQCFoi8YrRQThI_Qg2e3SPWGXJTNIXX5tSQO7LOxr-Rw5w&oe=6A5E8523"
-            alt="KDP Logo" class="w-full h-full object-contain">
+    <div class="h-16 flex items-center gap-3 px-4 border-b border-gray-200 shrink-0">
+      <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center shrink-0 p-1">
+        <img src="https://scontent.famd8-1.fna.fbcdn.net/v/t39.30808-6/482345949_1144079087415361_6640568596786112832_n.jpg?stp=dst-jpg_tt6&cstp=mx1379x1379&ctp=s1379x1379&_nc_cat=111&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=dqzfFwO_7hEQ7kNvwHlS2Lc&_nc_oc=AdqNTZYLxmQKL2WaL9V7X7C6O9y9HIZNlpZiBqOTr3chZ-WT57nGAbpKFdbH0IayXk4&_nc_zt=23&_nc_ht=scontent.famd8-1.fna&_nc_gid=512jtex-NyXTQ9YEE2yRCg&_nc_ss=7b289&oh=00_AQCFoi8YrRQThI_Qg2e3SPWGXJTNIXX5tSQO7LOxr-Rw5w&oe=6A5E8523" 
+             alt="KDP Logo" class="w-full h-full object-contain">
+      </div>
+      <span class="font-bold text-sm tracking-tight text-gray-900">Smart Asset Manager</span>
+    </div>
+
+    <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+      <a href="dashboard.php?view=dashboard" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo !$showAddAsset ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium">
+        <i data-lucide="layout-dashboard" style="width:18px;height:18px"></i>
+        Dashboard
+      </a>
+      <a href="dashboard.php?view=add-asset" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showAddAsset ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
+        <i data-lucide="plus-square" style="width:18px;height:18px"></i>
+        Add Item(s)
+      </a>
+      <a href="dashboard.php?view=register" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showRegister ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
+        <i data-lucide="book-open" style="width:18px;height:18px"></i>
+        Virtual Register
+      </a>
+      <?php if ($_SESSION['role'] === 'admin'): ?>
+      <a href="manage-users.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
+        <i data-lucide="users" style="width:18px;height:18px"></i>
+        Manage Users
+      </a>
+      <?php endif; ?>
+    </nav>
+  </aside>
+
+  <div id="overlay" class="fixed inset-0 bg-gray-900/30 z-30 hidden"></div>
+
+  <div class="flex-1 flex flex-col min-w-0">
+
+    <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6 gap-4 shrink-0">
+      <div class="flex items-center gap-2 flex-1 min-w-0">
+        <button id="menuBtn" class="lg:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0">
+          <i data-lucide="menu" style="width:20px;height:20px"></i>
+        </button>
+        <div id="search-container" class="relative w-full max-w-md flex items-center">
+          <div class="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
+            <i id="search-icon" data-lucide="search" class="text-gray-400" style="width:16px;height:16px"></i>
+            <div id="search-spinner" class="hidden animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+          </div>
+          <input type="text" id="searchInput" placeholder="Search assets, locations, categories..."
+            class="w-full pl-10 pr-4 py-2.5 rounded-l-full bg-gray-50 border border-r-0 border-gray-200 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 transition" autocomplete="off" />
+          <button id="searchButton" class="px-4 py-2.5 bg-blue-600 text-white rounded-r-full hover:bg-blue-700 transition-colors text-sm font-semibold">
+            Search
+          </button>
+          <div id="searchResults" class="absolute top-full mt-2 w-full bg-white rounded-lg shadow-xl border border-gray-100 hidden z-20 overflow-hidden">
+            <!-- Search results will be populated here -->
+          </div>
         </div>
         <span class="font-bold text-sm tracking-tight text-gray-900">Smart Asset Manager</span>
       </div>
@@ -487,47 +535,36 @@ function getInitials($name)
       overlay.classList.remove('hidden');
     }
 
-    function closeSidebar() {
-      sidebar.classList.add('-translate-x-full');
-      overlay.classList.add('hidden');
-    }
-
-    menuBtn.addEventListener('click', openSidebar);
-    overlay.addEventListener('click', closeSidebar);
-
-    userMenuBtn.addEventListener('click', () => {
-      userMenuDropdown.classList.toggle('hidden');
-    });
-
-  // Close dropdown if clicked outside
-  document.addEventListener('click', (event) => {
-    if (!userMenuBtn.contains(event.target) && !userMenuDropdown.contains(event.target)) {
-      userMenuDropdown.classList.add('hidden');
-    }
+  // --- User Menu Dropdown Logic ---
+  userMenuBtn.addEventListener('click', () => {
+    userMenuDropdown.classList.toggle('hidden');
   });
 
+  menuBtn.addEventListener('click', openSidebar);
+  overlay.addEventListener('click', closeSidebar);
+
   // --- Change Password Modal Logic ---
-  function showModal() {
+  function showPasswordModal() {
     passwordModal.classList.remove('hidden');
     changePasswordForm.reset();
     document.getElementById('modal-notification').classList.add('hidden');
   }
 
-  function hideModal() {
+  function hidePasswordModal() {
     passwordModal.classList.add('hidden');
   }
 
   changePasswordBtn.addEventListener('click', (e) => {
     e.preventDefault();
-    userMenuDropdown.classList.add('hidden'); // Close dropdown
-    showModal();
+    userMenuDropdown.classList.add('hidden'); // Close dropdown first
+    showPasswordModal();
   });
 
-  closeModalBtn.addEventListener('click', hideModal);
-  cancelModalBtn.addEventListener('click', hideModal);
+  closeModalBtn.addEventListener('click', hidePasswordModal);
+  cancelModalBtn.addEventListener('click', hidePasswordModal);
   passwordModal.addEventListener('click', (e) => {
     if (e.target === passwordModal) {
-        hideModal();
+      hidePasswordModal();
     }
   });
 
@@ -556,7 +593,7 @@ function getInitials($name)
             modalNotification.className = 'bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg text-sm';
             modalNotification.textContent = data.message;
             modalNotification.classList.remove('hidden');
-            setTimeout(hideModal, 2000);
+            setTimeout(hidePasswordModal, 2000);
         } else {
             modalNotification.className = 'bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm';
             modalNotification.textContent = data.message || 'An error occurred.';
@@ -568,6 +605,89 @@ function getInitials($name)
         btnText.textContent = 'Update Password';
         spinner.classList.add('hidden');
     });
+  });
+
+  // --- Live Search Logic ---
+  const searchInput = document.getElementById('searchInput');
+  const searchResults = document.getElementById('searchResults');
+  const searchContainer = document.getElementById('search-container');
+  const searchIcon = document.getElementById('search-icon');
+  const searchSpinner = document.getElementById('search-spinner');
+  const searchButton = document.getElementById('searchButton');
+  let searchTimeout;
+
+  function performSearch() {
+    const query = searchInput.value.trim();
+    
+    if (query.length < 2) {
+      searchResults.classList.add('hidden');
+      return;
+    }
+
+    searchIcon.classList.add('hidden');
+    searchSpinner.classList.remove('hidden');
+
+    fetch(`search.php?query=${encodeURIComponent(query)}`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.length > 0) {
+          let resultsHtml = '<div class="p-2"><ul class="space-y-1">';
+          data.forEach(item => {
+            resultsHtml += `
+              <li>
+                <a href="view-asset-details.php?category_id=${item.category_id}&asset_name=${encodeURIComponent(item.asset_name)}"
+                   class="flex items-center justify-between p-3 rounded-md hover:bg-gray-50 transition-colors">
+                  <div>
+                    <p class="font-semibold text-sm text-gray-800 capitalize">${item.asset_name}</p>
+                    <div class="text-xs text-gray-500 mt-1 flex items-center gap-x-3">
+                      <span>in <strong class="font-medium text-gray-600">${item.category_name}</strong></span>
+                      ${item.location ? `<span>| At: <strong class="font-medium text-gray-600">${item.location}</strong></span>` : ''}
+                      ${item.assigned_to ? `<span>| With: <strong class="font-medium text-gray-600">${item.assigned_to}</strong></span>` : ''}
+                    </div>
+                  </div>
+                  <i data-lucide="arrow-right" class="w-4 h-4 text-gray-400"></i>
+                </a>
+              </li>
+            `;
+          });
+          resultsHtml += '</ul></div>';
+          searchResults.innerHTML = resultsHtml;
+          searchResults.classList.remove('hidden');
+          lucide.createIcons();
+        } else {
+          searchResults.innerHTML = '<p class="p-4 text-sm text-center text-gray-500">No results found.</p>';
+          searchResults.classList.remove('hidden');
+        }
+      })
+      .catch(error => {
+        console.error('Search error:', error);
+        searchResults.classList.add('hidden');
+      })
+      .finally(() => {
+        searchIcon.classList.remove('hidden');
+        searchSpinner.classList.add('hidden');
+      });
+  };
+
+  searchInput.addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(performSearch, 300); // Debounce search
+  });
+
+  searchButton.addEventListener('click', performSearch);
+
+  searchInput.addEventListener('keydown', function(event) {
+    if (event.key === 'Enter') performSearch();
+  });
+
+  // Close popups when clicking outside
+  document.addEventListener('click', function(event) {
+    if (!searchContainer.contains(event.target)) {
+      searchResults.classList.add('hidden');
+    }
+    if (!userMenuBtn.contains(event.target) && !userMenuDropdown.contains(event.target)) {
+      userMenuDropdown.classList.add('hidden');
+    }
   });
 </script>
 
