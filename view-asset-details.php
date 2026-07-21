@@ -60,6 +60,16 @@ if ($result) {
 }
 $stmt->close();
 
+// Consolidate all items from batches into a single array for rendering.
+$assets = [];
+foreach ($asset_batches as $batch) {
+    $assets = array_merge($assets, $batch['items']);
+}
+// Sort assets by date, descending, to match the original query's intention.
+usort($assets, function($a, $b) {
+    return strtotime($b['date_of_issue']) - strtotime($a['date_of_issue']);
+});
+
 // Helper function to generate initials
 if (!function_exists('getInitials')) {
     function getInitials($name) {
@@ -166,7 +176,7 @@ if (!function_exists('getInitials')) {
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100">
-                <?php if (empty($asset_batches)): ?>
+                <?php if (empty($assets)): ?>
                     <tr>
                         <td colspan="5" class="text-center py-10 text-gray-500">
                             No entry records found for this asset.
