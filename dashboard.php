@@ -16,6 +16,7 @@ if (!isset($_SESSION['user_id'])) {
 
 $pageView = isset($_GET['view']) ? $_GET['view'] : 'dashboard';
 $showAddAsset = $pageView === 'add-asset';
+$showRegister = $pageView === 'register';
 
 // --- START: Fetch asset counts for dashboard widgets ---
 $category_counts = [
@@ -119,10 +120,41 @@ function getInitials($name)
     <aside id="sidebar"
       class="w-64 border-r border-gray-200 bg-white flex flex-col fixed inset-y-0 left-0 z-40 -translate-x-full lg:translate-x-0 lg:static transition-transform duration-200 ease-out">
 
-      <div class="h-16 flex items-center gap-3 px-4 border-b border-gray-200 shrink-0">
-        <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center shrink-0 p-1">
-          <img src="https://scontent.famd8-1.fna.fbcdn.net/v/t39.30808-6/482345949_1144079087415361_6640568596786112832_n.jpg?stp=dst-jpg_tt6&cstp=mx1379x1379&ctp=s1379x1379&_nc_cat=111&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=dqzfFwO_7hEQ7kNvwHlS2Lc&_nc_oc=AdqNTZYLxmQKL2WaL9V7X7C6O9y9HIZNlpZiBqOTr3chZ-WT57nGAbpKFdbH0IayXk4&_nc_zt=23&_nc_ht=scontent.famd8-1.fna&_nc_gid=512jtex-NyXTQ9YEE2yRCg&_nc_ss=7b289&oh=00_AQCFoi8YrRQThI_Qg2e3SPWGXJTNIXX5tSQO7LOxr-Rw5w&oe=6A5E8523"
-            alt="KDP Logo" class="w-full h-full object-contain">
+    <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+      <a href="dashboard.php?view=dashboard" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo !$showAddAsset ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium">
+        <i data-lucide="layout-dashboard" style="width:18px;height:18px"></i>
+        Dashboard
+      </a>
+      <a href="dashboard.php?view=add-asset" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showAddAsset ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
+        <i data-lucide="plus-square" style="width:18px;height:18px"></i>
+        Add Item(s)
+      </a>
+      <a href="dashboard.php?view=register" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showRegister ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
+        <i data-lucide="book-open" style="width:18px;height:18px"></i>
+        Virtual Register
+      </a>
+      <?php if ($_SESSION['role'] === 'admin'): ?>
+      <a href="manage-users.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
+        <i data-lucide="users" style="width:18px;height:18px"></i>
+        Manage Users
+      </a>
+      <?php endif; ?>
+    </nav>
+  </aside>
+
+  <div id="overlay" class="fixed inset-0 bg-gray-900/30 z-30 hidden"></div>
+
+  <div class="flex-1 flex flex-col min-w-0">
+
+    <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6 gap-4 shrink-0">
+      <div class="flex items-center gap-2 flex-1 min-w-0">
+        <button id="menuBtn" class="lg:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0">
+          <i data-lucide="menu" style="width:20px;height:20px"></i>
+        </button>
+        <div class="relative w-full max-w-md">
+          <i data-lucide="search" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" style="width:16px;height:16px"></i>
+          <input type="text" placeholder="Search assets, locations, categories..."
+            class="w-full pl-10 pr-4 py-2.5 rounded-full bg-gray-50 border border-gray-200 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 transition" />
         </div>
         <span class="font-bold text-sm tracking-tight text-gray-900">Smart Asset Manager</span>
       </div>
@@ -161,20 +193,27 @@ function getInitials($name)
           </div>
         </div>
 
-        <div class="flex items-center gap-3 sm:gap-4 shrink-0">
-          <button class="relative p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
-            <i data-lucide="bell" style="width:19px;height:19px"></i>
-            <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white"></span>
-          </button>
-          <div class="w-px h-6 bg-gray-200 hidden sm:block"></div>
-          <div class="relative">
-            <button id="userMenuBtn" class="flex items-center gap-2.5 group">
-              <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-semibold shrink-0"><?php echo getInitials($_SESSION['user_name']); ?></div>
-              <div class="hidden sm:block text-left leading-tight">
-                <p class="text-sm font-semibold text-gray-900"><?php echo htmlspecialchars($_SESSION['user_name']); ?></p>
-                <p class="text-xs text-gray-400"><?php echo htmlspecialchars(ucfirst($_SESSION['role'])); ?> - Computer Dept.</p>
-              </div>
-              <i data-lucide="chevron-down" class="hidden sm:block text-gray-400 group-hover:text-gray-600 transition-colors" style="width:16px;height:16px"></i>
+    <main class="flex-1 overflow-y-auto bg-gray-50 p-4 lg:p-6">
+
+      <?php if ($showRegister): ?>
+      <div id="registerView">
+        <?php include 'register.php'; ?>
+      </div>
+      <?php elseif (!$showAddAsset): ?>
+      <div id="dashboardView">
+        <div class="flex items-start sm:items-center justify-between flex-wrap gap-3">
+          <div>
+            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Dashboard</h1>
+            <p class="text-sm text-gray-500 mt-1">Welcome back, here's your department overview</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button class="text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg px-3.5 py-2 hover:bg-gray-50 transition-colors inline-flex items-center gap-1.5">
+              <i data-lucide="calendar" style="width:15px;height:15px"></i>
+              <span class="hidden sm:inline">This month</span>
+            </button>
+            <button class="text-sm font-medium text-white bg-blue-600 rounded-lg px-3.5 py-2 hover:bg-blue-700 transition-colors inline-flex items-center gap-1.5">
+              <i data-lucide="download" style="width:15px;height:15px"></i>
+              Export
             </button>
             <!-- Dropdown Menu -->
             <div id="userMenuDropdown" class="absolute top-full right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-100 hidden z-10">
