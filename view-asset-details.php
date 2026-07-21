@@ -34,13 +34,29 @@ if ($category_id === 0 || !array_key_exists($category_id, $categories) || empty(
 $category_name = $categories[$category_id];
 
 // Fetch asset details for the specified category and name from the database
-$assets = [];
+$asset_batches = [];
 $stmt = $conn->prepare("SELECT * FROM assets WHERE category_id = ? AND asset_name = ? ORDER BY date_of_issue DESC");
 $stmt->bind_param("is", $category_id, $asset_name_raw);
 $stmt->execute();
 $result = $stmt->get_result();
+
 if ($result) {
-    $assets = $result->fetch_all(MYSQLI_ASSOC);
+    while ($asset = $result->fetch_assoc()) {
+        $batch_id = $asset['batch_id'];
+        if (empty($batch_id)) {
+            // Fallback for older records without a batch_id
+            $batch_id = 'batch_uncategorized_' . $asset['id'];
+        }
+
+        if (!isset($asset_batches[$batch_id])) {
+            // This is the first item of a new batch, initialize it
+            $asset_batches[$batch_id] = [
+                'details' => $asset, // Store the first item as representative details
+                'items' => []
+            ];
+        }
+        $asset_batches[$batch_id]['items'][] = $asset;
+    }
 }
 $stmt->close();
 
@@ -69,7 +85,13 @@ if (!function_exists('getInitials')) {
   tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } } };
 </script>
 <style>
-  html, body { font-family: 'Inter', sans-serif; }
+  html, body { 
+    font-family: 'Inter', sans-serif; 
+  }
+  .clickable-row:hover {
+    background-color: #f9fafb;
+    cursor: pointer;
+  }
 </style>
 </head>
 <body class="h-screen bg-gray-50 text-gray-900 antialiased">
@@ -90,6 +112,9 @@ if (!function_exists('getInitials')) {
       </a>
       <a href="dashboard.php?view=add-asset" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
         <i data-lucide="plus-square" style="width:18px;height:18px"></i> Add Item(s)
+      </a>
+      <a href="dashboard.php?view=register" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
+        <i data-lucide="book-open" style="width:18px;height:18px"></i> Virtual Register
       </a>
       <?php if ($_SESSION['role'] === 'admin'): ?>
       <a href="manage-users.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
@@ -133,28 +158,34 @@ if (!function_exists('getInitials')) {
             <table class="w-full text-sm">
               <thead class="bg-gray-50">
                 <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
-                  <th class="px-6 py-3 font-medium">Item No</th>
+                  <th class="px-6 py-3 font-medium">Date Added</th>
                   <th class="px-6 py-3 font-medium">Quantity</th>
-                  <th class="px-6 py-3 font-medium">Cost per Item</th>
                   <th class="px-6 py-3 font-medium">Location</th>
-                  <th class="px-6 py-3 font-medium">Date of Issue</th>
+                  <th class="px-6 py-3 font-medium">Cost per Item</th>
+                  <th class="px-6 py-3 font-medium text-right">Actions</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100">
-                <?php if (empty($assets)): ?>
+                <?php if (empty($asset_batches)): ?>
                     <tr>
                         <td colspan="5" class="text-center py-10 text-gray-500">
-                            No asset details found.
+                            No entry records found for this asset.
                         </td>
                     </tr>
                 <?php else: ?>
-                    <?php foreach ($assets as $asset): ?>
-                    <tr>
-                      <td class="px-6 py-4 whitespace-nowrap text-gray-600 font-mono text-xs"><?php echo htmlspecialchars($asset['item_no']); ?></td>
-                      <td class="px-6 py-4 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($asset['quantity']); ?></td>
-                      <td class="px-6 py-4 whitespace-nowrap text-gray-600">₹<?php echo htmlspecialchars(number_format($asset['cost'], 2)); ?></td>
-                      <td class="px-6 py-4 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($asset['location']); ?></td>
-                      <td class="px-6 py-4 whitespace-nowrap text-gray-500"><?php echo date('M d, Y', strtotime($asset['date_of_issue'])); ?></td>
+                    <?php foreach ($asset_batches as $batch_id => $batch): ?>
+                    <?php $details = $batch['details']; $items = $batch['items']; ?>
+                    <tr 
+                        class="clickable-row transition-colors duration-150" 
+                        data-href="view-batch-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset_name_raw); ?>&batch_id=<?php echo urlencode($batch_id); ?>"
+                    >
+                      <td class="px-6 py-4 whitespace-nowrap font-semibold text-gray-800"><?php echo date('M d, Y', strtotime($details['date_of_issue'])); ?></td>
+                      <td class="px-6 py-4 whitespace-nowrap text-gray-600 font-bold"><?php echo count($items); ?></td>
+                      <td class="px-6 py-4 whitespace-nowrap text-gray-600 truncate"><?php echo htmlspecialchars($details['location'] ?: 'N/A'); ?></td>
+                      <td class="px-6 py-4 whitespace-nowrap text-gray-600">₹<?php echo htmlspecialchars(number_format($details['cost'], 2)); ?></td>
+                      <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <a href="view-batch-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset_name_raw); ?>&batch_id=<?php echo urlencode($batch_id); ?>" class="text-indigo-600 hover:text-indigo-900" onclick="event.stopPropagation()">View Record</a>
+                      </td>
                     </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -169,6 +200,14 @@ if (!function_exists('getInitials')) {
 
 <script>
   lucide.createIcons();
+  document.addEventListener('DOMContentLoaded', function() {
+    const rows = document.querySelectorAll('.clickable-row');
+    rows.forEach(row => {
+        row.addEventListener('click', () => {
+            window.location.href = row.dataset.href;
+        });
+    });
+  });
 </script>
 
 </body>

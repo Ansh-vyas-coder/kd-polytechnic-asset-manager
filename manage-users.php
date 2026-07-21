@@ -111,6 +111,9 @@ if ($result) {
       <a href="dashboard.php?view=add-asset" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
         <i data-lucide="plus-square" style="width:18px;height:18px"></i> Add Item(s)
       </a>
+      <a href="dashboard.php?view=register" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
+        <i data-lucide="book-open" style="width:18px;height:18px"></i> Virtual Register
+      </a>
       <a href="manage-users.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-blue-50 text-blue-600 text-sm font-medium">
         <i data-lucide="users" style="width:18px;height:18px"></i> Manage Users
       </a>

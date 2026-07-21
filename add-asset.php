@@ -50,6 +50,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
     $gpr_item_no = !empty($_POST['gpr_item_no']) ? trim($_POST['gpr_item_no']) : null;
     $gem_invoice_no = !empty($_POST['gem_invoice_no']) ? trim($_POST['gem_invoice_no']) : null;
 
+    // Generate a unique batch ID for this entire submission
+    $batch_id = uniqid('batch_', true);
+
     $asset_numbers = [];
     $posted_asset_numbers = trim($_POST['asset_no'] ?? '');
     $asset_number_pattern = '/^KDP\/COMP\/\d{4}\/(EXP|CONS|DS|FUR)\/p-[A-Za-z0-9.-]*\/I-\d+\/\d+\/\d+$/';
@@ -76,14 +79,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
 
         $stmt = $conn->prepare(
             "INSERT INTO assets (
-                asset_name, category_id, quantity, item_no, asset_no, cost, location, date_of_issue, assigned_to, remarks,
+                asset_name, category_id, quantity, item_no, asset_no, cost, location, date_of_issue, assigned_to, remarks, batch_id,
                 page_no, gem_order_no, gpr_no, pr_page_no, gpr_item_no, gem_invoice_no
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         );
 
         $row_quantity = 1;
         $stmt->bind_param(
-            "siiisdssssssssss",
+            "siiisdsssssssssss",
             $asset_name,
             $category_id,
             $row_quantity,
@@ -94,6 +97,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
             $date_of_issue,
             $assigned_to,
             $remarks,
+            $batch_id,
             $page_no,
             $gem_order_no,
             $gpr_no,
@@ -358,29 +362,54 @@ if (!$embedMode) {
     }
 
     function populateLocationOptions() {
-        const defaults = ['F004', 'Lab 1', 'Lab 2'];
         const savedLocations = getSavedLocations();
-        const allLocations = [...new Set([...defaults, ...savedLocations])];
         const currentValue = locationSelect.value;
 
-        locationSelect.innerHTML = '';
+        let optionsHTML = `
+            <option value="">Select location</option>
+            
+            <optgroup label="Ground Floor">
+                <option value="F001 - STAFF ROOM">F001 - STAFF ROOM</option>
+                <option value="F002 - HOD OFFICE">F002 - HOD OFFICE</option>
+                <option value="F003 - CLASS ROOM - 1">F003 - CLASS ROOM - 1</option>
+                <option value="F004 - CLASS ROOM - 2">F004 - CLASS ROOM - 2</option>
+                <option value="F005 - TRAINING AND PLACEMENT ROOM">F005 - TRAINING AND PLACEMENT ROOM</option>
+                <option value="F006 - SERVER ROOM">F006 - SERVER ROOM</option>
+                <option value="F007 - BASIC PROGRAMMING LAB">F007 - BASIC PROGRAMMING LAB</option>
+                <option value="F008 - ELECTRIC ROOM">F008 - ELECTRIC ROOM</option>
+                <option value="F009 - DRINKING WATER, TOILET">F009 - DRINKING WATER, TOILET</option>
+                <option value="F010 - ADVANCE PROGRAMMING LAB">F010 - ADVANCE PROGRAMMING LAB</option>
+                <option value="F011 - DATABASE PROGRAMMING LAB">F011 - DATABASE PROGRAMMING LAB</option>
+                <option value="F012 - WEB DEVELOPMENT LAB">F012 - WEB DEVELOPMENT LAB</option>
+            </optgroup>
 
-        const selectOption = document.createElement('option');
-        selectOption.value = '';
-        selectOption.textContent = 'Select location';
-        locationSelect.appendChild(selectOption);
+            <optgroup label="First Floor">
+                <option value="F101 - DEPARTMENT LIBRARY">F101 - DEPARTMENT LIBRARY</option>
+                <option value="F102 - COMPUTER NETWORK LAB">F102 - COMPUTER NETWORK LAB</option>
+                <option value="F103 - COMPUTER MAINTENANCE LAB">F103 - COMPUTER MAINTENANCE LAB</option>
+                <option value="F104 - BASIC ELECTRONICS LAB">F104 - BASIC ELECTRONICS LAB</option>
+                <option value="F105 - ELECTRIC ROOM">F105 - ELECTRIC ROOM</option>
+                <option value="F106 - DRINKING WATER, TOILET">F106 - DRINKING WATER, TOILET</option>
+                <option value="F107 - SEMINAR HALL">F107 - SEMINAR HALL</option>
+                <option value="F108 - ADVANCE WEB DEVELOPMENT LAB">F108 - ADVANCE WEB DEVELOPMENT LAB</option>
+                <option value="F109 - CONFERENCE ROOM">F109 - CONFERENCE ROOM</option>
+                <option value="F110 - STAFF ROOM">F110 - STAFF ROOM</option>
+                <option value="F111 - CLASS ROOM - 3">F111 - CLASS ROOM - 3</option>
+                <option value="F112 - CLASS ROOM - 4">F112 - CLASS ROOM - 4</option>
+            </optgroup>
+        `;
 
-        allLocations.forEach(location => {
-            const option = document.createElement('option');
-            option.value = location;
-            option.textContent = location;
-            locationSelect.appendChild(option);
-        });
+        if (savedLocations.length > 0) {
+            optionsHTML += `<optgroup label="Custom Locations">`;
+            savedLocations.forEach(location => {
+                optionsHTML += `<option value="${location}">${location}</option>`;
+            });
+            optionsHTML += `</optgroup>`;
+        }
 
-        const otherOption = document.createElement('option');
-        otherOption.value = '__other__';
-        otherOption.textContent = 'Other';
-        locationSelect.appendChild(otherOption);
+        optionsHTML += `<option value="__other__">Other</option>`;
+        
+        locationSelect.innerHTML = optionsHTML;
 
         if (currentValue && Array.from(locationSelect.options).some(option => option.value === currentValue)) {
             locationSelect.value = currentValue;

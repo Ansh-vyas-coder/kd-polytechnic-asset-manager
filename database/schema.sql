@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS assets (
     gpr_no VARCHAR(100),
     pr_page_no VARCHAR(100),
     gpr_item_no VARCHAR(100),
+    batch_id VARCHAR(255),
     gem_invoice_no VARCHAR(100),
     cost DECIMAL(10, 2) NOT NULL,
     location VARCHAR(100),

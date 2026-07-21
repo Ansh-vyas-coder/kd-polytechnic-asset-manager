@@ -147,6 +147,10 @@ function getInitials($name) {
               <p class="text-xs text-gray-500 truncate mt-0.5"><?php echo htmlspecialchars($_SESSION['user_email']); ?></p>
             </div>
             <div class="p-1.5">
+              <button id="changePasswordBtn" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
+                <i data-lucide="key-round" style="width:16px;height:16px"></i>
+                Change Password
+              </button>
               <a href="logout.php" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
                 <i data-lucide="log-out" style="width:16px;height:16px"></i>
                 Logout
@@ -328,6 +332,54 @@ function getInitials($name) {
   </div>
 </div>
 
+<!-- Change Password Modal -->
+<div id="passwordModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+  <div class="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all" id="passwordModalContent">
+    <form id="changePasswordForm" method="POST" action="change-password.php">
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-gray-900">Change Your Password</h3>
+            <button type="button" id="closeModalBtn" class="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600">&times;</button>
+        </div>
+        
+        <div id="modal-notification" class="hidden text-sm mb-4"></div>
+
+        <div class="space-y-4">
+          <div>
+            <label for="current_password" class="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+            <input type="password" name="current_password" id="current_password" required class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+          
+          <div>
+            <label for="new_password" class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+            <input type="password" name="new_password" id="new_password" required class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <p class="text-xs text-gray-500 mt-1">Must be at least 8 characters long.</p>
+          </div>
+
+          <div>
+            <label for="confirm_password" class="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+            <input type="password" name="confirm_password" id="confirm_password" required class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+      </div>
+      <div class="bg-gray-50 px-6 py-4 rounded-b-xl flex items-center justify-end gap-3">
+        <button type="button" id="cancelModalBtn" class="inline-flex justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50">
+            Cancel
+        </button>
+        <button type="submit" id="submitPasswordBtn" class="inline-flex justify-center items-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-700/20 transition hover:bg-blue-800">
+            <span id="submitBtnText">Update Password</span>
+            <div id="submitSpinner" class="spinner hidden" style="border-top-color: #fff; border-right-color: transparent; width: 16px; height: 16px; margin-left: 8px;"></div>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- General Notification Toast -->
+<div id="notification" class="fixed top-5 right-5 bg-red-500 text-white py-2.5 px-5 rounded-lg shadow-xl text-sm font-medium hidden z-[60]">
+  <!-- Message will be inserted here -->
+</div>
+
 <script>
   lucide.createIcons();
 
@@ -336,6 +388,12 @@ function getInitials($name) {
   const menuBtn = document.getElementById('menuBtn');
   const userMenuBtn = document.getElementById('userMenuBtn');
   const userMenuDropdown = document.getElementById('userMenuDropdown');
+  const changePasswordBtn = document.getElementById('changePasswordBtn');
+  const passwordModal = document.getElementById('passwordModal');
+  const closeModalBtn = document.getElementById('closeModalBtn');
+  const cancelModalBtn = document.getElementById('cancelModalBtn');
+  const changePasswordForm = document.getElementById('changePasswordForm');
+  const notification = document.getElementById('notification');
 
   function openSidebar() {
     sidebar.classList.remove('-translate-x-full');
@@ -358,6 +416,70 @@ function getInitials($name) {
     if (!userMenuBtn.contains(event.target) && !userMenuDropdown.contains(event.target)) {
       userMenuDropdown.classList.add('hidden');
     }
+  });
+
+  // --- Change Password Modal Logic ---
+  function showModal() {
+    passwordModal.classList.remove('hidden');
+    changePasswordForm.reset();
+    document.getElementById('modal-notification').classList.add('hidden');
+  }
+
+  function hideModal() {
+    passwordModal.classList.add('hidden');
+  }
+
+  changePasswordBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    userMenuDropdown.classList.add('hidden'); // Close dropdown
+    showModal();
+  });
+
+  closeModalBtn.addEventListener('click', hideModal);
+  cancelModalBtn.addEventListener('click', hideModal);
+  passwordModal.addEventListener('click', (e) => {
+    if (e.target === passwordModal) {
+        hideModal();
+    }
+  });
+
+  changePasswordForm.addEventListener('submit', function(event) {
+    event.preventDefault();
+
+    const submitBtn = document.getElementById('submitPasswordBtn');
+    const btnText = document.getElementById('submitBtnText');
+    const spinner = document.getElementById('submitSpinner');
+    const modalNotification = document.getElementById('modal-notification');
+
+    submitBtn.disabled = true;
+    btnText.textContent = 'Updating...';
+    spinner.classList.remove('hidden');
+    modalNotification.classList.add('hidden');
+
+    const formData = new FormData(changePasswordForm);
+
+    fetch('change-password.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            modalNotification.className = 'bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg text-sm';
+            modalNotification.textContent = data.message;
+            modalNotification.classList.remove('hidden');
+            setTimeout(hideModal, 2000);
+        } else {
+            modalNotification.className = 'bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm';
+            modalNotification.textContent = data.message || 'An error occurred.';
+            modalNotification.classList.remove('hidden');
+        }
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        btnText.textContent = 'Update Password';
+        spinner.classList.add('hidden');
+    });
   });
 </script>
 
