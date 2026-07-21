@@ -18,12 +18,19 @@ INSERT INTO users (full_name, email, password_hash, role) VALUES
 ('Lab Incharge Mam', 'incharge@example.com', '$2y$10$nys6AerBbkB55pLN/w/6TOvntua69gptIIqrhnVVO0m.UrHxafoh.', 'staff');
 
 -- 3. ASSETS TABLE (For the Add Item & Dashboard pages)
-CREATE TABLE assets (
+CREATE TABLE IF NOT EXISTS assets (
     id INT AUTO_INCREMENT PRIMARY KEY,
     asset_name VARCHAR(255) NOT NULL,
     category_id INT NOT NULL,
     quantity INT NOT NULL DEFAULT 1,
-    item_no VARCHAR(255) NOT NULL UNIQUE,
+    item_no INT NOT NULL,
+    asset_no VARCHAR(255) NULL,
+    page_no VARCHAR(100),
+    gem_order_no VARCHAR(100),
+    gpr_no VARCHAR(100),
+    pr_page_no VARCHAR(100),
+    gpr_item_no VARCHAR(100),
+    gem_invoice_no VARCHAR(100),
     cost DECIMAL(10, 2) NOT NULL,
     location VARCHAR(100),
     date_of_issue DATE NOT NULL,
@@ -33,4 +40,16 @@ CREATE TABLE assets (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Note: The category_id corresponds to the hardcoded array in the PHP files (1: Expandable, 2: Consumables, etc.)
+-- added 5 
+-- Run these once if you already have an older assets table.
+ALTER TABLE assets
+    ADD COLUMN IF NOT EXISTS asset_no VARCHAR(255) NULL AFTER item_no;
+
+ALTER TABLE assets
+    MODIFY COLUMN item_no INT NOT NULL;
+
+-- Optional: add a unique index for the generated asset number if your database does not already have one.
+-- Uncomment the next line if you want strict uniqueness on asset_no.
+-- ALTER TABLE assets ADD UNIQUE INDEX uq_assets_asset_no (asset_no);
+
+-- Note: The category_id corresponds to the hardcoded array in the PHP files (1: Expandable, 2: Consumables, etc.).

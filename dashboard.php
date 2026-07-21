@@ -16,6 +16,7 @@ if (!isset($_SESSION['user_id'])) {
 
 $pageView = isset($_GET['view']) ? $_GET['view'] : 'dashboard';
 $showAddAsset = $pageView === 'add-asset';
+$showRegister = $pageView === 'register';
 
 // --- START: Fetch asset counts for dashboard widgets ---
 $category_counts = [
@@ -95,6 +96,10 @@ function getInitials($name) {
         <i data-lucide="plus-square" style="width:18px;height:18px"></i>
         Add Item(s)
       </a>
+      <a href="dashboard.php?view=register" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showRegister ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
+        <i data-lucide="book-open" style="width:18px;height:18px"></i>
+        Virtual Register
+      </a>
       <?php if ($_SESSION['role'] === 'admin'): ?>
       <a href="manage-users.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
         <i data-lucide="users" style="width:18px;height:18px"></i>
@@ -154,7 +159,11 @@ function getInitials($name) {
 
     <main class="flex-1 overflow-y-auto bg-gray-50 p-4 lg:p-6">
 
-      <?php if (!$showAddAsset): ?>
+      <?php if ($showRegister): ?>
+      <div id="registerView">
+        <?php include 'register.php'; ?>
+      </div>
+      <?php elseif (!$showAddAsset): ?>
       <div id="dashboardView">
         <div class="flex items-start sm:items-center justify-between flex-wrap gap-3">
           <div>
