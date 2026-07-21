@@ -38,7 +38,7 @@ $assets = [];
 $stmt = $conn->prepare("
     SELECT asset_name, 
            SUM(quantity) as total_quantity, 
-           COUNT(*) as record_count,
+           COUNT(DISTINCT batch_id) as record_count,
            MIN(date_of_issue) as first_issue_date
     FROM assets 
     WHERE category_id = ? 
@@ -104,6 +104,9 @@ if (!function_exists('getInitials')) {
       </a>
       <a href="dashboard.php?view=add-asset" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
         <i data-lucide="plus-square" style="width:18px;height:18px"></i> Add Item(s)
+      </a>
+      <a href="dashboard.php?view=register" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
+        <i data-lucide="book-open" style="width:18px;height:18px"></i> Virtual Register
       </a>
       <?php if ($_SESSION['role'] === 'admin'): ?>
       <a href="manage-users.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
