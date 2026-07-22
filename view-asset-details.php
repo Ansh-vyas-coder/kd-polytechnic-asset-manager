@@ -60,16 +60,6 @@ if ($result) {
 }
 $stmt->close();
 
-// Consolidate all items from batches into a single array for rendering.
-$assets = [];
-foreach ($asset_batches as $batch) {
-    $assets = array_merge($assets, $batch['items']);
-}
-// Sort assets by date, descending, to match the original query's intention.
-usort($assets, function($a, $b) {
-    return strtotime($b['date_of_issue']) - strtotime($a['date_of_issue']);
-});
-
 // Helper function to generate initials
 if (!function_exists('getInitials')) {
     function getInitials($name) {
@@ -176,20 +166,26 @@ if (!function_exists('getInitials')) {
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100">
-                <?php if (empty($assets)): ?>
+                <?php if (empty($asset_batches)): ?>
                     <tr>
                         <td colspan="5" class="text-center py-10 text-gray-500">
                             No entry records found for this asset.
                         </td>
                     </tr>
                 <?php else: ?>
-                    <?php foreach ($assets as $asset): ?>
-                    <tr class="hover:bg-gray-50 cursor-pointer transition-colors" onclick="window.location.href='category_list.php?id=<?php echo (int)$asset['id']; ?>'">
-                      <td class="px-6 py-4 whitespace-nowrap text-gray-600 font-mono text-xs"><?php echo htmlspecialchars($asset['item_no']); ?></td>
-                      <td class="px-6 py-4 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($asset['quantity']); ?></td>
-                      <td class="px-6 py-4 whitespace-nowrap text-gray-600">₹<?php echo htmlspecialchars(number_format($asset['cost'], 2)); ?></td>
-                      <td class="px-6 py-4 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($asset['location']); ?></td>
-                      <td class="px-6 py-4 whitespace-nowrap text-gray-500"><?php echo date('M d, Y', strtotime($asset['date_of_issue'])); ?></td>
+                    <?php foreach ($asset_batches as $batch_id => $batch): ?>
+                    <?php $details = $batch['details']; $items = $batch['items']; ?>
+                    <tr 
+                        class="clickable-row transition-colors duration-150" 
+                        data-href="view-batch-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset_name_raw); ?>&batch_id=<?php echo urlencode($batch_id); ?>"
+                    >
+                      <td class="px-6 py-4 whitespace-nowrap font-semibold text-gray-800"><?php echo date('M d, Y', strtotime($details['date_of_issue'])); ?></td>
+                      <td class="px-6 py-4 whitespace-nowrap text-gray-600 font-bold"><?php echo count($items); ?></td>
+                      <td class="px-6 py-4 whitespace-nowrap text-gray-600 truncate"><?php echo htmlspecialchars($details['location'] ?: 'N/A'); ?></td>
+                      <td class="px-6 py-4 whitespace-nowrap text-gray-600">₹<?php echo htmlspecialchars(number_format($details['cost'], 2)); ?></td>
+                      <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <a href="view-batch-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset_name_raw); ?>&batch_id=<?php echo urlencode($batch_id); ?>" class="text-indigo-600 hover:text-indigo-900" onclick="event.stopPropagation()">View Record</a>
+                      </td>
                     </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
