@@ -130,7 +130,7 @@ function getInitials($name)
     </div>
 
     <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-      <a href="dashboard.php?view=dashboard" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo !$showAddAsset ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium">
+      <a href="dashboard.php?view=dashboard" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo !($showAddAsset || $showRegister || $showGenerateReport) ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
         <i data-lucide="layout-dashboard" style="width:18px;height:18px"></i>
         Dashboard
       </a>
@@ -138,11 +138,11 @@ function getInitials($name)
         <i data-lucide="plus-square" style="width:18px;height:18px"></i>
         Add Item(s)
       </a>
-      <a href="dashboard.php?view=register" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showRegister ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
+      <a href="dashboard.php?view=register" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showRegister ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
         <i data-lucide="book-open" style="width:18px;height:18px"></i>
         Virtual Register
       </a>
-      <a href="dashboard.php?view=generate-report" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showGenerateReport ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
+      <a href="dashboard.php?view=generate-report" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showGenerateReport ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
         <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i>
         Generate Report
       </a>
@@ -239,8 +239,8 @@ function getInitials($name)
                   <i data-lucide="calendar" style="width:15px;height:15px"></i>
                   <span class="hidden sm:inline">This month</span>
                 </button>
-                <button class="text-sm font-medium text-white bg-blue-600 rounded-lg px-3.5 py-2 hover:bg-blue-700 transition-colors inline-flex items-center gap-1.5">
-                  <i data-lucide="download" style="width:15px;height:15px"></i>
+                <button class="text-sm font-medium text-white bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg px-3.5 py-2 hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 inline-flex items-center gap-1.5">
+                  <i data-lucide="download" style="width:15px;height:15px" class="opacity-80"></i>
                   Export
                 </button>
               </div>
@@ -248,7 +248,7 @@ function getInitials($name)
 
             <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mt-6">
 
-              <a href="view-assets.php?category_id=1" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-blue-200 transition-all duration-200">
+              <a href="view-assets.php?category_id=1" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-lg hover:border-blue-300 transition-all duration-300">
                 <div class="flex items-start justify-between">
                   <p class="text-sm font-medium text-gray-500">Expandable</p>
                   <div class="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
@@ -261,7 +261,7 @@ function getInitials($name)
                 </p>
               </a>
 
-              <a href="view-assets.php?category_id=2" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-purple-200 transition-all duration-200">
+              <a href="view-assets.php?category_id=2" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-lg hover:border-purple-300 transition-all duration-300">
                 <div class="flex items-start justify-between">
                   <p class="text-sm font-medium text-gray-500">Consumables</p>
                   <div class="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center shrink-0">
@@ -274,7 +274,7 @@ function getInitials($name)
                 </p>
               </a>
 
-              <a href="view-assets.php?category_id=3" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-amber-200 transition-all duration-200">
+              <a href="view-assets.php?category_id=3" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-lg hover:border-amber-300 transition-all duration-300">
                 <div class="flex items-start justify-between">
                   <p class="text-sm font-medium text-gray-500">Deadstock</p>
                   <div class="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
@@ -287,7 +287,7 @@ function getInitials($name)
                 </p>
               </a>
 
-              <a href="view-assets.php?category_id=4" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-emerald-200 transition-all duration-200">
+              <a href="view-assets.php?category_id=4" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-lg hover:border-emerald-300 transition-all duration-300">
                 <div class="flex items-start justify-between">
                   <p class="text-sm font-medium text-gray-500">Furniture</p>
                   <div class="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
@@ -306,7 +306,7 @@ function getInitials($name)
               <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:p-6">
                 <div class="flex items-center justify-between mb-4">
                   <h2 class="font-semibold text-gray-900">Recent Activity</h2>
-                  <a href="#" class="text-xs font-medium text-blue-600 hover:text-blue-700">View all</a>
+                  <a href="#" class="text-xs font-medium text-blue-600 hover:underline">View all</a>
                 </div>
                 <div class="overflow-x-auto -mx-1">
                   <table class="w-full text-sm min-w-[560px]">
@@ -366,7 +366,7 @@ function getInitials($name)
                     </span>
 
                     <div
-                      class="w-full max-w-[34px] bg-blue-500 rounded-t-md transition-all duration-500"
+                      class="w-full max-w-[34px] bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-md transition-all duration-500"
                       style="height:<?php echo $chartHeights[1]; ?>px">
                     </div>
 
@@ -382,7 +382,7 @@ function getInitials($name)
                     </span>
 
                     <div
-                      class="w-full max-w-[34px] bg-purple-500 rounded-t-md transition-all duration-500"
+                      class="w-full max-w-[34px] bg-gradient-to-t from-purple-500 to-purple-400 rounded-t-md transition-all duration-500"
                       style="height:<?php echo $chartHeights[2]; ?>px">
                     </div>
 
@@ -398,7 +398,7 @@ function getInitials($name)
                     </span>
 
                     <div
-                      class="w-full max-w-[34px] bg-amber-500 rounded-t-md transition-all duration-500"
+                      class="w-full max-w-[34px] bg-gradient-to-t from-amber-500 to-amber-400 rounded-t-md transition-all duration-500"
                       style="height:<?php echo $chartHeights[3]; ?>px">
                     </div>
 
@@ -414,7 +414,7 @@ function getInitials($name)
                     </span>
 
                     <div
-                      class="w-full max-w-[34px] bg-emerald-500 rounded-t-md transition-all duration-500"
+                      class="w-full max-w-[34px] bg-gradient-to-t from-emerald-500 to-emerald-400 rounded-t-md transition-all duration-500"
                       style="height:<?php echo $chartHeights[4]; ?>px">
                     </div>
 
