@@ -16,6 +16,7 @@ if (!isset($_SESSION['user_id'])) {
 // Get parameters from URL
 $category_id = isset($_GET['category_id']) ? (int)$_GET['category_id'] : 0;
 $asset_name_raw = isset($_GET['asset_name']) ? trim($_GET['asset_name']) : '';
+$search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
 
 // Define categories to get the name from the ID
 $categories = [
@@ -33,10 +34,23 @@ if ($category_id === 0 || !array_key_exists($category_id, $categories) || empty(
 
 $category_name = $categories[$category_id];
 
+$sql_where_clauses = ["category_id = ?", "asset_name = ?"];
+$sql_params = ["is", $category_id, $asset_name_raw];
+
+if (!empty($search_query)) {
+    $sql_where_clauses[] = "(location LIKE ? OR date_of_issue LIKE ?)";
+    $sql_params[0] .= "ss";
+    $search_term = "%" . $search_query . "%";
+    $sql_params[] = $search_term;
+    $sql_params[] = $search_term;
+}
+
 // Fetch asset details for the specified category and name from the database
 $asset_batches = [];
-$stmt = $conn->prepare("SELECT * FROM assets WHERE category_id = ? AND asset_name = ? ORDER BY date_of_issue DESC");
-$stmt->bind_param("is", $category_id, $asset_name_raw);
+$sql = "SELECT * FROM assets WHERE " . implode(" AND ", $sql_where_clauses) . " ORDER BY date_of_issue DESC";
+
+$stmt = $conn->prepare($sql);
+$stmt->bind_param(...$sql_params);
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -149,7 +163,22 @@ if (!function_exists('getInitials')) {
                 <span class="mx-2 text-gray-400">&gt;</span>
                 <span class="text-gray-900 capitalize"><?php echo htmlspecialchars($asset_name_raw); ?></span>
             </nav>
-            <h1 class="text-2xl font-bold text-gray-900 tracking-tight capitalize"><?php echo htmlspecialchars($asset_name_raw); ?> Details</h1>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <h1 class="text-2xl font-bold text-gray-900 tracking-tight capitalize"><?php echo htmlspecialchars($asset_name_raw); ?> Details</h1>
+                <form action="view-asset-details.php" method="GET" class="flex items-center gap-2">
+                    <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
+                    <input type="hidden" name="asset_name" value="<?php echo htmlspecialchars($asset_name_raw); ?>">
+                    <div class="relative flex-grow">
+                        <input type="text" name="search" value="<?php echo htmlspecialchars($search_query); ?>" placeholder="Search by location or date..." class="w-full pl-4 pr-10 py-2.5 text-sm rounded-full bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                        <button type="submit" class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                            <i data-lucide="search" style="width:16px;height:16px"></i>
+                        </button>
+                    </div>
+                    <?php if (!empty($search_query)): ?>
+                        <a href="view-asset-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset_name_raw); ?>" class="px-4 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200">Clear</a>
+                    <?php endif; ?>
+                </form>
+            </div>
         </div>
 
         <!-- Assets Table -->
@@ -168,8 +197,12 @@ if (!function_exists('getInitials')) {
               <tbody class="divide-y divide-gray-100">
                 <?php if (empty($asset_batches)): ?>
                     <tr>
-                        <td colspan="5" class="text-center py-10 text-gray-500">
-                            No entry records found for this asset.
+                        <td colspan="5" class="text-center py-16 text-gray-500">
+                            <div class="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                                <i data-lucide="search-slash" class="w-7 h-7 text-gray-400"></i>
+                            </div>
+                            <h3 class="font-semibold text-gray-800">No records found</h3>
+                            <p class="text-sm mt-1"><?php echo !empty($search_query) ? 'Your search for "' . htmlspecialchars($search_query) . '" did not return any results.' : 'There are no entry records for this asset yet.'; ?></p>
                         </td>
                     </tr>
                 <?php else: ?>
