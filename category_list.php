@@ -189,7 +189,7 @@ function getInitials($name)
         <aside id="sidebar" class="w-64 border-r border-gray-200 bg-white flex flex-col fixed inset-y-0 left-0 z-40 -translate-x-full lg:translate-x-0 lg:static transition-transform duration-200 ease-out">
             <div class="h-16 flex items-center gap-3 px-4 border-b border-gray-200 shrink-0">
                 <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center shrink-0 p-1">
-                    <img src="https://scontent.famd8-1.fna.fbcdn.net/v/t39.30808-6/482345949_1144079087415361_6640568596786112832_n.jpg?stp=dst-jpg_tt6&cstp=mx1379x1379&ctp=s1379x1379&_nc_cat=111&ccb=1-7&_nc_sid=6ee11a&_nc_ohc=dqzfFwO_7hEQ7kNvwHlS2Lc&_nc_oc=AdqNTZYLxmQKL2WaL9V7X7C6O9y9HIZNlpZiBqOTr3chZ-WT57nGAbpKFdbH0IayXk4&_nc_zt=23&_nc_ht=scontent.famd8-1.fna&_nc_gid=512jtex-NyXTQ9YEE2yRCg&_nc_ss=7b289&oh=00_AQCFoi8YrRQThI_Qg2e3SPWGXJTNIXX5tSQO7LOxr-Rw5w&oe=6A5E8523"
+                    <img src="kdp_logo.jpeg"
                         alt="KDP Logo" class="w-full h-full object-contain">
                 </div>
                 <span class="font-bold text-sm tracking-tight text-gray-900">Smart Asset Manager</span>
