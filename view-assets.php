@@ -15,6 +15,7 @@ if (!isset($_SESSION['user_id'])) {
 
 // Get category ID from URL, default to 0 if not set
 $category_id = isset($_GET['category_id']) ? (int)$_GET['category_id'] : 0;
+$search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
 
 // Define categories to get the name from the ID
 $categories = [
@@ -33,19 +34,31 @@ if ($category_id === 0 || !array_key_exists($category_id, $categories)) {
 
 $category_name = $categories[$category_id];
 
+$sql_where_clauses = ["category_id = ?"];
+$sql_params = ["i", $category_id];
+
+if (!empty($search_query)) {
+    $sql_where_clauses[] = "asset_name LIKE ?";
+    $sql_params[0] .= "s";
+    $search_term = "%" . $search_query . "%";
+    $sql_params[] = $search_term;
+}
+
 // Fetch and group assets by name for the specified category
 $assets = [];
-$stmt = $conn->prepare("
+$sql = "
     SELECT asset_name, 
            SUM(quantity) as total_quantity, 
            COUNT(DISTINCT batch_id) as record_count,
            MIN(date_of_issue) as first_issue_date
     FROM assets 
-    WHERE category_id = ? 
+    WHERE " . implode(" AND ", $sql_where_clauses) . "
     GROUP BY asset_name 
     ORDER BY asset_name ASC
-");
-$stmt->bind_param("i", $category_id);
+";
+
+$stmt = $conn->prepare($sql);
+$stmt->bind_param(...$sql_params);
 $stmt->execute();
 $result = $stmt->get_result();
 if ($result) {
@@ -139,7 +152,21 @@ if (!function_exists('getInitials')) {
                 <span class="mx-2 text-gray-400">&gt;</span>
                 <span class="text-gray-900"><?php echo htmlspecialchars($category_name); ?></span>
             </nav>
-            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Assets: <?php echo htmlspecialchars($category_name); ?></h1>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Assets: <?php echo htmlspecialchars($category_name); ?></h1>
+                <form action="view-assets.php" method="GET" class="flex items-center gap-2">
+                    <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
+                    <div class="relative flex-grow">
+                        <input type="text" name="search" value="<?php echo htmlspecialchars($search_query); ?>" placeholder="Search in <?php echo htmlspecialchars($category_name); ?>..." class="w-full pl-4 pr-10 py-2.5 text-sm rounded-full bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                        <button type="submit" class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                            <i data-lucide="search" style="width:16px;height:16px"></i>
+                        </button>
+                    </div>
+                    <?php if (!empty($search_query)): ?>
+                        <a href="view-assets.php?category_id=<?php echo $category_id; ?>" class="px-4 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200">Clear</a>
+                    <?php endif; ?>
+                </form>
+            </div>
         </div>
 
         <!-- Assets Table -->
@@ -158,7 +185,12 @@ if (!function_exists('getInitials')) {
               <tbody class="divide-y divide-gray-100">
                 <?php if (empty($assets)): ?>
                     <tr>
-                        <td colspan="5" class="text-center py-10 text-gray-500">
+                        <td colspan="5" class="text-center py-16 text-gray-500">
+                            <div class="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                                <i data-lucide="search-slash" class="w-7 h-7 text-gray-400"></i>
+                            </div>
+                            <h3 class="font-semibold text-gray-800">No assets found</h3>
+                            <p class="text-sm mt-1"><?php echo !empty($search_query) ? 'Your search for "' . htmlspecialchars($search_query) . '" did not return any results.' : 'There are no assets in this category yet.'; ?></p>
                             No assets found in this category.
                         </td>
                     </tr>

@@ -159,7 +159,7 @@ function getInitials($name)
         <button id="menuBtn" class="lg:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0">
           <i data-lucide="menu" style="width:20px;height:20px"></i>
         </button>
-        <div id="search-container" class="relative w-full max-w-md flex items-center">
+        <div id="search-container" class="relative w-full flex items-center">
           <div class="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
             <i id="search-icon" data-lucide="search" class="text-gray-400" style="width:16px;height:16px"></i>
             <div id="search-spinner" class="hidden animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
