@@ -55,7 +55,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
 
     $asset_numbers = [];
     $posted_asset_numbers = trim($_POST['asset_no'] ?? '');
-    $asset_number_pattern = '/^KDP\/COMP\/\d{4}\/(EXP|CONS|DS|FUR)\/p-[A-Za-z0-9.-]*\/I-\d+\/\d+\/\d+$/';
+    $asset_number_pattern = '/^KDP\/COMP\/\d{4}\/(EXP|CON|DST|FUR)\/P-[A-Za-z0-9.-]*\/I-\d+\/\d+\/\d+$/i';
 
     if ($posted_asset_numbers !== '') {
         $asset_numbers = array_values(array_filter(array_map('trim', preg_split('/\r\n|\n|\r|,/', $posted_asset_numbers)), function ($value) {
@@ -64,7 +64,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
 
         foreach ($asset_numbers as $asset_no_value) {
             if (!preg_match($asset_number_pattern, $asset_no_value)) {
-                header("Location: dashboard.php?view=add-asset&status=error&message=" . urlencode('Asset No must be in the format KDP/COMP/YYYY/CATEGORY/p-PAGE/I-ITEM/SEQ/QTY.'));
+                header("Location: dashboard.php?view=add-asset&status=error&message=" . urlencode('Asset No must be in the format KDP/COMP/YYYY/CATEGORY/P-PAGE/I-ITEM/SEQ/QTY.'));
                 exit();
             }
         }
@@ -271,8 +271,8 @@ if (!$embedMode) {
 
                         <div>
                             <label for="asset_no" class="mb-2 block text-sm font-semibold text-slate-700">Asset No</label>
-                            <textarea id="asset_no" name="asset_no" rows="4" placeholder="KDP/COMP/2026/EXP/p-12/I-10/1/3" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required></textarea>
-                            <p class="mt-2 text-xs text-slate-500">Use the format KDP/COMP/YYYY/CATEGORY/p-PAGE/I-ITEM/SEQ/QTY.</p>
+                            <textarea id="asset_no" name="asset_no" rows="4" placeholder="KDP/COMP/2026/EXP/P-12/I-10/1/3" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required></textarea>
+                            <p class="mt-2 text-xs text-slate-500">Use the format KDP/COMP/YYYY/CATEGORY/P-PAGE/I-ITEM/SEQ/QTY.</p>
                         </div>
                     </div>
 
@@ -307,8 +307,8 @@ if (!$embedMode) {
     function getCategoryCode(value) {
         const categoryMap = {
             '1': 'EXP',
-            '2': 'CONS',
-            '3': 'DS',
+            '2': 'CON',
+            '3': 'DST',
             '4': 'FUR'
         };
         return categoryMap[value] || '';
@@ -326,7 +326,7 @@ if (!$embedMode) {
             const generatedNumbers = [];
             for (let index = 0; index < quantity; index++) {
                 const currentItemNo = startItemNo + index;
-                const pageSuffix = pageNo ? `p-${pageNo}` : 'p-';
+                const pageSuffix = pageNo ? `P-${pageNo}` : 'P-';
                 generatedNumbers.push(`KDP/COMP/${year}/${categoryCode}/${pageSuffix}/I-${currentItemNo}/${index + 1}/${quantity}`);
             }
             assetNoInput.value = generatedNumbers.join('\n');
@@ -336,7 +336,7 @@ if (!$embedMode) {
     }
 
     function isValidAssetNumber(value) {
-        const pattern = /^KDP\/COMP\/\d{4}\/(EXP|CONS|DS|FUR)\/p-[A-Za-z0-9.-]*\/I-\d+\/\d+\/\d+$/;
+        const pattern = /^KDP\/COMP\/\d{4}\/(EXP|CON|DST|FUR)\/P-[A-Za-z0-9.-]*\/I-\d+\/\d+\/\d+$/i;
         const entries = value.split(/\r?\n|,/).map(entry => entry.trim()).filter(Boolean);
 
         if (entries.length === 0) {
@@ -505,7 +505,7 @@ if (!$embedMode) {
 
         if (!isValidAssetNumber(assetNoInput.value.trim())) {
             event.preventDefault();
-            alert('Asset No must be in the format KDP/COMP/YYYY/CATEGORY/p-PAGE/I-ITEM/SEQ/QTY.');
+            alert('Asset No must be in the format KDP/COMP/YYYY/CATEGORY/P-PAGE/I-ITEM/SEQ/QTY.');
             return;
         }
 
