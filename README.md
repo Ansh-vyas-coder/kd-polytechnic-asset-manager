@@ -16,4 +16,4 @@
 
 **Kush**
 *   **Record details:** `view batch-details.php`
-    **Category overview feature**
+*    **Category overview feature**
