@@ -51,6 +51,6 @@ ALTER TABLE assets
 
 -- Optional: add a unique index for the generated asset number if your database does not already have one.
 -- Uncomment the next line if you want strict uniqueness on asset_no.
--- ALTER TABLE assets ADD UNIQUE INDEX uq_assets_asset_no (asset_no);
-
--- Note: The category_id corresponds to the hardcoded array in the PHP files (1: Expandable, 2: Consumables, etc.).
+ALTER TABLE assets
+    ADD COLUMN IF NOT EXISTS product_no INT NULL AFTER item_no,
+    ADD COLUMN IF NOT EXISTS total_quantity INT NULL AFTER product_no;
