@@ -17,6 +17,7 @@ if (!isset($_SESSION['user_id'])) {
 $pageView = isset($_GET['view']) ? $_GET['view'] : 'dashboard';
 $showAddAsset = $pageView === 'add-asset';
 $showRegister = $pageView === 'register';
+$showGenerateReport = $pageView === 'generate-report';
 
 // --- START: Fetch asset counts for dashboard widgets ---
 $category_counts = [
@@ -141,6 +142,10 @@ function getInitials($name)
         <i data-lucide="book-open" style="width:18px;height:18px"></i>
         Virtual Register
       </a>
+      <a href="dashboard.php?view=generate-report" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showGenerateReport ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
+        <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i>
+        Generate Report
+      </a>
       <?php if ($_SESSION['role'] === 'admin'): ?>
       <a href="manage-users.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
         <i data-lucide="users" style="width:18px;height:18px"></i>
@@ -218,7 +223,11 @@ function getInitials($name)
           <div id="registerView">
             <?php include 'register.php'; ?>
           </div>
-        <?php elseif (!$showAddAsset): ?>
+        <?php elseif ($showGenerateReport): ?>
+          <?php define('IS_EMBEDDED', true);
+          include 'generate-report.php'; 
+          ?>
+        <?php elseif (!$showAddAsset && !$showGenerateReport): ?>
           <div id="dashboardView">
             <div class="flex items-start sm:items-center justify-between flex-wrap gap-3">
               <div>
