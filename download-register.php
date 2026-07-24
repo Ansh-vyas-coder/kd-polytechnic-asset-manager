@@ -15,7 +15,7 @@ $category_names = [
 ];
 
 $category_register_titles = [
-    1 => 'Departmental Stores Expendable Register',
+    1 => 'Departmental Stores Expandable Register',
     2 => 'Departmental Stores Consumables Register',
     3 => 'Departmental Stores Deadstock Register',
     4 => 'Departmental Stores Furniture Register',
@@ -256,7 +256,7 @@ foreach ($groups as $g_idx => $group):
             <td class="sig-cell"></td>
             <td class="sig-cell"></td>
             <td class="sig-cell"></td>
-            <td style="font-size: 9pt; white-space: pre-wrap;"><?php echo htmlspecialchars($asset['remarks'] ?? ''); ?></td>
+            <td style="font-size: 9pt; white-space: pre-wrap; word-break: break-word; vertical-align:top;"><?php echo htmlspecialchars($asset['remarks'] ?? ''); ?></td>
         </tr>
         <?php
         endforeach;

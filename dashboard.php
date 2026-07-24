@@ -15,23 +15,101 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $pageView = isset($_GET['view']) ? $_GET['view'] : 'dashboard';
+if ($_SESSION['role'] !== 'admin') {
+  if ($pageView !== 'my-assets') {
+    $pageView = 'dashboard';
+  }
+}
 $showAddAsset = $pageView === 'add-asset';
 $showRegister = $pageView === 'register';
 $showGenerateReport = $pageView === 'generate-report';
+$showMyAssets = $pageView === 'my-assets';
 
 // --- START: Fetch asset counts for dashboard widgets ---
-$category_counts = [
-  1 => 0, // Expandable
-  2 => 0, // Consumables
-  3 => 0, // Deadstock
-  4 => 0  // Furniture
-];
+$thisMonth = date('Y-m');
+$isStaff = ($_SESSION['role'] === 'staff');
+$staffName = $_SESSION['user_name'];
 
-$result = $conn->query("SELECT category_id, SUM(quantity) as total_quantity FROM assets GROUP BY category_id");
+$category_counts = [1=>0, 2=>0, 3=>0, 4=>0];
+if ($isStaff) {
+  $stmt = $conn->prepare("SELECT category_id, SUM(quantity) as total_quantity FROM assets WHERE assigned_to = ? GROUP BY category_id");
+  $stmt->bind_param("s", $staffName);
+  $stmt->execute();
+  $result = $stmt->get_result();
+} else {
+  $result = $conn->query("SELECT category_id, SUM(quantity) as total_quantity FROM assets GROUP BY category_id");
+}
 if ($result) {
   while ($row = $result->fetch_assoc()) {
     $category_counts[$row['category_id']] = (int)$row['total_quantity'];
   }
+  if ($isStaff && isset($stmt)) $stmt->close();
+}
+
+// This-month counts
+$month_counts = [1=>0, 2=>0, 3=>0, 4=>0];
+if ($isStaff) {
+  $stmt = $conn->prepare("SELECT category_id, SUM(quantity) as total_quantity FROM assets WHERE DATE_FORMAT(created_at, '%Y-%m') = ? AND assigned_to = ? GROUP BY category_id");
+  $stmt->bind_param("ss", $thisMonth, $staffName);
+  $stmt->execute();
+  $mResult = $stmt->get_result();
+} else {
+  $mResult = $conn->query("SELECT category_id, SUM(quantity) as total_quantity FROM assets WHERE DATE_FORMAT(created_at, '%Y-%m') = '$thisMonth' GROUP BY category_id");
+}
+if ($mResult) {
+  while ($row = $mResult->fetch_assoc()) {
+    $month_counts[$row['category_id']] = (int)$row['total_quantity'];
+  }
+  if ($isStaff && isset($stmt)) $stmt->close();
+}
+
+// Recent activity — all time (latest 8)
+$recentAll = [];
+if ($isStaff) {
+  $stmt = $conn->prepare("
+    SELECT a.asset_no, a.asset_name, a.category_id, a.location, a.assigned_to, a.created_at
+    FROM assets a
+    WHERE a.assigned_to = ?
+    ORDER BY a.created_at DESC LIMIT 8");
+  $stmt->bind_param("s", $staffName);
+  $stmt->execute();
+  $rAllRes = $stmt->get_result();
+} else {
+  $rAllRes = $conn->query("
+    SELECT a.asset_no, a.asset_name, a.category_id, a.location, a.assigned_to, a.created_at
+    FROM assets a
+    ORDER BY a.created_at DESC LIMIT 8");
+}
+if ($rAllRes) {
+  while ($row = $rAllRes->fetch_assoc()) {
+    $recentAll[] = $row;
+  }
+  if ($isStaff && isset($stmt)) $stmt->close();
+}
+
+// Recent activity — this month (latest 8)
+$recentMonth = [];
+if ($isStaff) {
+  $stmt = $conn->prepare("
+    SELECT a.asset_no, a.asset_name, a.category_id, a.location, a.assigned_to, a.created_at
+    FROM assets a
+    WHERE DATE_FORMAT(a.created_at, '%Y-%m') = ? AND a.assigned_to = ?
+    ORDER BY a.created_at DESC LIMIT 8");
+  $stmt->bind_param("ss", $thisMonth, $staffName);
+  $stmt->execute();
+  $rMonRes = $stmt->get_result();
+} else {
+  $rMonRes = $conn->query("
+    SELECT a.asset_no, a.asset_name, a.category_id, a.location, a.assigned_to, a.created_at
+    FROM assets a
+    WHERE DATE_FORMAT(a.created_at, '%Y-%m') = '$thisMonth'
+    ORDER BY a.created_at DESC LIMIT 8");
+}
+if ($rMonRes) {
+  while ($row = $rMonRes->fetch_assoc()) {
+    $recentMonth[] = $row;
+  }
+  if ($isStaff && isset($stmt)) $stmt->close();
 }
 // --- END: Fetch asset counts ---
 
@@ -71,7 +149,7 @@ function getInitials($name)
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KDP Asset Manager — Dashboard</title>
+  <title>KDP Asset Manager — <?php echo ($_SESSION['role'] === 'staff') ? 'Faculty Dashboard' : 'Dashboard'; ?></title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -130,10 +208,11 @@ function getInitials($name)
     </div>
 
     <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-      <a href="dashboard.php?view=dashboard" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo !($showAddAsset || $showRegister || $showGenerateReport) ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
+      <a href="dashboard.php?view=dashboard" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo ($pageView === 'dashboard') ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
         <i data-lucide="layout-dashboard" style="width:18px;height:18px"></i>
         Dashboard
       </a>
+      <?php if ($_SESSION['role'] === 'admin'): ?>
       <a href="dashboard.php?view=add-asset" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showAddAsset ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
         <i data-lucide="plus-square" style="width:18px;height:18px"></i>
         Add Item(s)
@@ -146,10 +225,15 @@ function getInitials($name)
         <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i>
         Generate Report
       </a>
-      <?php if ($_SESSION['role'] === 'admin'): ?>
       <a href="manage-users.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
         <i data-lucide="users" style="width:18px;height:18px"></i>
         Manage Users
+      </a>
+      <?php endif; ?>
+      <?php if ($_SESSION['role'] === 'staff'): ?>
+      <a href="dashboard.php?view=my-assets" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showMyAssets ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
+        <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i>
+        My Assigned Assets
       </a>
       <?php endif; ?>
     </nav>
@@ -227,127 +311,140 @@ function getInitials($name)
           <?php define('IS_EMBEDDED', true);
           include 'generate-report.php'; 
           ?>
-        <?php elseif (!$showAddAsset && !$showGenerateReport): ?>
+        <?php elseif ($showMyAssets): ?>
+          <?php 
+          if (!defined('IS_EMBEDDED')) {
+              define('IS_EMBEDDED', true);
+          }
+          include 'generate-report.php'; 
+          ?>
+        <?php elseif (!$showAddAsset && !$showGenerateReport && !$showMyAssets): ?>
           <div id="dashboardView">
             <div class="flex items-start sm:items-center justify-between flex-wrap gap-3">
               <div>
-                <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Dashboard</h1>
-                <p class="text-sm text-gray-500 mt-1">Welcome back, here's your department overview</p>
+                <h1 class="text-2xl font-bold text-gray-900 tracking-tight">
+                  <?php echo ($_SESSION['role'] === 'staff') ? 'Faculty Dashboard' : 'Dashboard'; ?>
+                </h1>
+                <p class="text-sm text-gray-500 mt-1">
+                  <?php echo ($_SESSION['role'] === 'staff') ? "Welcome back, here's your assigned assets overview" : "Welcome back, here's your department overview"; ?>
+                </p>
               </div>
               <div class="flex items-center gap-2">
-                <button class="text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg px-3.5 py-2 hover:bg-gray-50 transition-colors inline-flex items-center gap-1.5">
-                  <i data-lucide="calendar" style="width:15px;height:15px"></i>
-                  <span class="hidden sm:inline">This month</span>
-                </button>
-                <button class="text-sm font-medium text-white bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg px-3.5 py-2 hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 inline-flex items-center gap-1.5">
-                  <i data-lucide="download" style="width:15px;height:15px" class="opacity-80"></i>
-                  Export
-                </button>
+                <!-- All time / This month toggle -->
+                <div class="inline-flex rounded-lg border border-gray-200 bg-white p-1 gap-1" id="periodToggle">
+                  <button id="btnAllTime"
+                    onclick="setPeriod('all')"
+                    class="text-xs font-semibold px-3 py-1.5 rounded-md bg-blue-600 text-white transition-all">
+                    All Time
+                  </button>
+                  <button id="btnThisMonth"
+                    onclick="setPeriod('month')"
+                    class="text-xs font-semibold px-3 py-1.5 rounded-md text-gray-500 hover:bg-gray-50 transition-all inline-flex items-center gap-1.5">
+                    <i data-lucide="calendar" style="width:13px;height:13px"></i> This Month
+                  </button>
+                </div>
               </div>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mt-6">
 
-              <a href="view-assets.php?category_id=1" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-lg hover:border-blue-300 transition-all duration-300">
+              <?php
+              $cats = [
+                1 => ['label'=>'Expandable',  'icon'=>'package',        'color'=>'blue',    'hover'=>'blue'],
+                2 => ['label'=>'Consumables', 'icon'=>'flask-conical',  'color'=>'purple',  'hover'=>'purple'],
+                3 => ['label'=>'Deadstock',   'icon'=>'alert-triangle', 'color'=>'amber',   'hover'=>'amber'],
+                4 => ['label'=>'Furniture',   'icon'=>'armchair',       'color'=>'emerald', 'hover'=>'emerald'],
+              ];
+              foreach ($cats as $cid => $cat):
+                $total = $category_counts[$cid];
+                $monthly = $month_counts[$cid];
+              ?>
+              <a href="view-assets.php?category_id=<?php echo $cid; ?>"
+                 class="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-lg transition-all duration-300">
                 <div class="flex items-start justify-between">
-                  <p class="text-sm font-medium text-gray-500">Expandable</p>
-                  <div class="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                    <i data-lucide="package" class="text-blue-600" style="width:18px;height:18px"></i>
+                  <p class="text-sm font-medium text-gray-500"><?php echo $cat['label']; ?></p>
+                  <div class="w-9 h-9 rounded-lg bg-<?php echo $cat['color']; ?>-50 flex items-center justify-center shrink-0">
+                    <i data-lucide="<?php echo $cat['icon']; ?>" class="text-<?php echo $cat['color']; ?>-600" style="width:18px;height:18px"></i>
                   </div>
                 </div>
-                <p class="text-3xl font-bold text-gray-900 mt-3 tracking-tight"><?php echo number_format($category_counts[1]); ?></p>
-                <p class="text-xs font-medium text-emerald-600 mt-2 inline-flex items-center gap-1">
-                  <i data-lucide="trending-up" style="width:13px;height:13px"></i> +12% from last month
+                <!-- All-time count -->
+                <p id="count-all-<?php echo $cid; ?>" class="text-3xl font-bold text-gray-900 mt-3 tracking-tight"><?php echo number_format($total); ?></p>
+                <!-- This-month count (hidden by default) -->
+                <p id="count-month-<?php echo $cid; ?>" class="text-3xl font-bold text-gray-900 mt-3 tracking-tight hidden"><?php echo number_format($monthly); ?></p>
+                <!-- Sub-text all-time -->
+                <p id="sub-all-<?php echo $cid; ?>" class="text-xs font-medium text-emerald-600 mt-2 inline-flex items-center gap-1">
+                  <i data-lucide="layers" style="width:13px;height:13px"></i> Total assets
+                </p>
+                <!-- Sub-text this-month -->
+                <p id="sub-month-<?php echo $cid; ?>" class="text-xs font-medium mt-2 inline-flex items-center gap-1 hidden <?php echo $monthly > 0 ? 'text-emerald-600' : 'text-gray-400'; ?>">
+                  <?php if ($monthly > 0): ?>
+                    <i data-lucide="trending-up" style="width:13px;height:13px"></i> +<?php echo $monthly; ?> added this month
+                  <?php else: ?>
+                    <i data-lucide="minus" style="width:13px;height:13px"></i> None added this month
+                  <?php endif; ?>
                 </p>
               </a>
-
-              <a href="view-assets.php?category_id=2" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-lg hover:border-purple-300 transition-all duration-300">
-                <div class="flex items-start justify-between">
-                  <p class="text-sm font-medium text-gray-500">Consumables</p>
-                  <div class="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center shrink-0">
-                    <i data-lucide="flask-conical" class="text-purple-600" style="width:18px;height:18px"></i>
-                  </div>
-                </div>
-                <p class="text-3xl font-bold text-gray-900 mt-3 tracking-tight"><?php echo number_format($category_counts[2]); ?></p>
-                <p class="text-xs font-medium text-emerald-600 mt-2 inline-flex items-center gap-1">
-                  <i data-lucide="trending-up" style="width:13px;height:13px"></i> +3 new this month
-                </p>
-              </a>
-
-              <a href="view-assets.php?category_id=3" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-lg hover:border-amber-300 transition-all duration-300">
-                <div class="flex items-start justify-between">
-                  <p class="text-sm font-medium text-gray-500">Deadstock</p>
-                  <div class="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
-                    <i data-lucide="alert-triangle" class="text-amber-600" style="width:18px;height:18px"></i>
-                  </div>
-                </div>
-                <p class="text-3xl font-bold text-gray-900 mt-3 tracking-tight"><?php echo number_format($category_counts[3]); ?></p>
-                <p class="text-xs font-medium text-rose-600 mt-2 inline-flex items-center gap-1">
-                  <i data-lucide="alert-circle" style="width:13px;height:13px"></i> Needs attention
-                </p>
-              </a>
-
-              <a href="view-assets.php?category_id=4" class="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-lg hover:border-emerald-300 transition-all duration-300">
-                <div class="flex items-start justify-between">
-                  <p class="text-sm font-medium text-gray-500">Furniture</p>
-                  <div class="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
-                    <i data-lucide="armchair" class="text-emerald-600" style="width:18px;height:18px"></i>
-                  </div>
-                </div>
-                <p class="text-3xl font-bold text-gray-900 mt-3 tracking-tight"><?php echo number_format($category_counts[4]); ?></p>
-                <p class="text-xs font-medium text-emerald-600 mt-2 inline-flex items-center gap-1">
-                  <i data-lucide="trending-up" style="width:13px;height:13px"></i> +4 new this month
-                </p>
-              </a>
+              <?php endforeach; ?>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
 
               <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:p-6">
                 <div class="flex items-center justify-between mb-4">
-                  <h2 class="font-semibold text-gray-900">Recent Activity</h2>
-                  <a href="#" class="text-xs font-medium text-blue-600 hover:underline">View all</a>
+                  <h2 class="font-semibold text-gray-900">Recent Activity
+                    <span id="activityLabel" class="text-xs font-normal text-gray-400 ml-1">(All Time)</span>
+                  </h2>
                 </div>
                 <div class="overflow-x-auto -mx-1">
                   <table class="w-full text-sm min-w-[560px]">
                     <thead>
                       <tr class="text-left text-[11px] text-gray-400 uppercase tracking-wider">
-                        <th class="pb-3 px-1 font-medium">ASSET ID</th>
+                        <th class="pb-3 px-1 font-medium">ASSET NO</th>
                         <th class="pb-3 px-1 font-medium">EQUIPMENT NAME</th>
                         <th class="pb-3 px-1 font-medium">CATEGORY</th>
                         <th class="pb-3 px-1 font-medium">LOCATION</th>
                         <th class="pb-3 px-1 font-medium text-right">DATE ADDED</th>
                       </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-100">
-                      <tr>
-                        <td class="py-3.5 px-1 font-medium text-gray-900">KD-EXP-001</td>
-                        <td class="py-3.5 px-1 text-gray-600">Arduino Uno R3</td>
-                        <td class="py-3.5 px-1"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-600">Expandable</span></td>
-                        <td class="py-3.5 px-1 text-gray-500">Lab F004</td>
-                        <td class="py-3.5 px-1 text-gray-500 text-right">2026-07-16</td>
+                    <tbody id="activityBody" class="divide-y divide-gray-100">
+                      <?php
+                      $catColors = [1=>'emerald',2=>'blue',3=>'amber',4=>'purple'];
+                      $catLabels = [1=>'Expandable',2=>'Consumables',3=>'Deadstock',4=>'Furniture'];
+                      foreach ($recentAll as $row):
+                        $cid = (int)$row['category_id'];
+                        $color = $catColors[$cid] ?? 'gray';
+                        $label = $catLabels[$cid] ?? $row['category_name'];
+                        $loc = htmlspecialchars($row['location'] ?: ($row['assigned_to'] ?: '—'));
+                      ?>
+                      <tr class="row-all">
+                        <td class="py-3.5 px-1 font-medium text-gray-900"><?php echo htmlspecialchars($row['asset_no']); ?></td>
+                        <td class="py-3.5 px-1 text-gray-600"><?php echo htmlspecialchars($row['asset_name']); ?></td>
+                        <td class="py-3.5 px-1"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-<?php echo $color; ?>-50 text-<?php echo $color; ?>-600"><?php echo $label; ?></span></td>
+                        <td class="py-3.5 px-1 text-gray-500"><?php echo $loc; ?></td>
+                        <td class="py-3.5 px-1 text-gray-500 text-right"><?php echo date('Y-m-d', strtotime($row['created_at'])); ?></td>
                       </tr>
-                      <tr>
-                        <td class="py-3.5 px-1 font-medium text-gray-900">KD-CON-055</td>
-                        <td class="py-3.5 px-1 text-gray-600">Whiteboard Markers</td>
-                        <td class="py-3.5 px-1"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-600">Consumables</span></td>
-                        <td class="py-3.5 px-1 text-gray-500">Staff Room</td>
-                        <td class="py-3.5 px-1 text-gray-500 text-right">2026-07-15</td>
+                      <?php endforeach; ?>
+                      <?php if (empty($recentAll)): ?>
+                      <tr class="row-all"><td colspan="5" class="py-6 text-center text-gray-400 text-sm">No assets found.</td></tr>
+                      <?php endif; ?>
+                      <?php
+                      foreach ($recentMonth as $row):
+                        $cid = (int)$row['category_id'];
+                        $color = $catColors[$cid] ?? 'gray';
+                        $label = $catLabels[$cid] ?? $row['category_name'];
+                        $loc = htmlspecialchars($row['location'] ?: ($row['assigned_to'] ?: '—'));
+                      ?>
+                      <tr class="row-month hidden">
+                        <td class="py-3.5 px-1 font-medium text-gray-900"><?php echo htmlspecialchars($row['asset_no']); ?></td>
+                        <td class="py-3.5 px-1 text-gray-600"><?php echo htmlspecialchars($row['asset_name']); ?></td>
+                        <td class="py-3.5 px-1"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-<?php echo $color; ?>-50 text-<?php echo $color; ?>-600"><?php echo $label; ?></span></td>
+                        <td class="py-3.5 px-1 text-gray-500"><?php echo $loc; ?></td>
+                        <td class="py-3.5 px-1 text-gray-500 text-right"><?php echo date('Y-m-d', strtotime($row['created_at'])); ?></td>
                       </tr>
-                      <tr>
-                        <td class="py-3.5 px-1 font-medium text-gray-900">KD-DEAD-012</td>
-                        <td class="py-3.5 px-1 text-gray-600">Broken Dell Monitor</td>
-                        <td class="py-3.5 px-1"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-600">Deadstock</span></td>
-                        <td class="py-3.5 px-1 text-gray-500">Storage Room</td>
-                        <td class="py-3.5 px-1 text-gray-500 text-right">2026-07-10</td>
-                      </tr>
-                      <tr>
-                        <td class="py-3.5 px-1 font-medium text-gray-900">KD-FURN-008</td>
-                        <td class="py-3.5 px-1 text-gray-600">Ergonomic Lab Chair</td>
-                        <td class="py-3.5 px-1"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-600">Furniture</span></td>
-                        <td class="py-3.5 px-1 text-gray-500">Lab F002</td>
-                        <td class="py-3.5 px-1 text-gray-500 text-right">2026-07-01</td>
-                      </tr>
+                      <?php endforeach; ?>
+                      <?php if (empty($recentMonth)): ?>
+                      <tr class="row-month hidden"><td colspan="5" class="py-6 text-center text-gray-400 text-sm">No assets added this month.</td></tr>
+                      <?php endif; ?>
                     </tbody>
                   </table>
                 </div>
@@ -489,6 +586,47 @@ function getInitials($name)
   <script>
     lucide.createIcons();
 
+  // --- Period Toggle: All Time / This Month ---
+  function setPeriod(period) {
+    const isMonth = period === 'month';
+
+    // Toggle button styles
+    const btnAll   = document.getElementById('btnAllTime');
+    const btnMonth = document.getElementById('btnThisMonth');
+    if (btnAll && btnMonth) {
+      if (isMonth) {
+        btnAll.className   = 'text-xs font-semibold px-3 py-1.5 rounded-md text-gray-500 hover:bg-gray-50 transition-all';
+        btnMonth.className = 'text-xs font-semibold px-3 py-1.5 rounded-md bg-blue-600 text-white transition-all inline-flex items-center gap-1.5';
+      } else {
+        btnAll.className   = 'text-xs font-semibold px-3 py-1.5 rounded-md bg-blue-600 text-white transition-all';
+        btnMonth.className = 'text-xs font-semibold px-3 py-1.5 rounded-md text-gray-500 hover:bg-gray-50 transition-all inline-flex items-center gap-1.5';
+      }
+    }
+
+    // Toggle category card counts + sub-text (cats 1-4)
+    [1,2,3,4].forEach(id => {
+      const countAll   = document.getElementById('count-all-'   + id);
+      const countMonth = document.getElementById('count-month-' + id);
+      const subAll     = document.getElementById('sub-all-'     + id);
+      const subMonth   = document.getElementById('sub-month-'   + id);
+      if (countAll)   countAll.classList.toggle('hidden',  isMonth);
+      if (countMonth) countMonth.classList.toggle('hidden', !isMonth);
+      if (subAll)     subAll.classList.toggle('hidden',  isMonth);
+      if (subMonth)   subMonth.classList.toggle('hidden', !isMonth);
+    });
+
+    // Toggle activity rows
+    document.querySelectorAll('.row-all').forEach(r   => r.classList.toggle('hidden',  isMonth));
+    document.querySelectorAll('.row-month').forEach(r => r.classList.toggle('hidden', !isMonth));
+
+    // Update activity label
+    const lbl = document.getElementById('activityLabel');
+    if (lbl) lbl.textContent = isMonth ? '(This Month)' : '(All Time)';
+
+    lucide.createIcons();
+  }
+
+
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('overlay');
   const menuBtn = document.getElementById('menuBtn');
@@ -584,6 +722,8 @@ function getInitials($name)
   });
 
   // --- Live Search Logic ---
+  const IS_STAFF    = <?php echo ($_SESSION['role'] === 'staff') ? 'true' : 'false'; ?>;
+  const CURRENT_USER = <?php echo json_encode($_SESSION['user_name'] ?? ''); ?>;
   const searchInput = document.getElementById('searchInput');
   const searchResults = document.getElementById('searchResults');
   const searchContainer = document.getElementById('search-container');
@@ -609,22 +749,51 @@ function getInitials($name)
         if (data.length > 0) {
           let resultsHtml = '<div class="p-2"><ul class="space-y-1">';
           data.forEach(item => {
-            resultsHtml += `
-              <li>
-                <a href="view-asset-details.php?category_id=${item.category_id}&asset_name=${encodeURIComponent(item.asset_name)}"
-                   class="flex items-center justify-between p-3 rounded-md hover:bg-gray-50 transition-colors">
-                  <div>
-                    <p class="font-semibold text-sm text-gray-800 capitalize">${item.asset_name}</p>
-                    <div class="text-xs text-gray-500 mt-1 flex items-center gap-x-3">
-                      <span>in <strong class="font-medium text-gray-600">${item.category_name}</strong></span>
-                      ${item.location ? `<span>| At: <strong class="font-medium text-gray-600">${item.location}</strong></span>` : ''}
-                      ${item.assigned_to ? `<span>| With: <strong class="font-medium text-gray-600">${item.assigned_to}</strong></span>` : ''}
-                    </div>
-                  </div>
-                  <i data-lucide="arrow-right" class="w-4 h-4 text-gray-400"></i>
-                </a>
-              </li>
+            const infoHtml = `
+              <p class="font-semibold text-sm text-gray-800 capitalize">${item.asset_name}</p>
+              <div class="text-xs text-gray-500 mt-1 flex items-center gap-x-3">
+                <span>in <strong class="font-medium text-gray-600">${item.category_name}</strong></span>
+                ${item.location ? `<span>| Lab/Location: <strong class="font-medium text-gray-600">${item.location}</strong></span>` : ''}
+                ${item.assigned_to ? `<span>| With: <strong class="font-medium text-gray-600">${item.assigned_to}</strong></span>` : ''}
+              </div>
             `;
+
+            if (IS_STAFF) {
+              const isOwn = item.assigned_to && item.assigned_to.toLowerCase() === CURRENT_USER.toLowerCase();
+              if (isOwn) {
+                // Staff viewing their OWN asset — clickable
+                resultsHtml += `
+                  <li>
+                    <a href="view-asset-details.php?category_id=${item.category_id}&asset_name=${encodeURIComponent(item.asset_name)}"
+                       class="flex items-center justify-between p-3 rounded-md hover:bg-blue-50 border border-transparent hover:border-blue-100 transition-colors">
+                      <div>${infoHtml}</div>
+                      <i data-lucide="arrow-right" class="w-4 h-4 text-blue-400"></i>
+                    </a>
+                  </li>
+                `;
+              } else {
+                // Staff viewing someone else's asset — info only
+                resultsHtml += `
+                  <li>
+                    <div class="flex items-center justify-between p-3 rounded-md bg-gray-50 cursor-default select-none">
+                      <div>${infoHtml}</div>
+                      <span class="text-xs text-gray-400 ml-2 whitespace-nowrap">Info only</span>
+                    </div>
+                  </li>
+                `;
+              }
+            } else {
+              // Admin: clickable link to asset details
+              resultsHtml += `
+                <li>
+                  <a href="view-asset-details.php?category_id=${item.category_id}&asset_name=${encodeURIComponent(item.asset_name)}"
+                     class="flex items-center justify-between p-3 rounded-md hover:bg-gray-50 transition-colors">
+                    <div>${infoHtml}</div>
+                    <i data-lucide="arrow-right" class="w-4 h-4 text-gray-400"></i>
+                  </a>
+                </li>
+              `;
+            }
           });
           resultsHtml += '</ul></div>';
           searchResults.innerHTML = resultsHtml;
