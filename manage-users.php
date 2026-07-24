@@ -114,6 +114,9 @@ if ($result) {
       <a href="dashboard.php?view=register" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
         <i data-lucide="book-open" style="width:18px;height:18px"></i> Virtual Register
       </a>
+      <a href="dashboard.php?view=generate-report" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
+        <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i> Generate Report
+      </a>
       <a href="manage-users.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-blue-50 text-blue-600 text-sm font-semibold">
         <i data-lucide="users" style="width:18px;height:18px"></i> Manage Users
       </a>
@@ -146,6 +149,10 @@ if ($result) {
                         <p class="text-xs text-gray-500 truncate mt-0.5"><?php echo htmlspecialchars($_SESSION['user_email']); ?></p>
                     </div>
                     <div class="p-1.5">
+                        <button id="changePasswordBtn" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
+                            <i data-lucide="key-round" style="width:16px;height:16px"></i>
+                            Change Password
+                        </button>
                         <a href="logout.php" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
                             <i data-lucide="log-out" style="width:16px;height:16px"></i> Logout
                         </a>
@@ -268,8 +275,44 @@ if ($result) {
   </div>
 </div>
 
+<!-- Change Password Modal -->
+<div id="changePasswordModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+  <div class="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all">
+    <form id="changePasswordForm" method="POST" action="change-password.php">
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-bold text-gray-900">Change Your Password</h3>
+          <button type="button" id="closeChangePwdModal" class="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600">&times;</button>
+        </div>
+        <div id="changepwd-notification" class="hidden text-sm mb-4"></div>
+        <div class="space-y-4">
+          <div>
+            <label for="current_password" class="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+            <input type="password" name="current_password" id="current_password" required class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label for="new_password" class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+            <input type="password" name="new_password" id="new_password" required class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <p class="text-xs text-gray-500 mt-1">Must be at least 8 characters long.</p>
+          </div>
+          <div>
+            <label for="confirm_password" class="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+            <input type="password" name="confirm_password" id="confirm_password" required class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+      </div>
+      <div class="bg-gray-50 px-6 py-4 rounded-b-xl flex items-center justify-end gap-3">
+        <button type="button" id="cancelChangePwdModal" class="inline-flex justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50">Cancel</button>
+        <button type="submit" id="submitChangePwdBtn" class="inline-flex justify-center items-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-700/20 transition hover:bg-blue-800">
+          <span id="changePwdBtnText">Update Password</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- Error/Success Notification -->
-<div id="notification" class="fixed top-5 right-5 bg-red-500 text-white py-2.5 px-5 rounded-lg shadow-xl text-sm font-medium hidden">
+<div id="notification" class="fixed top-5 right-5 bg-red-500 text-white py-2.5 px-5 rounded-lg shadow-xl text-sm font-medium hidden z-[60]">
   <!-- Message will be inserted here -->
 </div>
 
@@ -282,6 +325,8 @@ if ($result) {
   const menuBtn = document.getElementById('menuBtn');
   const userMenuBtn = document.getElementById('userMenuBtn');
   const userMenuDropdown = document.getElementById('userMenuDropdown');
+  const changePasswordBtn = document.getElementById('changePasswordBtn');
+  const changePasswordModal = document.getElementById('changePasswordModal');
 
   menuBtn.addEventListener('click', () => {
     sidebar.classList.remove('-translate-x-full');
@@ -296,6 +341,54 @@ if ($result) {
     if (!userMenuBtn.contains(event.target) && !userMenuDropdown.contains(event.target)) {
       userMenuDropdown.classList.add('hidden');
     }
+  });
+
+  // --- Change Password Modal Logic ---
+  function showChangePwdModal() {
+    document.getElementById('changePasswordForm').reset();
+    document.getElementById('changepwd-notification').classList.add('hidden');
+    changePasswordModal.classList.remove('hidden');
+  }
+  function hideChangePwdModal() {
+    changePasswordModal.classList.add('hidden');
+  }
+
+  changePasswordBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    userMenuDropdown.classList.add('hidden');
+    showChangePwdModal();
+  });
+  document.getElementById('closeChangePwdModal').addEventListener('click', hideChangePwdModal);
+  document.getElementById('cancelChangePwdModal').addEventListener('click', hideChangePwdModal);
+  changePasswordModal.addEventListener('click', (e) => { if (e.target === changePasswordModal) hideChangePwdModal(); });
+
+  document.getElementById('changePasswordForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+    const btn = document.getElementById('submitChangePwdBtn');
+    const btnText = document.getElementById('changePwdBtnText');
+    const note = document.getElementById('changepwd-notification');
+    btn.disabled = true;
+    btnText.textContent = 'Updating...';
+    note.classList.add('hidden');
+
+    fetch('change-password.php', { method: 'POST', body: new FormData(this) })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          note.className = 'bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg text-sm';
+          note.textContent = data.message;
+          note.classList.remove('hidden');
+          setTimeout(hideChangePwdModal, 2000);
+        } else {
+          note.className = 'bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm';
+          note.textContent = data.message || 'An error occurred.';
+          note.classList.remove('hidden');
+        }
+      })
+      .finally(() => {
+        btn.disabled = false;
+        btnText.textContent = 'Update Password';
+      });
   });
 
   // --- New Modal and Notification Logic ---

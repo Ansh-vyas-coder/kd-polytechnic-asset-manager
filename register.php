@@ -12,7 +12,7 @@ $category_names = [
 ];
 
 $category_register_titles = [
-    1 => 'Departmental Stores Expendable Register',
+    1 => 'Departmental Stores Expandable Register',
     2 => 'Departmental Stores Consumables Register',
     3 => 'Departmental Stores Deadstock Register',
     4 => 'Departmental Stores Furniture Register',
@@ -197,12 +197,16 @@ $register_title = $category_register_titles[$selectedCategory];
         border-collapse: collapse;
         min-width: 1400px;
         font-size: 0.78rem;
+        table-layout: fixed;   /* columns honour their defined widths */
     }
     .reg-table th, .reg-table td {
         border: 1px solid #888;
         padding: 3px 5px;
         vertical-align: top;
         line-height: 1.4;
+        word-break: break-word;      /* long words wrap instead of expanding the column */
+        overflow-wrap: break-word;
+        white-space: normal;         /* never force single-line */
     }
     /* Header row 1 — column titles */
     .reg-table thead tr:first-child th {
@@ -434,14 +438,17 @@ $register_title = $category_register_titles[$selectedCategory];
                     <td style="font-size:0.75rem; vertical-align:top; position:relative;" class="group">
                         <!-- View mode -->
                         <div id="remarks-view-<?php echo $asset['id']; ?>" class="flex items-start justify-between min-h-[30px]">
-                            <span id="remarks-text-<?php echo $asset['id']; ?>" class="block pr-6 whitespace-pre-wrap"><?php echo htmlspecialchars($remarks ?: '-'); ?></span>
+                            <span id="remarks-text-<?php echo $asset['id']; ?>"
+                                  class="block flex-1 pr-6"
+                                  style="word-break:break-word; white-space:pre-wrap;"
+                            ><?php echo htmlspecialchars($remarks ?: '-'); ?></span>
                             <button onclick="startEditRemarks(<?php echo $asset['id']; ?>)" class="opacity-0 group-hover:opacity-100 text-blue-600 hover:text-blue-800 transition p-1 rounded hover:bg-slate-100 no-print absolute right-1 top-1" title="Edit Remarks">
                                 ✏️
                             </button>
                         </div>
                         <!-- Edit mode -->
                         <div id="remarks-edit-<?php echo $asset['id']; ?>" class="hidden flex-col gap-2 mt-1 no-print">
-                            <textarea id="remarks-input-<?php echo $asset['id']; ?>" rows="2" class="w-full text-xs p-1 border border-blue-400 rounded outline-none focus:ring-1 focus:ring-blue-400 bg-white" style="line-height: 1.25;"><?php echo htmlspecialchars($remarks); ?></textarea>
+                            <textarea id="remarks-input-<?php echo $asset['id']; ?>" rows="3" class="w-full text-xs p-1 border border-blue-400 rounded outline-none focus:ring-1 focus:ring-blue-400 bg-white" style="line-height: 1.35;"><?php echo htmlspecialchars($remarks); ?></textarea>
                             <div class="flex gap-1 justify-end">
                                 <button onclick="cancelEditRemarks(<?php echo $asset['id']; ?>)" class="px-2 py-0.5 text-[10px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded">Cancel</button>
                                 <button onclick="saveRemarks(<?php echo $asset['id']; ?>, '<?php echo htmlspecialchars($asset['batch_id']); ?>')" class="px-2 py-0.5 text-[10px] font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded">Save</button>
@@ -605,7 +612,23 @@ $register_title = $category_register_titles[$selectedCategory];
             window.open(`print-register.php?category=${categoryId}&page_no=${pageNo}`, '_blank');
         }
     }
+    function toggleRemarks(btn, id) {
+        const span = document.getElementById(`remarks-text-${id}`);
+        const isExpanded = span.style.webkitLineClamp === 'unset';
+        if (isExpanded) {
+            span.style.webkitLineClamp = '4';
+            span.style.maxHeight = '4.8em';
+            span.style.overflow = 'hidden';
+            btn.textContent = 'show more';
+        } else {
+            span.style.webkitLineClamp = 'unset';
+            span.style.maxHeight = 'none';
+            span.style.overflow = 'visible';
+            btn.textContent = 'show less';
+        }
+    }
     function startEditRemarks(id) {
+
         document.getElementById(`remarks-view-${id}`).classList.add('hidden');
         document.getElementById(`remarks-edit-${id}`).classList.remove('hidden');
         document.getElementById(`remarks-input-${id}`).focus();

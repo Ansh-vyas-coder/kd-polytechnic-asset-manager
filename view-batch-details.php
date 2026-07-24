@@ -40,6 +40,13 @@ $items = [];
 $sql = "SELECT * FROM assets WHERE batch_id = ?";
 $params = ["s", $batch_id];
 
+// Staff can only view rows assigned to themselves
+if ($_SESSION['role'] === 'staff') {
+    $sql .= " AND assigned_to = ?";
+    $params[0] .= "s";
+    $params[] = $_SESSION['user_name'];
+}
+
 if (!empty($search_query)) {
     $sql .= " AND (item_no LIKE ? OR asset_no LIKE ? OR assigned_to LIKE ? OR remarks LIKE ?)";
     $params[0] .= "ssss";
@@ -114,15 +121,23 @@ if (!function_exists('getInitials')) {
       <a href="dashboard.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
         <i data-lucide="layout-dashboard" style="width:18px;height:18px"></i> Dashboard
       </a>
+      <?php if ($_SESSION['role'] === 'admin'): ?>
       <a href="dashboard.php?view=add-asset" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
         <i data-lucide="plus-square" style="width:18px;height:18px"></i> Add Item(s)
       </a>
       <a href="dashboard.php?view=register" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
         <i data-lucide="book-open" style="width:18px;height:18px"></i> Virtual Register
       </a>
-      <?php if ($_SESSION['role'] === 'admin'): ?>
+      <a href="dashboard.php?view=generate-report" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
+        <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i> Generate Report
+      </a>
       <a href="manage-users.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
         <i data-lucide="users" style="width:18px;height:18px"></i> Manage Users
+      </a>
+      <?php endif; ?>
+      <?php if ($_SESSION['role'] === 'staff'): ?>
+      <a href="dashboard.php?view=my-assets" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
+        <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i> My Assigned Assets
       </a>
       <?php endif; ?>
     </nav>

@@ -15,7 +15,7 @@ $category_names = [
 ];
 
 $category_register_titles = [
-    1 => 'Departmental Stores Expendable Register',
+    1 => 'Departmental Stores Expandable Register',
     2 => 'Departmental Stores Consumables Register',
     3 => 'Departmental Stores Deadstock Register',
     4 => 'Departmental Stores Furniture Register',
@@ -225,16 +225,16 @@ $register_title = $category_register_titles[$selectedCategory];
                     <th style="width:8%">GEM Ord &amp;<br>Invoice No</th>
                     <th style="width:4%">Quantity<br>Received</th>
                     <th style="width:5%">Cost</th>
-                    <th style="width:5%">Initial of Head<br>of<br>Dept/Office</th>
-                    <th style="width:5%">Signature of<br>Receiver</th>
+                    <th style="width:3%">Initial of Head<br>of<br>Dept/Office</th>
+                    <th style="width:3%">Signature of<br>Receiver</th>
                     <th style="width:8%">Asset No</th>
                     <th style="width:15%">Name of<br>Section / Asset Details</th>
                     <th style="width:4%">Quantity<br>Issued</th>
                     <th style="width:6%">Date of<br>Issue</th>
-                    <th style="width:5%">Signature of<br>Receiver</th>
+                    <th style="width:3%">Signature of<br>Receiver</th>
                     <th style="width:5%">Initial of<br>Store or Clerk</th>
-                    <th style="width:5%">Initial Head of<br>Department /<br>Office</th>
-                    <th style="width:15%">Remarks</th>
+                    <th style="width:3%">Initial Head of<br>Department /<br>Office</th>
+                    <th style="width:23%">Remarks</th>
                 </tr>
                 <tr>
                     <?php for ($i = 1; $i <= 15; $i++): ?>
@@ -284,7 +284,7 @@ $register_title = $category_register_titles[$selectedCategory];
                     <td></td>
                     <td></td>
                     <td></td>
-                    <td><?php echo htmlspecialchars($asset['remarks'] ?? ''); ?></td>
+                    <td style="white-space:pre-wrap; word-break:break-word; vertical-align:top;"><?php echo htmlspecialchars($asset['remarks'] ?? ''); ?></td>
                 </tr>
                 <?php
                     $sr_no++;
