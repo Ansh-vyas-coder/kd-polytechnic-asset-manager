@@ -6,11 +6,15 @@
     <title>Add Asset - K.D. Polytechnic</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="loader/loader.css" />
     <style>
         body { font-family: 'Inter', sans-serif; }
     </style>
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-800">
+    <div id="loader-wrapper">
+        <div class="loader"></div>
+    </div>
     <div class="min-h-screen flex items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
         <div class="w-full max-w-5xl rounded-3xl overflow-hidden shadow-2xl border border-slate-200 bg-white">
             <div class="bg-gradient-to-br from-blue-900 via-blue-800 to-blue-400 px-6 py-8 sm:px-10 lg:px-12 relative overflow-hidden">
@@ -232,5 +236,6 @@
 
     updateItemNo();
 </script>
+<script src="loader/loader.js"></script>
 </body>
 </html>

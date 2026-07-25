@@ -6,6 +6,7 @@
     <title>Login - Smart Department Asset Manager</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="loader/loader.css" />
     <style>
         body { font-family: 'Inter', sans-serif; }
         /* Spinner for login button */
@@ -20,6 +21,9 @@
     </style>
 </head>
 <body class="min-h-screen w-full flex flex-col lg:flex-row antialiased bg-gray-50 overflow-x-hidden">
+    <div id="loader-wrapper">
+        <div class="loader"></div>
+    </div>
 
     <div class="hidden lg:flex w-1/2 bg-gradient-to-br from-blue-900 via-blue-800 to-blue-400 flex-col justify-center items-center p-8 relative overflow-hidden">
         
@@ -224,8 +228,9 @@
                     loginBtn.disabled = false;
                     btnText.textContent = 'Login';
                 });
-            });
         });
-    </script>
+    });
+</script>
+<script src="loader/loader.js"></script>
 </body>
 </html>

@@ -199,8 +199,10 @@ $register_title = $category_register_titles[$selectedCategory];
             }
         }
     </style>
-</head>
+    <link rel="stylesheet" href="loader/loader.css" />
+
 <body>
+  <?php include 'loader/loader.html'; ?>
 
     <div class="print-btn-container">
         <button onclick="window.print()" class="print-btn">Print / Save as PDF</button>
@@ -312,5 +314,6 @@ $register_title = $category_register_titles[$selectedCategory];
             }, 500);
         };
     </script>
-</body>
+  <script src="loader/loader.js"></script>
+
 </html>
