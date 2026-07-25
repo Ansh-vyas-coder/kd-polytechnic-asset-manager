@@ -114,8 +114,10 @@ if (!function_exists('getInitials')) {
     cursor: pointer;
   }
 </style>
-</head>
+    <link rel="stylesheet" href="loader/loader.css" />
+
 <body class="h-screen bg-gray-50 text-gray-900 antialiased">
+  <?php include 'loader/loader.html'; ?>
 
 <div class="h-screen flex overflow-hidden">
 
@@ -258,5 +260,6 @@ if (!function_exists('getInitials')) {
   });
 </script>
 
-</body>
+  <script src="loader/loader.js"></script>
+
 </html>

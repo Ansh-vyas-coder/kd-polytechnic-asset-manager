@@ -30,7 +30,7 @@ $thisMonth = date('Y-m');
 $isStaff = ($_SESSION['role'] === 'staff');
 $staffName = $_SESSION['user_name'];
 
-$category_counts = [1=>0, 2=>0, 3=>0, 4=>0];
+$category_counts = [1 => 0, 2 => 0, 3 => 0, 4 => 0];
 if ($isStaff) {
   $stmt = $conn->prepare("SELECT category_id, SUM(quantity) as total_quantity FROM assets WHERE assigned_to = ? GROUP BY category_id");
   $stmt->bind_param("s", $staffName);
@@ -47,7 +47,7 @@ if ($result) {
 }
 
 // This-month counts
-$month_counts = [1=>0, 2=>0, 3=>0, 4=>0];
+$month_counts = [1 => 0, 2 => 0, 3 => 0, 4 => 0];
 if ($isStaff) {
   $stmt = $conn->prepare("SELECT category_id, SUM(quantity) as total_quantity FROM assets WHERE DATE_FORMAT(created_at, '%Y-%m') = ? AND assigned_to = ? GROUP BY category_id");
   $stmt->bind_param("ss", $thisMonth, $staffName);
@@ -66,65 +66,66 @@ if ($mResult) {
 // --- START: New Grouped Recent Activity ---
 
 // Helper function to group assets by batch
-function get_grouped_assets($conn, $period = 'all', $limit = null) {
-    $thisMonth = date('Y-m');
-    $isStaff = ($_SESSION['role'] === 'staff');
-    $staffName = $_SESSION['user_name'];
+function get_grouped_assets($conn, $period = 'all', $limit = null)
+{
+  $thisMonth = date('Y-m');
+  $isStaff = ($_SESSION['role'] === 'staff');
+  $staffName = $_SESSION['user_name'];
 
-    $sql = "SELECT id, asset_no, asset_name, category_id, location, assigned_to, created_at, batch_id, cost FROM assets";
-    $params = [];
-    $types = "";
+  $sql = "SELECT id, asset_no, asset_name, category_id, location, assigned_to, created_at, batch_id, cost FROM assets";
+  $params = [];
+  $types = "";
 
-    $where_clauses = [];
-    if ($period === 'month') {
-        $where_clauses[] = "DATE_FORMAT(created_at, '%Y-%m') = ?";
-        $types .= "s";
-        $params[] = $thisMonth;
+  $where_clauses = [];
+  if ($period === 'month') {
+    $where_clauses[] = "DATE_FORMAT(created_at, '%Y-%m') = ?";
+    $types .= "s";
+    $params[] = $thisMonth;
+  }
+
+  if ($isStaff) {
+    $where_clauses[] = "assigned_to = ?";
+    $types .= "s";
+    $params[] = $staffName;
+  }
+
+  if (!empty($where_clauses)) {
+    $sql .= " WHERE " . implode(" AND ", $where_clauses);
+  }
+
+  $sql .= " ORDER BY created_at DESC";
+
+  $stmt = $conn->prepare($sql);
+  if (!empty($params)) {
+    $stmt->bind_param($types, ...$params);
+  }
+  $stmt->execute();
+  $result = $stmt->get_result();
+
+  $asset_batches = [];
+  if ($result) {
+    while ($asset = $result->fetch_assoc()) {
+      $batch_id = $asset['batch_id'];
+      if (empty($batch_id)) {
+        $batch_id = 'batch_uncategorized_' . $asset['id'];
+      }
+
+      if (!isset($asset_batches[$batch_id])) {
+        $asset_batches[$batch_id] = [
+          'details' => $asset,
+          'items' => []
+        ];
+      }
+      $asset_batches[$batch_id]['items'][] = $asset;
     }
+  }
+  $stmt->close();
 
-    if ($isStaff) {
-        $where_clauses[] = "assigned_to = ?";
-        $types .= "s";
-        $params[] = $staffName;
-    }
+  if ($limit !== null) {
+    return array_slice($asset_batches, 0, $limit, true);
+  }
 
-    if (!empty($where_clauses)) {
-        $sql .= " WHERE " . implode(" AND ", $where_clauses);
-    }
-    
-    $sql .= " ORDER BY created_at DESC";
-
-    $stmt = $conn->prepare($sql);
-    if (!empty($params)) {
-        $stmt->bind_param($types, ...$params);
-    }
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    $asset_batches = [];
-    if ($result) {
-        while ($asset = $result->fetch_assoc()) {
-            $batch_id = $asset['batch_id'];
-            if (empty($batch_id)) {
-                $batch_id = 'batch_uncategorized_' . $asset['id'];
-            }
-
-            if (!isset($asset_batches[$batch_id])) {
-                $asset_batches[$batch_id] = [
-                    'details' => $asset,
-                    'items' => []
-                ];
-            }
-            $asset_batches[$batch_id]['items'][] = $asset;
-        }
-    }
-    $stmt->close();
-
-    if ($limit !== null) {
-        return array_slice($asset_batches, 0, $limit, true);
-    }
-    
-    return $asset_batches;
+  return $asset_batches;
 }
 
 // Fetch grouped assets for both periods
@@ -179,6 +180,9 @@ function getInitials($name)
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="loader/loader.css" />
+
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
   <script>
     tailwind.config = {
@@ -218,113 +222,113 @@ function getInitials($name)
 </head>
 
 <body class="h-screen bg-gray-50 text-gray-900 antialiased">
-
+  <?php include 'loader/loader.html'; ?>
   <div class="h-screen flex overflow-hidden">
 
     <aside id="sidebar"
       class="w-64 border-r border-gray-200 bg-white flex flex-col fixed inset-y-0 left-0 z-40 -translate-x-full lg:translate-x-0 lg:static transition-transform duration-200 ease-out">
 
-    <div class="h-16 flex items-center gap-3 px-4 border-b border-gray-200 shrink-0">
-      <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center shrink-0 p-1">
-        <img src="kdp_logo.jpeg" 
-             alt="KDP Logo" class="w-full h-full object-contain">
-      </div>
-      <span class="font-bold text-sm tracking-tight text-gray-900">Smart Asset Manager</span>
-    </div>
-
-    <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-      <a href="dashboard.php?view=dashboard" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo ($pageView === 'dashboard') ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
-        <i data-lucide="layout-dashboard" style="width:18px;height:18px"></i>
-        Dashboard
-      </a>
-      <?php if ($_SESSION['role'] === 'admin'): ?>
-      <a href="dashboard.php?view=add-asset" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showAddAsset ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
-        <i data-lucide="plus-square" style="width:18px;height:18px"></i>
-        Add Item(s)
-      </a>
-      <a href="dashboard.php?view=register" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showRegister ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
-        <i data-lucide="book-open" style="width:18px;height:18px"></i>
-        Virtual Register
-      </a>
-      <a href="dashboard.php?view=generate-report" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showGenerateReport ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
-        <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i>
-        Generate Report
-      </a>
-      <a href="manage-users.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
-        <i data-lucide="users" style="width:18px;height:18px"></i>
-        Manage Users
-      </a>
-      <?php endif; ?>
-      <?php if ($_SESSION['role'] === 'staff'): ?>
-      <a href="dashboard.php?view=my-assets" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showMyAssets ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
-        <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i>
-        My Assigned Assets
-      </a>
-      <?php endif; ?>
-    </nav>
-  </aside>
-
-  <div id="overlay" class="fixed inset-0 bg-gray-900/30 z-30 hidden"></div>
-
-  <div class="flex-1 flex flex-col min-w-0">
-
-    <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6 gap-4 shrink-0">
-      <div class="flex items-center gap-2 flex-1 min-w-0">
-        <button id="menuBtn" class="lg:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0">
-          <i data-lucide="menu" style="width:20px;height:20px"></i>
-        </button>
-        <div id="search-container" class="relative w-full flex items-center">
-          <div class="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
-            <i id="search-icon" data-lucide="search" class="text-gray-400" style="width:16px;height:16px"></i>
-            <div id="search-spinner" class="hidden animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
-          </div>
-          <input type="text" id="searchInput" placeholder="Search assets, locations, categories..."
-            class="w-full pl-10 pr-4 py-2.5 rounded-l-full bg-gray-50 border border-r-0 border-gray-200 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 transition" autocomplete="off" />
-          <button id="searchButton" class="px-4 py-2.5 bg-blue-600 text-white rounded-r-full hover:bg-blue-700 transition-colors text-sm font-semibold">
-            Search
-          </button>
-          <div id="searchResults" class="absolute top-full mt-2 w-full bg-white rounded-lg shadow-xl border border-gray-100 hidden z-20 overflow-hidden">
-            <!-- Search results will be populated here -->
-          </div>
+      <div class="h-16 flex items-center gap-3 px-4 border-b border-gray-200 shrink-0">
+        <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center shrink-0 p-1">
+          <img src="kdp_logo.jpeg"
+            alt="KDP Logo" class="w-full h-full object-contain">
         </div>
+        <span class="font-bold text-sm tracking-tight text-gray-900">Smart Asset Manager</span>
       </div>
 
+      <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+        <a href="dashboard.php?view=dashboard" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo ($pageView === 'dashboard') ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
+          <i data-lucide="layout-dashboard" style="width:18px;height:18px"></i>
+          Dashboard
+        </a>
+        <?php if ($_SESSION['role'] === 'admin'): ?>
+          <a href="dashboard.php?view=add-asset" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showAddAsset ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
+            <i data-lucide="plus-square" style="width:18px;height:18px"></i>
+            Add Item(s)
+          </a>
+          <a href="dashboard.php?view=register" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showRegister ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
+            <i data-lucide="book-open" style="width:18px;height:18px"></i>
+            Virtual Register
+          </a>
+          <a href="dashboard.php?view=generate-report" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showGenerateReport ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
+            <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i>
+            Generate Report
+          </a>
+          <a href="manage-users.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
+            <i data-lucide="users" style="width:18px;height:18px"></i>
+            Manage Users
+          </a>
+        <?php endif; ?>
+        <?php if ($_SESSION['role'] === 'staff'): ?>
+          <a href="dashboard.php?view=my-assets" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showMyAssets ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
+            <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i>
+            My Assigned Assets
+          </a>
+        <?php endif; ?>
+      </nav>
+    </aside>
 
-      <div class="flex items-center gap-3 sm:gap-4 shrink-0">
-        <button class="relative p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
-          <i data-lucide="bell" style="width:19px;height:19px"></i>
-          <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white"></span>
-        </button>
-        <div class="w-px h-6 bg-gray-200 hidden sm:block"></div>
-        <div class="relative">
-          <button id="userMenuBtn" class="flex items-center gap-2.5 group">
-            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-semibold shrink-0"><?php echo getInitials($_SESSION['user_name']); ?></div>
-            <div class="hidden sm:block text-left leading-tight">
-              <p class="text-sm font-semibold text-gray-900"><?php echo htmlspecialchars($_SESSION['user_name']); ?></p>
-              <p class="text-xs text-gray-400"><?php echo htmlspecialchars(ucfirst($_SESSION['role'])); ?> - Computer Dept.</p>
-            </div>
-            <i data-lucide="chevron-down" class="hidden sm:block text-gray-400 group-hover:text-gray-600 transition-colors" style="width:16px;height:16px"></i>
+    <div id="overlay" class="fixed inset-0 bg-gray-900/30 z-30 hidden"></div>
+
+    <div class="flex-1 flex flex-col min-w-0">
+
+      <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6 gap-4 shrink-0">
+        <div class="flex items-center gap-2 flex-1 min-w-0">
+          <button id="menuBtn" class="lg:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0">
+            <i data-lucide="menu" style="width:20px;height:20px"></i>
           </button>
-          <!-- Dropdown Menu -->
-          <div id="userMenuDropdown" class="absolute top-full right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-100 hidden z-10">
-            <div class="p-3 border-b border-gray-100">
-              <p class="text-sm font-semibold text-gray-900 truncate"><?php echo htmlspecialchars($_SESSION['user_name']); ?></p>
-              <p class="text-xs text-gray-500 truncate mt-0.5"><?php echo htmlspecialchars($_SESSION['user_email']); ?></p>
+          <div id="search-container" class="relative w-full flex items-center">
+            <div class="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
+              <i id="search-icon" data-lucide="search" class="text-gray-400" style="width:16px;height:16px"></i>
+              <div id="search-spinner" class="hidden animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
             </div>
-            <div class="p-1.5">
-              <button id="changePasswordBtn" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
-                <i data-lucide="key-round" style="width:16px;height:16px"></i>
-                Change Password
-              </button>
-              <a href="logout.php" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
-                <i data-lucide="log-out" style="width:16px;height:16px"></i>
-                Logout
-              </a>
+            <input type="text" id="searchInput" placeholder="Search assets, locations, categories..."
+              class="w-full pl-10 pr-4 py-2.5 rounded-l-full bg-gray-50 border border-r-0 border-gray-200 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 transition" autocomplete="off" />
+            <button id="searchButton" class="px-4 py-2.5 bg-blue-600 text-white rounded-r-full hover:bg-blue-700 transition-colors text-sm font-semibold">
+              Search
+            </button>
+            <div id="searchResults" class="absolute top-full mt-2 w-full bg-white rounded-lg shadow-xl border border-gray-100 hidden z-20 overflow-hidden">
+              <!-- Search results will be populated here -->
             </div>
           </div>
         </div>
-      </div>
-    </header>
+
+
+        <div class="flex items-center gap-3 sm:gap-4 shrink-0">
+          <button class="relative p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
+            <i data-lucide="bell" style="width:19px;height:19px"></i>
+            <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white"></span>
+          </button>
+          <div class="w-px h-6 bg-gray-200 hidden sm:block"></div>
+          <div class="relative">
+            <button id="userMenuBtn" class="flex items-center gap-2.5 group">
+              <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-semibold shrink-0"><?php echo getInitials($_SESSION['user_name']); ?></div>
+              <div class="hidden sm:block text-left leading-tight">
+                <p class="text-sm font-semibold text-gray-900"><?php echo htmlspecialchars($_SESSION['user_name']); ?></p>
+                <p class="text-xs text-gray-400"><?php echo htmlspecialchars(ucfirst($_SESSION['role'])); ?> - Computer Dept.</p>
+              </div>
+              <i data-lucide="chevron-down" class="hidden sm:block text-gray-400 group-hover:text-gray-600 transition-colors" style="width:16px;height:16px"></i>
+            </button>
+            <!-- Dropdown Menu -->
+            <div id="userMenuDropdown" class="absolute top-full right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-100 hidden z-10">
+              <div class="p-3 border-b border-gray-100">
+                <p class="text-sm font-semibold text-gray-900 truncate"><?php echo htmlspecialchars($_SESSION['user_name']); ?></p>
+                <p class="text-xs text-gray-500 truncate mt-0.5"><?php echo htmlspecialchars($_SESSION['user_email']); ?></p>
+              </div>
+              <div class="p-1.5">
+                <button id="changePasswordBtn" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
+                  <i data-lucide="key-round" style="width:16px;height:16px"></i>
+                  Change Password
+                </button>
+                <a href="logout.php" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
+                  <i data-lucide="log-out" style="width:16px;height:16px"></i>
+                  Logout
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
 
       <main class="flex-1 overflow-y-auto bg-gray-50 p-4 lg:p-6">
 
@@ -334,14 +338,14 @@ function getInitials($name)
           </div>
         <?php elseif ($showGenerateReport): ?>
           <?php define('IS_EMBEDDED', true);
-          include 'generate-report.php'; 
+          include 'generate-report.php';
           ?>
         <?php elseif ($showMyAssets): ?>
-          <?php 
+          <?php
           if (!defined('IS_EMBEDDED')) {
-              define('IS_EMBEDDED', true);
+            define('IS_EMBEDDED', true);
           }
-          include 'generate-report.php'; 
+          include 'generate-report.php';
           ?>
         <?php elseif (!$showAddAsset && !$showGenerateReport && !$showMyAssets): ?>
           <div id="dashboardView">
@@ -375,40 +379,40 @@ function getInitials($name)
 
               <?php
               $cats = [
-                1 => ['label'=>'Expandable',  'icon'=>'package',        'color'=>'blue',    'hover'=>'blue'],
-                2 => ['label'=>'Consumables', 'icon'=>'flask-conical',  'color'=>'purple',  'hover'=>'purple'],
-                3 => ['label'=>'Deadstock',   'icon'=>'alert-triangle', 'color'=>'amber',   'hover'=>'amber'],
-                4 => ['label'=>'Furniture',   'icon'=>'armchair',       'color'=>'emerald', 'hover'=>'emerald'],
+                1 => ['label' => 'Expandable',  'icon' => 'package',        'color' => 'blue',    'hover' => 'blue'],
+                2 => ['label' => 'Consumables', 'icon' => 'flask-conical',  'color' => 'purple',  'hover' => 'purple'],
+                3 => ['label' => 'Deadstock',   'icon' => 'alert-triangle', 'color' => 'amber',   'hover' => 'amber'],
+                4 => ['label' => 'Furniture',   'icon' => 'armchair',       'color' => 'emerald', 'hover' => 'emerald'],
               ];
               foreach ($cats as $cid => $cat):
                 $total = $category_counts[$cid];
                 $monthly = $month_counts[$cid];
               ?>
-              <a href="view-assets.php?category_id=<?php echo $cid; ?>"
-                 class="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-lg transition-all duration-300">
-                <div class="flex items-start justify-between">
-                  <p class="text-sm font-medium text-gray-500"><?php echo $cat['label']; ?></p>
-                  <div class="w-9 h-9 rounded-lg bg-<?php echo $cat['color']; ?>-50 flex items-center justify-center shrink-0">
-                    <i data-lucide="<?php echo $cat['icon']; ?>" class="text-<?php echo $cat['color']; ?>-600" style="width:18px;height:18px"></i>
+                <a href="view-assets.php?category_id=<?php echo $cid; ?>"
+                  class="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-lg transition-all duration-300">
+                  <div class="flex items-start justify-between">
+                    <p class="text-sm font-medium text-gray-500"><?php echo $cat['label']; ?></p>
+                    <div class="w-9 h-9 rounded-lg bg-<?php echo $cat['color']; ?>-50 flex items-center justify-center shrink-0">
+                      <i data-lucide="<?php echo $cat['icon']; ?>" class="text-<?php echo $cat['color']; ?>-600" style="width:18px;height:18px"></i>
+                    </div>
                   </div>
-                </div>
-                <!-- All-time count -->
-                <p id="count-all-<?php echo $cid; ?>" class="text-3xl font-bold text-gray-900 mt-3 tracking-tight"><?php echo number_format($total); ?></p>
-                <!-- This-month count (hidden by default) -->
-                <p id="count-month-<?php echo $cid; ?>" class="text-3xl font-bold text-gray-900 mt-3 tracking-tight hidden"><?php echo number_format($monthly); ?></p>
-                <!-- Sub-text all-time -->
-                <p id="sub-all-<?php echo $cid; ?>" class="text-xs font-medium text-emerald-600 mt-2 inline-flex items-center gap-1">
-                  <i data-lucide="layers" style="width:13px;height:13px"></i> Total assets
-                </p>
-                <!-- Sub-text this-month -->
-                <p id="sub-month-<?php echo $cid; ?>" class="text-xs font-medium mt-2 inline-flex items-center gap-1 hidden <?php echo $monthly > 0 ? 'text-emerald-600' : 'text-gray-400'; ?>">
-                  <?php if ($monthly > 0): ?>
-                    <i data-lucide="trending-up" style="width:13px;height:13px"></i> +<?php echo $monthly; ?> added this month
-                  <?php else: ?>
-                    <i data-lucide="minus" style="width:13px;height:13px"></i> None added this month
-                  <?php endif; ?>
-                </p>
-              </a>
+                  <!-- All-time count -->
+                  <p id="count-all-<?php echo $cid; ?>" class="text-3xl font-bold text-gray-900 mt-3 tracking-tight"><?php echo number_format($total); ?></p>
+                  <!-- This-month count (hidden by default) -->
+                  <p id="count-month-<?php echo $cid; ?>" class="text-3xl font-bold text-gray-900 mt-3 tracking-tight hidden"><?php echo number_format($monthly); ?></p>
+                  <!-- Sub-text all-time -->
+                  <p id="sub-all-<?php echo $cid; ?>" class="text-xs font-medium text-emerald-600 mt-2 inline-flex items-center gap-1">
+                    <i data-lucide="layers" style="width:13px;height:13px"></i> Total assets
+                  </p>
+                  <!-- Sub-text this-month -->
+                  <p id="sub-month-<?php echo $cid; ?>" class="text-xs font-medium mt-2 inline-flex items-center gap-1 hidden <?php echo $monthly > 0 ? 'text-emerald-600' : 'text-gray-400'; ?>">
+                    <?php if ($monthly > 0): ?>
+                      <i data-lucide="trending-up" style="width:13px;height:13px"></i> +<?php echo $monthly; ?> added this month
+                    <?php else: ?>
+                      <i data-lucide="minus" style="width:13px;height:13px"></i> None added this month
+                    <?php endif; ?>
+                  </p>
+                </a>
               <?php endforeach; ?>
             </div>
 
@@ -438,9 +442,9 @@ function getInitials($name)
                     </thead>
                     <tbody id="activityBody" class="divide-y divide-gray-100">
                       <?php
-                      $catColors = [1=>'emerald',2=>'blue',3=>'amber',4=>'purple'];
-                      $catLabels = [1=>'Expandable',2=>'Consumables',3=>'Deadstock',4=>'Furniture'];
-                      
+                      $catColors = [1 => 'emerald', 2 => 'blue', 3 => 'amber', 4 => 'purple'];
+                      $catLabels = [1 => 'Expandable', 2 => 'Consumables', 3 => 'Deadstock', 4 => 'Furniture'];
+
                       // Loop for "All Time" grouped assets
                       foreach ($recentAllGrouped as $batch_id => $batch):
                         $details = $batch['details'];
@@ -449,17 +453,19 @@ function getInitials($name)
                         $label = $catLabels[$cid] ?? 'Unknown';
                         $loc = htmlspecialchars($details['location'] ?: ($details['assigned_to'] ?: '—'));
                       ?>
-                      <tr class="row-all cursor-pointer" onclick="window.location.href='view-asset-details.php?category_id=<?php echo $cid; ?>&asset_name=<?php echo urlencode($details['asset_name']); ?>'">
-                        <td class="py-3.5 px-1 font-medium text-gray-900"><?php echo htmlspecialchars($details['asset_no']); ?></td>
-                        <td class="py-3.5 px-1 text-gray-600"><?php echo htmlspecialchars($details['asset_name']); ?></td>
-                        <td class="py-3.5 px-1"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-<?php echo $color; ?>-50 text-<?php echo $color; ?>-600"><?php echo $label; ?></span></td>
-                        <td class="py-3.5 px-1 text-gray-500"><?php echo $loc; ?></td>
-                        <td class="py-3.5 px-1 text-gray-500 text-right"><?php echo date('Y-m-d', strtotime($details['created_at'])); ?></td>
-                      </tr>
+                        <tr class="row-all cursor-pointer" onclick="window.location.href='view-asset-details.php?category_id=<?php echo $cid; ?>&asset_name=<?php echo urlencode($details['asset_name']); ?>'">
+                          <td class="py-3.5 px-1 font-medium text-gray-900"><?php echo htmlspecialchars($details['asset_no']); ?></td>
+                          <td class="py-3.5 px-1 text-gray-600"><?php echo htmlspecialchars($details['asset_name']); ?></td>
+                          <td class="py-3.5 px-1"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-<?php echo $color; ?>-50 text-<?php echo $color; ?>-600"><?php echo $label; ?></span></td>
+                          <td class="py-3.5 px-1 text-gray-500"><?php echo $loc; ?></td>
+                          <td class="py-3.5 px-1 text-gray-500 text-right"><?php echo date('Y-m-d', strtotime($details['created_at'])); ?></td>
+                        </tr>
                       <?php endforeach; ?>
-                      
+
                       <?php if (empty($recentAllGrouped)): ?>
-                      <tr class="row-all"><td colspan="5" class="py-6 text-center text-gray-400 text-sm">No assets found.</td></tr>
+                        <tr class="row-all">
+                          <td colspan="5" class="py-6 text-center text-gray-400 text-sm">No assets found.</td>
+                        </tr>
                       <?php endif; ?>
 
                       <?php
@@ -471,17 +477,19 @@ function getInitials($name)
                         $label = $catLabels[$cid] ?? 'Unknown';
                         $loc = htmlspecialchars($details['location'] ?: ($details['assigned_to'] ?: '—'));
                       ?>
-                      <tr class="row-month hidden cursor-pointer" onclick="window.location.href='view-asset-details.php?category_id=<?php echo $cid; ?>&asset_name=<?php echo urlencode($details['asset_name']); ?>'">
-                        <td class="py-3.5 px-1 font-medium text-gray-900"><?php echo htmlspecialchars($details['asset_no']); ?></td>
-                        <td class="py-3.5 px-1 text-gray-600"><?php echo htmlspecialchars($details['asset_name']); ?></td>
-                        <td class="py-3.5 px-1"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-<?php echo $color; ?>-50 text-<?php echo $color; ?>-600"><?php echo $label; ?></span></td>
-                        <td class="py-3.5 px-1 text-gray-500"><?php echo $loc; ?></td>
-                        <td class="py-3.5 px-1 text-gray-500 text-right"><?php echo date('Y-m-d', strtotime($details['created_at'])); ?></td>
-                      </tr>
+                        <tr class="row-month hidden cursor-pointer" onclick="window.location.href='view-asset-details.php?category_id=<?php echo $cid; ?>&asset_name=<?php echo urlencode($details['asset_name']); ?>'">
+                          <td class="py-3.5 px-1 font-medium text-gray-900"><?php echo htmlspecialchars($details['asset_no']); ?></td>
+                          <td class="py-3.5 px-1 text-gray-600"><?php echo htmlspecialchars($details['asset_name']); ?></td>
+                          <td class="py-3.5 px-1"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-<?php echo $color; ?>-50 text-<?php echo $color; ?>-600"><?php echo $label; ?></span></td>
+                          <td class="py-3.5 px-1 text-gray-500"><?php echo $loc; ?></td>
+                          <td class="py-3.5 px-1 text-gray-500 text-right"><?php echo date('Y-m-d', strtotime($details['created_at'])); ?></td>
+                        </tr>
                       <?php endforeach; ?>
-                      
+
                       <?php if (empty($recentMonthGrouped)): ?>
-                      <tr class="row-month hidden"><td colspan="5" class="py-6 text-center text-gray-400 text-sm">No assets added this month.</td></tr>
+                        <tr class="row-month hidden">
+                          <td colspan="5" class="py-6 text-center text-gray-400 text-sm">No assets added this month.</td>
+                        </tr>
                       <?php endif; ?>
                     </tbody>
                   </table>
@@ -569,64 +577,64 @@ function getInitials($name)
           </div>
         <?php endif; ?>
 
-    </main>
+      </main>
+    </div>
   </div>
-</div>
 
-<!-- Change Password Modal -->
-<div id="passwordModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
-  <div class="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all" id="passwordModalContent">
-    <form id="changePasswordForm" method="POST" action="change-password.php">
-      <div class="p-6">
-        <div class="flex items-center justify-between mb-4">
+  <!-- Change Password Modal -->
+  <div id="passwordModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all" id="passwordModalContent">
+      <form id="changePasswordForm" method="POST" action="change-password.php">
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-bold text-gray-900">Change Your Password</h3>
             <button type="button" id="closeModalBtn" class="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600">&times;</button>
-        </div>
-        
-        <div id="modal-notification" class="hidden text-sm mb-4"></div>
-
-        <div class="space-y-4">
-          <div>
-            <label for="current_password" class="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
-            <input type="password" name="current_password" id="current_password" required class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-          </div>
-          
-          <div>
-            <label for="new_password" class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
-            <input type="password" name="new_password" id="new_password" required class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <p class="text-xs text-gray-500 mt-1">Must be at least 8 characters long.</p>
           </div>
 
-          <div>
-            <label for="confirm_password" class="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
-            <input type="password" name="confirm_password" id="confirm_password" required class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <div id="modal-notification" class="hidden text-sm mb-4"></div>
+
+          <div class="space-y-4">
+            <div>
+              <label for="current_password" class="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+              <input type="password" name="current_password" id="current_password" required class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+
+            <div>
+              <label for="new_password" class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+              <input type="password" name="new_password" id="new_password" required class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <p class="text-xs text-gray-500 mt-1">Must be at least 8 characters long.</p>
+            </div>
+
+            <div>
+              <label for="confirm_password" class="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+              <input type="password" name="confirm_password" id="confirm_password" required class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
           </div>
         </div>
-      </div>
-      <div class="bg-gray-50 px-6 py-4 rounded-b-xl flex items-center justify-end gap-3">
-        <button type="button" id="cancelModalBtn" class="inline-flex justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50">
+        <div class="bg-gray-50 px-6 py-4 rounded-b-xl flex items-center justify-end gap-3">
+          <button type="button" id="cancelModalBtn" class="inline-flex justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50">
             Cancel
-        </button>
-        <button type="submit" id="submitPasswordBtn" class="inline-flex justify-center items-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-700/20 transition hover:bg-blue-800">
+          </button>
+          <button type="submit" id="submitPasswordBtn" class="inline-flex justify-center items-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-700/20 transition hover:bg-blue-800">
             <span id="submitBtnText">Update Password</span>
             <div id="submitSpinner" class="spinner hidden" style="border-top-color: #fff; border-right-color: transparent; width: 16px; height: 16px; margin-left: 8px;"></div>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- View All Recent Activity Modal -->
+  <div id="recentActivityModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col transform transition-all">
+      <div class="p-5 border-b border-gray-200 flex items-center justify-between">
+        <h3 class="text-lg font-bold text-gray-900">All Recent Activity</h3>
+        <button type="button" id="closeActivityModalBtn" class="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600">
+          <i data-lucide="x" style="width:20px;height:20px"></i>
         </button>
       </div>
-    </form>
-  </div>
-</div>
-
-<!-- View All Recent Activity Modal -->
-<div id="recentActivityModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
-  <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col transform transition-all">
-    <div class="p-5 border-b border-gray-200 flex items-center justify-between">
-      <h3 class="text-lg font-bold text-gray-900">All Recent Activity</h3>
-      <button type="button" id="closeActivityModalBtn" class="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600">
-        <i data-lucide="x" style="width:20px;height:20px"></i>
-      </button>
-    </div>
-    <div class="p-5 flex-1 overflow-y-auto">
-      <table class="w-full text-sm">
+      <div class="p-5 flex-1 overflow-y-auto">
+        <table class="w-full text-sm">
           <thead>
             <tr class="text-left text-[11px] text-gray-400 uppercase tracking-wider">
               <th class="pb-3 px-1 font-medium">ASSET NO</th>
@@ -641,8 +649,8 @@ function getInitials($name)
             // The modal starts from the all-time activity list. The month view is
             // handled client-side by data attributes so all-time never hides rows.
             $all_modal_assets = $recentAllGrouped_modal;
-            uasort($all_modal_assets, function($a, $b) {
-                return strtotime($b['details']['created_at']) - strtotime($a['details']['created_at']);
+            uasort($all_modal_assets, function ($a, $b) {
+              return strtotime($b['details']['created_at']) - strtotime($a['details']['created_at']);
             });
 
             // Loop for "All" modal assets
@@ -654,191 +662,193 @@ function getInitials($name)
               $loc = htmlspecialchars($details['location'] ?: ($details['assigned_to'] ?: '—'));
               $is_month_row = strpos($details['created_at'], $thisMonth) === 0;
             ?>
-            <tr class="activity-modal-row" data-is-month="<?php echo $is_month_row ? '1' : '0'; ?>" onclick="window.location.href='view-asset-details.php?category_id=<?php echo $cid; ?>&asset_name=<?php echo urlencode($details['asset_name']); ?>'">
-              <td class="py-3.5 px-1 font-medium text-gray-900"><?php echo htmlspecialchars($details['asset_no']); ?></td>
-              <td class="py-3.5 px-1 text-gray-600"><?php echo htmlspecialchars($details['asset_name']); ?></td>
-              <td class="py-3.5 px-1"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-<?php echo $color; ?>-50 text-<?php echo $color; ?>-600"><?php echo $label; ?></span></td>
-              <td class="py-3.5 px-1 text-gray-500"><?php echo $loc; ?></td>
-              <td class="py-3.5 px-1 text-gray-500 text-right"><?php echo date('Y-m-d', strtotime($details['created_at'])); ?></td>
-            </tr>
+              <tr class="activity-modal-row" data-is-month="<?php echo $is_month_row ? '1' : '0'; ?>" onclick="window.location.href='view-asset-details.php?category_id=<?php echo $cid; ?>&asset_name=<?php echo urlencode($details['asset_name']); ?>'">
+                <td class="py-3.5 px-1 font-medium text-gray-900"><?php echo htmlspecialchars($details['asset_no']); ?></td>
+                <td class="py-3.5 px-1 text-gray-600"><?php echo htmlspecialchars($details['asset_name']); ?></td>
+                <td class="py-3.5 px-1"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-<?php echo $color; ?>-50 text-<?php echo $color; ?>-600"><?php echo $label; ?></span></td>
+                <td class="py-3.5 px-1 text-gray-500"><?php echo $loc; ?></td>
+                <td class="py-3.5 px-1 text-gray-500 text-right"><?php echo date('Y-m-d', strtotime($details['created_at'])); ?></td>
+              </tr>
             <?php endforeach; ?>
-            
+
             <?php if (empty($all_modal_assets)): ?>
-            <tr><td colspan="5" class="py-10 text-center text-gray-500">No recent activity to display.</td></tr>
+              <tr>
+                <td colspan="5" class="py-10 text-center text-gray-500">No recent activity to display.</td>
+              </tr>
             <?php endif; ?>
           </tbody>
-      </table>
+        </table>
+      </div>
     </div>
   </div>
-</div>
 
   <script>
     lucide.createIcons();
 
-  // --- Period Toggle: All Time / This Month ---
-  function setPeriod(period) {
-    const isMonth = period === 'month';
+    // --- Period Toggle: All Time / This Month ---
+    function setPeriod(period) {
+      const isMonth = period === 'month';
 
-    // Toggle button styles
-    const btnAll   = document.getElementById('btnAllTime');
-    const btnMonth = document.getElementById('btnThisMonth');
-    if (btnAll && btnMonth) {
-      if (isMonth) {
-        btnAll.className   = 'text-xs font-semibold px-3 py-1.5 rounded-md text-gray-500 hover:bg-gray-50 transition-all';
-        btnMonth.className = 'text-xs font-semibold px-3 py-1.5 rounded-md bg-blue-600 text-white transition-all inline-flex items-center gap-1.5';
-      } else {
-        btnAll.className   = 'text-xs font-semibold px-3 py-1.5 rounded-md bg-blue-600 text-white transition-all';
-        btnMonth.className = 'text-xs font-semibold px-3 py-1.5 rounded-md text-gray-500 hover:bg-gray-50 transition-all inline-flex items-center gap-1.5';
+      // Toggle button styles
+      const btnAll = document.getElementById('btnAllTime');
+      const btnMonth = document.getElementById('btnThisMonth');
+      if (btnAll && btnMonth) {
+        if (isMonth) {
+          btnAll.className = 'text-xs font-semibold px-3 py-1.5 rounded-md text-gray-500 hover:bg-gray-50 transition-all';
+          btnMonth.className = 'text-xs font-semibold px-3 py-1.5 rounded-md bg-blue-600 text-white transition-all inline-flex items-center gap-1.5';
+        } else {
+          btnAll.className = 'text-xs font-semibold px-3 py-1.5 rounded-md bg-blue-600 text-white transition-all';
+          btnMonth.className = 'text-xs font-semibold px-3 py-1.5 rounded-md text-gray-500 hover:bg-gray-50 transition-all inline-flex items-center gap-1.5';
+        }
       }
+
+      // Toggle category card counts + sub-text (cats 1-4)
+      [1, 2, 3, 4].forEach(id => {
+        const countAll = document.getElementById('count-all-' + id);
+        const countMonth = document.getElementById('count-month-' + id);
+        const subAll = document.getElementById('sub-all-' + id);
+        const subMonth = document.getElementById('sub-month-' + id);
+        if (countAll) countAll.classList.toggle('hidden', isMonth);
+        if (countMonth) countMonth.classList.toggle('hidden', !isMonth);
+        if (subAll) subAll.classList.toggle('hidden', isMonth);
+        if (subMonth) subMonth.classList.toggle('hidden', !isMonth);
+      });
+
+      // Toggle activity rows
+      document.querySelectorAll('.row-all').forEach(r => r.classList.toggle('hidden', isMonth));
+      document.querySelectorAll('.row-month').forEach(r => r.classList.toggle('hidden', !isMonth));
+
+      // Update activity label
+      const lbl = document.getElementById('activityLabel');
+      if (lbl) lbl.textContent = isMonth ? '(This Month)' : '(All Time)';
+
+      lucide.createIcons();
     }
 
-    // Toggle category card counts + sub-text (cats 1-4)
-    [1,2,3,4].forEach(id => {
-      const countAll   = document.getElementById('count-all-'   + id);
-      const countMonth = document.getElementById('count-month-' + id);
-      const subAll     = document.getElementById('sub-all-'     + id);
-      const subMonth   = document.getElementById('sub-month-'   + id);
-      if (countAll)   countAll.classList.toggle('hidden',  isMonth);
-      if (countMonth) countMonth.classList.toggle('hidden', !isMonth);
-      if (subAll)     subAll.classList.toggle('hidden',  isMonth);
-      if (subMonth)   subMonth.classList.toggle('hidden', !isMonth);
-    });
 
-    // Toggle activity rows
-    document.querySelectorAll('.row-all').forEach(r   => r.classList.toggle('hidden',  isMonth));
-    document.querySelectorAll('.row-month').forEach(r => r.classList.toggle('hidden', !isMonth));
-
-    // Update activity label
-    const lbl = document.getElementById('activityLabel');
-    if (lbl) lbl.textContent = isMonth ? '(This Month)' : '(All Time)';
-
-    lucide.createIcons();
-  }
-
-
-  const sidebar = document.getElementById('sidebar');
-  const overlay = document.getElementById('overlay');
-  const menuBtn = document.getElementById('menuBtn');
-  const userMenuBtn = document.getElementById('userMenuBtn');
-  const userMenuDropdown = document.getElementById('userMenuDropdown');
-  const changePasswordBtn = document.getElementById('changePasswordBtn');
-  const passwordModal = document.getElementById('passwordModal');
-  const closeModalBtn = document.getElementById('closeModalBtn');
-  const cancelModalBtn = document.getElementById('cancelModalBtn');
-  const changePasswordForm = document.getElementById('changePasswordForm');
-  const notification = document.getElementById('notification');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('overlay');
+    const menuBtn = document.getElementById('menuBtn');
+    const userMenuBtn = document.getElementById('userMenuBtn');
+    const userMenuDropdown = document.getElementById('userMenuDropdown');
+    const changePasswordBtn = document.getElementById('changePasswordBtn');
+    const passwordModal = document.getElementById('passwordModal');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const cancelModalBtn = document.getElementById('cancelModalBtn');
+    const changePasswordForm = document.getElementById('changePasswordForm');
+    const notification = document.getElementById('notification');
 
     function openSidebar() {
       sidebar.classList.remove('-translate-x-full');
       overlay.classList.remove('hidden');
     }
 
-  function closeSidebar() {
-    sidebar.classList.add('-translate-x-full');
-    overlay.classList.add('hidden');
-  }
-
-  // --- User Menu Dropdown Logic ---
-  userMenuBtn.addEventListener('click', () => {
-    userMenuDropdown.classList.toggle('hidden');
-  });
-
-  menuBtn.addEventListener('click', openSidebar);
-  overlay.addEventListener('click', closeSidebar);
-
-  // --- Change Password Modal Logic ---
-  function showPasswordModal() {
-    passwordModal.classList.remove('hidden');
-    changePasswordForm.reset();
-    document.getElementById('modal-notification').classList.add('hidden');
-  }
-
-  function hidePasswordModal() {
-    passwordModal.classList.add('hidden');
-  }
-
-  changePasswordBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    userMenuDropdown.classList.add('hidden'); // Close dropdown first
-    showPasswordModal();
-  });
-
-  closeModalBtn.addEventListener('click', hidePasswordModal);
-  cancelModalBtn.addEventListener('click', hidePasswordModal);
-  passwordModal.addEventListener('click', (e) => {
-    if (e.target === passwordModal) {
-      hidePasswordModal();
+    function closeSidebar() {
+      sidebar.classList.add('-translate-x-full');
+      overlay.classList.add('hidden');
     }
-  });
 
-  changePasswordForm.addEventListener('submit', function(event) {
-    event.preventDefault();
+    // --- User Menu Dropdown Logic ---
+    userMenuBtn.addEventListener('click', () => {
+      userMenuDropdown.classList.toggle('hidden');
+    });
 
-    const submitBtn = document.getElementById('submitPasswordBtn');
-    const btnText = document.getElementById('submitBtnText');
-    const spinner = document.getElementById('submitSpinner');
-    const modalNotification = document.getElementById('modal-notification');
+    menuBtn.addEventListener('click', openSidebar);
+    overlay.addEventListener('click', closeSidebar);
 
-    submitBtn.disabled = true;
-    btnText.textContent = 'Updating...';
-    spinner.classList.remove('hidden');
-    modalNotification.classList.add('hidden');
+    // --- Change Password Modal Logic ---
+    function showPasswordModal() {
+      passwordModal.classList.remove('hidden');
+      changePasswordForm.reset();
+      document.getElementById('modal-notification').classList.add('hidden');
+    }
 
-    const formData = new FormData(changePasswordForm);
+    function hidePasswordModal() {
+      passwordModal.classList.add('hidden');
+    }
 
-    fetch('change-password.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
+    changePasswordBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      userMenuDropdown.classList.add('hidden'); // Close dropdown first
+      showPasswordModal();
+    });
+
+    closeModalBtn.addEventListener('click', hidePasswordModal);
+    cancelModalBtn.addEventListener('click', hidePasswordModal);
+    passwordModal.addEventListener('click', (e) => {
+      if (e.target === passwordModal) {
+        hidePasswordModal();
+      }
+    });
+
+    changePasswordForm.addEventListener('submit', function(event) {
+      event.preventDefault();
+
+      const submitBtn = document.getElementById('submitPasswordBtn');
+      const btnText = document.getElementById('submitBtnText');
+      const spinner = document.getElementById('submitSpinner');
+      const modalNotification = document.getElementById('modal-notification');
+
+      submitBtn.disabled = true;
+      btnText.textContent = 'Updating...';
+      spinner.classList.remove('hidden');
+      modalNotification.classList.add('hidden');
+
+      const formData = new FormData(changePasswordForm);
+
+      fetch('change-password.php', {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
             modalNotification.className = 'bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg text-sm';
             modalNotification.textContent = data.message;
             modalNotification.classList.remove('hidden');
             setTimeout(hidePasswordModal, 2000);
-        } else {
+          } else {
             modalNotification.className = 'bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm';
             modalNotification.textContent = data.message || 'An error occurred.';
             modalNotification.classList.remove('hidden');
-        }
-    })
-    .finally(() => {
-        submitBtn.disabled = false;
-        btnText.textContent = 'Update Password';
-        spinner.classList.add('hidden');
+          }
+        })
+        .finally(() => {
+          submitBtn.disabled = false;
+          btnText.textContent = 'Update Password';
+          spinner.classList.add('hidden');
+        });
     });
-  });
 
-  // --- Live Search Logic ---
-  const IS_STAFF    = <?php echo ($_SESSION['role'] === 'staff') ? 'true' : 'false'; ?>;
-  const CURRENT_USER = <?php echo json_encode($_SESSION['user_name'] ?? ''); ?>;
-  const searchInput = document.getElementById('searchInput');
-  const searchResults = document.getElementById('searchResults');
-  const searchContainer = document.getElementById('search-container');
-  const searchIcon = document.getElementById('search-icon');
-  const searchSpinner = document.getElementById('search-spinner');
-  const searchButton = document.getElementById('searchButton');
-  let searchTimeout;
+    // --- Live Search Logic ---
+    const IS_STAFF = <?php echo ($_SESSION['role'] === 'staff') ? 'true' : 'false'; ?>;
+    const CURRENT_USER = <?php echo json_encode($_SESSION['user_name'] ?? ''); ?>;
+    const searchInput = document.getElementById('searchInput');
+    const searchResults = document.getElementById('searchResults');
+    const searchContainer = document.getElementById('search-container');
+    const searchIcon = document.getElementById('search-icon');
+    const searchSpinner = document.getElementById('search-spinner');
+    const searchButton = document.getElementById('searchButton');
+    let searchTimeout;
 
-  function performSearch() {
-    const query = searchInput.value.trim();
-    
-    if (query.length < 2) {
-      searchResults.classList.add('hidden');
-      return;
-    }
+    function performSearch() {
+      const query = searchInput.value.trim();
 
-    searchIcon.classList.add('hidden');
-    searchSpinner.classList.remove('hidden');
+      if (query.length < 2) {
+        searchResults.classList.add('hidden');
+        return;
+      }
 
-    fetch(`search.php?query=${encodeURIComponent(query)}`)
-      .then(response => response.json())
-      .then(data => {
-        if (data.length > 0) {
-          let resultsHtml = '<div class="p-2"><ul class="space-y-1">';
-          data.forEach(item => {
-            const infoHtml = `
+      searchIcon.classList.add('hidden');
+      searchSpinner.classList.remove('hidden');
+
+      fetch(`search.php?query=${encodeURIComponent(query)}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.length > 0) {
+            let resultsHtml = '<div class="p-2"><ul class="space-y-1">';
+            data.forEach(item => {
+              const infoHtml = `
               <p class="font-semibold text-sm text-gray-800 capitalize">${item.asset_name}</p>
               <div class="text-xs text-gray-500 mt-1 flex items-center gap-x-3">
                 <span>in <strong class="font-medium text-gray-600">${item.category_name}</strong></span>
@@ -847,11 +857,11 @@ function getInitials($name)
               </div>
             `;
 
-            if (IS_STAFF) {
-              const isOwn = item.assigned_to && item.assigned_to.toLowerCase() === CURRENT_USER.toLowerCase();
-              if (isOwn) {
-                // Staff viewing their OWN asset — clickable
-                resultsHtml += `
+              if (IS_STAFF) {
+                const isOwn = item.assigned_to && item.assigned_to.toLowerCase() === CURRENT_USER.toLowerCase();
+                if (isOwn) {
+                  // Staff viewing their OWN asset — clickable
+                  resultsHtml += `
                   <li>
                     <a href="view-asset-details.php?category_id=${item.category_id}&asset_name=${encodeURIComponent(item.asset_name)}"
                        class="flex items-center justify-between p-3 rounded-md hover:bg-blue-50 border border-transparent hover:border-blue-100 transition-colors">
@@ -860,9 +870,9 @@ function getInitials($name)
                     </a>
                   </li>
                 `;
-              } else {
-                // Staff viewing someone else's asset — info only
-                resultsHtml += `
+                } else {
+                  // Staff viewing someone else's asset — info only
+                  resultsHtml += `
                   <li>
                     <div class="flex items-center justify-between p-3 rounded-md bg-gray-50 cursor-default select-none">
                       <div>${infoHtml}</div>
@@ -870,10 +880,10 @@ function getInitials($name)
                     </div>
                   </li>
                 `;
-              }
-            } else {
-              // Admin: clickable link to asset details
-              resultsHtml += `
+                }
+              } else {
+                // Admin: clickable link to asset details
+                resultsHtml += `
                 <li>
                   <a href="view-asset-details.php?category_id=${item.category_id}&asset_name=${encodeURIComponent(item.asset_name)}"
                      class="flex items-center justify-between p-3 rounded-md hover:bg-gray-50 transition-colors">
@@ -882,82 +892,81 @@ function getInitials($name)
                   </a>
                 </li>
               `;
-            }
-          });
-          resultsHtml += '</ul></div>';
-          searchResults.innerHTML = resultsHtml;
-          searchResults.classList.remove('hidden');
-          lucide.createIcons();
-        } else {
-          searchResults.innerHTML = '<p class="p-4 text-sm text-center text-gray-500">No results found.</p>';
-          searchResults.classList.remove('hidden');
-        }
-      })
-      .catch(error => {
-        console.error('Search error:', error);
+              }
+            });
+            resultsHtml += '</ul></div>';
+            searchResults.innerHTML = resultsHtml;
+            searchResults.classList.remove('hidden');
+            lucide.createIcons();
+          } else {
+            searchResults.innerHTML = '<p class="p-4 text-sm text-center text-gray-500">No results found.</p>';
+            searchResults.classList.remove('hidden');
+          }
+        })
+        .catch(error => {
+          console.error('Search error:', error);
+          searchResults.classList.add('hidden');
+        })
+        .finally(() => {
+          searchIcon.classList.remove('hidden');
+          searchSpinner.classList.add('hidden');
+        });
+    };
+
+    searchInput.addEventListener('input', function() {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(performSearch, 300); // Debounce search
+    });
+
+    searchButton.addEventListener('click', performSearch);
+
+    searchInput.addEventListener('keydown', function(event) {
+      if (event.key === 'Enter') performSearch();
+    });
+
+    // Close popups when clicking outside
+    document.addEventListener('click', function(event) {
+      if (!searchContainer.contains(event.target)) {
         searchResults.classList.add('hidden');
-      })
-      .finally(() => {
-        searchIcon.classList.remove('hidden');
-        searchSpinner.classList.add('hidden');
-      });
-  };
-
-  searchInput.addEventListener('input', function() {
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(performSearch, 300); // Debounce search
-  });
-
-  searchButton.addEventListener('click', performSearch);
-
-  searchInput.addEventListener('keydown', function(event) {
-    if (event.key === 'Enter') performSearch();
-  });
-
-  // Close popups when clicking outside
-  document.addEventListener('click', function(event) {
-    if (!searchContainer.contains(event.target)) {
-      searchResults.classList.add('hidden');
-    }
-    if (!userMenuBtn.contains(event.target) && !userMenuDropdown.contains(event.target)) {
-      userMenuDropdown.classList.add('hidden');
-    }
-  });
-
-  // --- View All Activity Modal Logic ---
-  const activityModal = document.getElementById('recentActivityModal');
-  const viewAllBtn = document.getElementById('viewAllBtn');
-  const closeActivityModalBtn = document.getElementById('closeActivityModalBtn');
-
-  if (viewAllBtn && activityModal && closeActivityModalBtn) {
-    viewAllBtn.addEventListener('click', () => {
-      // Check which tab is active on the main page
-      const isMonthView = document.getElementById('btnThisMonth').classList.contains('bg-blue-600');
-      
-      // All Time should show every recent activity row; This Month filters only
-      // rows whose created_at belongs to the current month.
-      document.querySelectorAll('.activity-modal-row').forEach(row => {
-        const isMonthRow = row.dataset.isMonth === '1';
-        row.classList.toggle('hidden', isMonthView && !isMonthRow);
-      });
-
-      activityModal.classList.remove('hidden');
-      lucide.createIcons(); // Re-render icons if any are in the modal
-    });
-
-    closeActivityModalBtn.addEventListener('click', () => {
-      activityModal.classList.add('hidden');
-    });
-
-    activityModal.addEventListener('click', (e) => {
-      if (e.target === activityModal) {
-        activityModal.classList.add('hidden');
+      }
+      if (!userMenuBtn.contains(event.target) && !userMenuDropdown.contains(event.target)) {
+        userMenuDropdown.classList .add('hidden');
       }
     });
-  }
-  
-</script>
 
+    // --- View All Activity Modal Logic ---
+    const activityModal = document.getElementById('recentActivityModal');
+    const viewAllBtn = document.getElementById('viewAllBtn');
+    const closeActivityModalBtn = document.getElementById('closeActivityModalBtn');
+
+    if (viewAllBtn && activityModal && closeActivityModalBtn) {
+      viewAllBtn.addEventListener('click', () => {
+        // Check which tab is active on the main page
+        const isMonthView = document.getElementById('btnThisMonth').classList.contains('bg-blue-600');
+
+        // All Time should show every recent activity row; This Month filters only
+        // rows whose created_at belongs to the current month.
+        document.querySelectorAll('.activity-modal-row').forEach(row => {
+          const isMonthRow = row.dataset.isMonth === '1';
+          row.classList.toggle('hidden', isMonthView && !isMonthRow);
+        });
+
+        activityModal.classList.remove('hidden');
+        lucide.createIcons(); // Re-render icons if any are in the modal
+      });
+
+      closeActivityModalBtn.addEventListener('click', () => {
+        activityModal.classList.add('hidden');
+      });
+
+      activityModal.addEventListener('click', (e) => {
+        if (e.target === activityModal) {
+          activityModal.classList.add('hidden');
+        }
+      });
+    }
+  </script>
+  <script src="loader/loader.js"></script>
 </body>
 
 </html>

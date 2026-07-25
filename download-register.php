@@ -169,8 +169,10 @@ header('Cache-Control: max-age=0');
         page-break-after: always;
     }
 </style>
-</head>
+    <link rel="stylesheet" href="loader/loader.css" />
+
 <body>
+  <?php include 'loader/loader.html'; ?>
 
 <?php 
 $total_groups = count($groups);
@@ -285,6 +287,7 @@ foreach ($groups as $g_idx => $group):
 
 <?php endforeach; ?>
 
-</body>
+  <script src="loader/loader.js"></script>
+
 </html>
 <?php exit(); ?>

@@ -152,9 +152,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 font: inherit;
             }
         </style>
-    </head>
+        <link rel="stylesheet" href="loader/loader.css" />
+
 
     <body class="text-slate-800 flex flex-col min-h-screen">
+  <?php include 'loader/loader.html'; ?>
     <?php endif; ?>
 
     <!-- Header Section -->
@@ -389,7 +391,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </script>
 
     <?php if (!$is_embedded): ?>
-    </body>
+      <script src="loader/loader.js"></script>
+
 
     </html>
 <?php endif; ?>

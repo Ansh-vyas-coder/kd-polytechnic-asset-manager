@@ -158,7 +158,9 @@ echo '<!DOCTYPE html><html><head>
     .report-title { font-size: 14pt; font-weight: bold; text-align: center; padding: 8px; background:#1e3a5f; color:#fff; }
     .report-sub { font-size: 9pt; text-align: center; color: #555; padding: 4px; }
 </style>
-</head><body>';
+    <link rel="stylesheet" href="loader/loader.css" />
+<body>
+  <?php include 'loader/loader.html'; ?>
 
 echo '<table>';
 // Title row spanning all columns
@@ -195,7 +197,10 @@ while ($row = $result->fetch_assoc()) {
     echo '</tr>';
 }
 
-echo '</table></body></html>';
+echo '</table>';
+echo '</body>';
+echo '<script src="loader/loader.js"></script>';
+echo '</html>';
 
 $stmt->close();
 $conn->close();
