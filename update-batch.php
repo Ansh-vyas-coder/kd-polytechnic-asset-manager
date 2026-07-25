@@ -27,6 +27,22 @@ if (empty($batch_id) || $cost === null || $cost < 0) {
     exit();
 }
 
+// --- START NOTIFICATION PREP: Fetch current state ---
+$old_asset_data = null;
+if (isset($_SESSION['role']) && $_SESSION['role'] !== 'admin') {
+    $prep_stmt = $conn->prepare("SELECT asset_name, category_id, location, cost FROM assets WHERE batch_id = ? LIMIT 1");
+    if ($prep_stmt) {
+        $prep_stmt->bind_param("s", $batch_id);
+        $prep_stmt->execute();
+        $result = $prep_stmt->get_result();
+        if ($result->num_rows > 0) {
+            $old_asset_data = $result->fetch_assoc();
+        }
+        $prep_stmt->close();
+    }
+}
+// --- END NOTIFICATION PREP ---
+
 // Prepare UPDATE statement
 // These details are the same for all items in the batch.
 $sql = "UPDATE assets SET 
@@ -64,6 +80,17 @@ $stmt->bind_param(
 // Execute and check for success
 if ($stmt->execute()) {
     if ($stmt->affected_rows > 0) {
+        // --- START NOTIFICATION LOGIC ---
+        require_once 'notification_utils.php';
+        if ($old_asset_data && (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin')) {
+            $editor_name = htmlspecialchars($_SESSION['user_name'] ?? 'System');
+            $asset_name = htmlspecialchars($old_asset_data['asset_name']);
+            $link = "view-batch-details.php?category_id=" . $old_asset_data['category_id'] . "&asset_name=" . urlencode($old_asset_data['asset_name']) . "&batch_id=" . urlencode($batch_id);
+            $message = "A batch of '{$asset_name}' assets was updated by non-admin user {$editor_name}.";
+            
+            create_admin_notification($conn, $message, $link);
+        }
+        // --- END NOTIFICATION LOGIC ---
         echo json_encode(['status' => 'success']);
     } else {
         // This can happen if the submitted data is the same as the existing data

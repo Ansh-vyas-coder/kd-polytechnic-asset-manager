@@ -28,6 +28,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
     $stmt->bind_param("ssss", $full_name, $email, $password_hash, $role);
 
     if ($stmt->execute()) {
+        // Notify all admins about the new user
+        $new_user_name = htmlspecialchars($full_name);
+        $message = "New user '{$new_user_name}' was created.";
+        create_admin_notification($conn, $message, 'manage-users.php', $_SESSION['user_id']);
+
         header("Location: manage-users.php?status=user_added&new_password=" . urlencode($plain_password) . "&user_name=" . urlencode($full_name));
     } else {
         header("Location: manage-users.php?status=error&message=" . urlencode($stmt->error));

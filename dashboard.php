@@ -182,6 +182,7 @@ function getInitials($name)
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
   <link rel="stylesheet" href="loader/loader.css" />
+  <link rel="stylesheet" href="notifications.css" />
 
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
   <script>
@@ -295,10 +296,26 @@ function getInitials($name)
 
 
         <div class="flex items-center gap-3 sm:gap-4 shrink-0">
-          <button class="relative p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
-            <i data-lucide="bell" style="width:19px;height:19px"></i>
-            <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white"></span>
-          </button>
+          <div id="notification-wrapper" class="notification-wrapper">
+              <button type="button" class="notification-bell" aria-label="Notifications">
+                  <i data-lucide="bell" style="width:19px;height:19px"></i>
+                  <span class="notification-badge"></span>
+              </button>
+              <div class="notification-panel">
+                  <div class="notification-panel-header">
+                      <h4>Notifications</h4>
+                      <div class="notification-panel-actions">
+                          <button type="button" id="mark-all-read">Mark all as read</button>
+                          <button type="button" id="clear-all" title="Clear notifications" aria-label="Clear notifications">
+                              <i data-lucide="trash-2" style="width:14px;height:14px"></i>
+                          </button>
+                      </div>
+                  </div>
+                  <ul class="notification-list">
+                      <li class="notification-item empty">Loading...</li>
+                  </ul>
+              </div>
+          </div>
           <div class="w-px h-6 bg-gray-200 hidden sm:block"></div>
           <div class="relative">
             <button id="userMenuBtn" class="flex items-center gap-2.5 group">
@@ -967,6 +984,7 @@ function getInitials($name)
     }
   </script>
   <script src="loader/loader.js"></script>
+  <script src="notifications.js"></script>
 </body>
 
 </html>

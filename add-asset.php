@@ -9,6 +9,8 @@ if (!defined('IS_EMBEDDED')) { // If accessed directly, establish a context.
     }
 }
 
+require_once 'notification_utils.php';
+
 $suggested_item_no = 1;
 $latest_item_stmt = $conn->prepare("SELECT item_no FROM assets ORDER BY id DESC LIMIT 20");
 if ($latest_item_stmt) {
@@ -119,6 +121,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
     }
 
     if ($inserted) {
+        // --- START NOTIFICATION LOGIC ---
+            if (isset($_SESSION['role']) && $_SESSION['role'] !== 'admin') {
+                $adder_name = htmlspecialchars($_SESSION['user_name']);
+                $asset_name_str = htmlspecialchars($asset_name);
+                $message = "{$adder_name} added a new asset: '{$asset_name_str}' (Qty: {$asset_count}).";
+                $link = "view-assets.php?category_id=" . $category_id;
+                create_admin_notification($conn, $message, $link, $_SESSION['user_id'] ?? null);
+            }
+
+            if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin' && $assigned_to !== null) {
+                $faculty_user_id = get_user_id_by_name($conn, $assigned_to);
+                if ($faculty_user_id !== null) {
+                    $notified_user = htmlspecialchars($assigned_to);
+                    $notif_message = "New asset '" . htmlspecialchars($asset_name) . "' assigned to you by " . htmlspecialchars($_SESSION['user_name']) . ".";
+                    $notif_link = "view-batch-details.php?batch_id=" . urlencode($batch_id) . "&category_id=" . $category_id . "&asset_name=" . urlencode($asset_name);
+                    create_notification($conn, $faculty_user_id, $notif_message, $notif_link);
+                }
+            }
+            // --- END NOTIFICATION LOGIC ---
         header("Location: view-assets.php?category_id=" . $category_id . "&status=asset_added");
     } else {
         header("Location: dashboard.php?view=add-asset&status=error&message=" . urlencode('No asset numbers were generated.'));

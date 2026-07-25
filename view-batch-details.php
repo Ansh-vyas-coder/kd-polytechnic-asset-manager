@@ -547,7 +547,9 @@ if (!function_exists('getInitials')) {
                 <div class="grid grid-cols-1 gap-6">
                     <div>
                         <label for="item_assigned_to" class="block text-sm font-medium text-gray-700 mb-1">Assigned To</label>
-                        <input type="text" name="assigned_to" id="item_assigned_to" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                        <select name="assigned_to" id="item_assigned_to" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                            <option value="">Loading faculty...</option>
+                        </select>
                     </div>
                     <div>
                         <label for="item_location" class="block text-sm font-medium text-gray-700 mb-1">Location</label>
@@ -558,7 +560,7 @@ if (!function_exists('getInitials')) {
                     <div>
                         <label for="item_status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
                         <select name="status" id="item_status" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
-                            <option value="Active">Active</option>
+                            <option value="Active" >Active</option>
                             <option value="Under Maintenance">Under Maintenance</option>
                             <option value="Not Working">Not Working</option>
                         </select>
@@ -700,13 +702,20 @@ if (!function_exists('getInitials')) {
                 const remarks = this.dataset.remarks;
 
                 document.getElementById('item_id').value = id;
-                document.getElementById('item_assigned_to').value = assignedTo;
-                populateLocationOptions('item_location', location); // Populate and set current location
+                
+                const assignedToSelect = document.getElementById('item_assigned_to');
+                if (typeof facultyData !== 'undefined' && facultyData.length > 0) {
+                    populateFacultyOptions(assignedToSelect, assignedTo);
+                } else {
+                    assignedToSelect.value = assignedTo || '';
+                }
+                
+                populateLocationOptions('item_location', location);
                 document.getElementById('item_status').value = status;
                 document.getElementById('item_remarks').value = remarks;
 
                 itemEditModal.classList.remove('hidden');
-                lucide.createIcons(); // Re-render icons if any in modal
+                lucide.createIcons();
             });
         });
 
@@ -757,6 +766,44 @@ if (!function_exists('getInitials')) {
                     });
             });
         }
+
+        // --- Faculty Dropdown Logic for Item Edit Modal ---
+        let facultyData = [];
+
+        function populateFacultyOptions(selectElement, currentValue) {
+            if (!selectElement) return;
+            
+            let optionsHTML = '<option value="">Select faculty</option>';
+            
+            facultyData.forEach(user => {
+                optionsHTML += `<option value="${user.full_name}">${user.full_name}</option>`;
+            });
+            
+            selectElement.innerHTML = optionsHTML;
+            
+            if (currentValue && facultyData.some(user => user.full_name === currentValue)) {
+                selectElement.value = currentValue;
+            } else {
+                selectElement.value = "";
+            }
+        }
+
+        fetch('get-faculty.php')
+            .then(response => response.json())
+            .then(data => {
+                facultyData = data;
+                const assignedToSelect = document.getElementById('item_assigned_to');
+                if (assignedToSelect && itemEditModal.classList.contains('hidden') === false) {
+                    const currentValue = assignedToSelect.value;
+                    populateFacultyOptions(assignedToSelect, currentValue);
+                }
+            })
+            .catch(() => {
+                const select = document.getElementById('item_assigned_to');
+                if (select) {
+                    select.innerHTML = '<option value="">No faculty available</option>';
+                }
+            });
 
         // --- Location Dropdown Logic for Item Edit Modal ---
         const locationStorageKey = 'kd_polytechnic_saved_locations';

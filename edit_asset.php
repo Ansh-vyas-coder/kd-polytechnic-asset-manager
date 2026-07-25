@@ -1,5 +1,7 @@
 <?php
+session_start();
 require 'db.php';
+require_once 'notification_utils.php';
 
 // Extract and validate asset ID
 $asset_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
@@ -92,6 +94,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
 
             if ($update_stmt->execute()) {
+                // --- START NOTIFICATION LOGIC ---
+                $editor_name = htmlspecialchars($_SESSION['user_name'] ?? 'System');
+                $is_admin_editor = isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
+                $original_asset_name = htmlspecialchars($asset['asset_name']);
+                $link = "view-batch-details.php?category_id={$asset['category_id']}&asset_name=" . urlencode($asset['asset_name']) . "&batch_id={$asset['batch_id']}";
+                
+                // 1. Notify about assignment changes
+                if ($asset['assigned_to'] !== $assigned_to) {
+                    $message = "";
+                    if (empty($asset['assigned_to']) && !empty($assigned_to)) {
+                        $message = "Asset '{$original_asset_name}' was assigned to " . htmlspecialchars($assigned_to) . " by {$editor_name}.";
+                    } elseif (!empty($asset['assigned_to']) && empty($assigned_to)) {
+                        $message = "Asset '{$original_asset_name}' was returned from " . htmlspecialchars($asset['assigned_to']) . " by {$editor_name}.";
+                    } else {
+                        $message = "Asset '{$original_asset_name}' was reassigned from " . htmlspecialchars($asset['assigned_to']) . " to " . htmlspecialchars($assigned_to) . " by {$editor_name}.";
+                    }
+                    
+                    // Notify all admins, excluding the person who made the change
+                    create_admin_notification($conn, $message, $link, $_SESSION['user_id']);
+                    
+                    // Notify the new and old user if they are not the editor
+                    $old_user_id = get_user_id_by_name($conn, $asset['assigned_to']);
+                    $new_user_id = get_user_id_by_name($conn, $assigned_to);
+
+                    if ($old_user_id && $old_user_id != $_SESSION['user_id']) {
+                        create_notification($conn, $old_user_id, "Asset '{$original_asset_name}' is no longer assigned to you.", $link);
+                    }
+                    if ($new_user_id && $new_user_id != $_SESSION['user_id']) {
+                        create_notification($conn, $new_user_id, "Asset '{$original_asset_name}' has been assigned to you.", $link);
+                    }
+                }
+
+                // 2. Notify admins about other major changes by non-admins
+                if (!$is_admin_editor) {
+                    $changed_fields = [];
+                    if ($asset['location'] !== $location) $changed_fields[] = 'location';
+                    if ((float)$asset['cost'] !== $cost) $changed_fields[] = 'cost';
+                    if ($asset['asset_name'] !== $asset_name) $changed_fields[] = 'name';
+
+                    if (!empty($changed_fields)) {
+                        $fields_str = implode(', ', $changed_fields);
+                        $message = "Asset '{$original_asset_name}' ({$fields_str}) was updated by non-admin user {$editor_name}.";
+                        create_admin_notification($conn, $message, $link, $_SESSION['user_id']);
+                    }
+                }
+                // --- END NOTIFICATION LOGIC ---
+
                 if ($is_embedded) {
                     echo json_encode(['status' => 'success', 'message' => 'Asset updated successfully']);
                     exit();
