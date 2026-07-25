@@ -2,7 +2,7 @@
 // db.php - Database Connection File
 
 $host = "localhost";
-$port = 3306;
+$port = 3307;
 $username = "root"; // Default XAMPP username
 $password = "";     // Default XAMPP password (blank)
 $database = "smart_asset_manager";
