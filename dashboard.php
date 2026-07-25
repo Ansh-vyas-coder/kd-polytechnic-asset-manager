@@ -63,54 +63,79 @@ if ($mResult) {
   if ($isStaff && isset($stmt)) $stmt->close();
 }
 
-// Recent activity — all time (latest 8)
-$recentAll = [];
-if ($isStaff) {
-  $stmt = $conn->prepare("
-    SELECT a.asset_no, a.asset_name, a.category_id, a.location, a.assigned_to, a.created_at
-    FROM assets a
-    WHERE a.assigned_to = ?
-    ORDER BY a.created_at DESC LIMIT 8");
-  $stmt->bind_param("s", $staffName);
-  $stmt->execute();
-  $rAllRes = $stmt->get_result();
-} else {
-  $rAllRes = $conn->query("
-    SELECT a.asset_no, a.asset_name, a.category_id, a.location, a.assigned_to, a.created_at
-    FROM assets a
-    ORDER BY a.created_at DESC LIMIT 8");
-}
-if ($rAllRes) {
-  while ($row = $rAllRes->fetch_assoc()) {
-    $recentAll[] = $row;
-  }
-  if ($isStaff && isset($stmt)) $stmt->close();
+// --- START: New Grouped Recent Activity ---
+
+// Helper function to group assets by batch
+function get_grouped_assets($conn, $period = 'all', $limit = null) {
+    $thisMonth = date('Y-m');
+    $isStaff = ($_SESSION['role'] === 'staff');
+    $staffName = $_SESSION['user_name'];
+
+    $sql = "SELECT id, asset_no, asset_name, category_id, location, assigned_to, created_at, batch_id, cost FROM assets";
+    $params = [];
+    $types = "";
+
+    $where_clauses = [];
+    if ($period === 'month') {
+        $where_clauses[] = "DATE_FORMAT(created_at, '%Y-%m') = ?";
+        $types .= "s";
+        $params[] = $thisMonth;
+    }
+
+    if ($isStaff) {
+        $where_clauses[] = "assigned_to = ?";
+        $types .= "s";
+        $params[] = $staffName;
+    }
+
+    if (!empty($where_clauses)) {
+        $sql .= " WHERE " . implode(" AND ", $where_clauses);
+    }
+    
+    $sql .= " ORDER BY created_at DESC";
+
+    $stmt = $conn->prepare($sql);
+    if (!empty($params)) {
+        $stmt->bind_param($types, ...$params);
+    }
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $asset_batches = [];
+    if ($result) {
+        while ($asset = $result->fetch_assoc()) {
+            $batch_id = $asset['batch_id'];
+            if (empty($batch_id)) {
+                $batch_id = 'batch_uncategorized_' . $asset['id'];
+            }
+
+            if (!isset($asset_batches[$batch_id])) {
+                $asset_batches[$batch_id] = [
+                    'details' => $asset,
+                    'items' => []
+                ];
+            }
+            $asset_batches[$batch_id]['items'][] = $asset;
+        }
+    }
+    $stmt->close();
+
+    if ($limit !== null) {
+        return array_slice($asset_batches, 0, $limit, true);
+    }
+    
+    return $asset_batches;
 }
 
-// Recent activity — this month (latest 8)
-$recentMonth = [];
-if ($isStaff) {
-  $stmt = $conn->prepare("
-    SELECT a.asset_no, a.asset_name, a.category_id, a.location, a.assigned_to, a.created_at
-    FROM assets a
-    WHERE DATE_FORMAT(a.created_at, '%Y-%m') = ? AND a.assigned_to = ?
-    ORDER BY a.created_at DESC LIMIT 8");
-  $stmt->bind_param("ss", $thisMonth, $staffName);
-  $stmt->execute();
-  $rMonRes = $stmt->get_result();
-} else {
-  $rMonRes = $conn->query("
-    SELECT a.asset_no, a.asset_name, a.category_id, a.location, a.assigned_to, a.created_at
-    FROM assets a
-    WHERE DATE_FORMAT(a.created_at, '%Y-%m') = '$thisMonth'
-    ORDER BY a.created_at DESC LIMIT 8");
-}
-if ($rMonRes) {
-  while ($row = $rMonRes->fetch_assoc()) {
-    $recentMonth[] = $row;
-  }
-  if ($isStaff && isset($stmt)) $stmt->close();
-}
+// Fetch grouped assets for both periods
+$recentAllGrouped = get_grouped_assets($conn, 'all', 4);
+$recentMonthGrouped = get_grouped_assets($conn, 'month', 4);
+
+// Fetch all assets for the "View All" modal
+$recentAllGrouped_modal = get_grouped_assets($conn, 'all');
+$recentMonthGrouped_modal = get_grouped_assets($conn, 'month');
+
+// --- END: New Grouped Recent Activity ---
 // --- END: Fetch asset counts ---
 
 // Maximum value for chart scaling
@@ -391,9 +416,14 @@ function getInitials($name)
 
               <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:p-6">
                 <div class="flex items-center justify-between mb-4">
-                  <h2 class="font-semibold text-gray-900">Recent Activity
-                    <span id="activityLabel" class="text-xs font-normal text-gray-400 ml-1">(All Time)</span>
-                  </h2>
+                  <div>
+                    <h2 class="font-semibold text-gray-900">Recent Activity
+                      <span id="activityLabel" class="text-xs font-normal text-gray-400 ml-1">(All Time)</span>
+                    </h2>
+                  </div>
+                  <div>
+                    <button id="viewAllBtn" class="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors">View All</button>
+                  </div>
                 </div>
                 <div class="overflow-x-auto -mx-1">
                   <table class="w-full text-sm min-w-[560px]">
@@ -410,39 +440,47 @@ function getInitials($name)
                       <?php
                       $catColors = [1=>'emerald',2=>'blue',3=>'amber',4=>'purple'];
                       $catLabels = [1=>'Expandable',2=>'Consumables',3=>'Deadstock',4=>'Furniture'];
-                      foreach ($recentAll as $row):
-                        $cid = (int)$row['category_id'];
+                      
+                      // Loop for "All Time" grouped assets
+                      foreach ($recentAllGrouped as $batch_id => $batch):
+                        $details = $batch['details'];
+                        $cid = (int)$details['category_id'];
                         $color = $catColors[$cid] ?? 'gray';
-                        $label = $catLabels[$cid] ?? $row['category_name'];
-                        $loc = htmlspecialchars($row['location'] ?: ($row['assigned_to'] ?: '—'));
+                        $label = $catLabels[$cid] ?? 'Unknown';
+                        $loc = htmlspecialchars($details['location'] ?: ($details['assigned_to'] ?: '—'));
                       ?>
-                      <tr class="row-all">
-                        <td class="py-3.5 px-1 font-medium text-gray-900"><?php echo htmlspecialchars($row['asset_no']); ?></td>
-                        <td class="py-3.5 px-1 text-gray-600"><?php echo htmlspecialchars($row['asset_name']); ?></td>
+                      <tr class="row-all cursor-pointer" onclick="window.location.href='view-asset-details.php?category_id=<?php echo $cid; ?>&asset_name=<?php echo urlencode($details['asset_name']); ?>'">
+                        <td class="py-3.5 px-1 font-medium text-gray-900"><?php echo htmlspecialchars($details['asset_no']); ?></td>
+                        <td class="py-3.5 px-1 text-gray-600"><?php echo htmlspecialchars($details['asset_name']); ?></td>
                         <td class="py-3.5 px-1"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-<?php echo $color; ?>-50 text-<?php echo $color; ?>-600"><?php echo $label; ?></span></td>
                         <td class="py-3.5 px-1 text-gray-500"><?php echo $loc; ?></td>
-                        <td class="py-3.5 px-1 text-gray-500 text-right"><?php echo date('Y-m-d', strtotime($row['created_at'])); ?></td>
+                        <td class="py-3.5 px-1 text-gray-500 text-right"><?php echo date('Y-m-d', strtotime($details['created_at'])); ?></td>
                       </tr>
                       <?php endforeach; ?>
-                      <?php if (empty($recentAll)): ?>
+                      
+                      <?php if (empty($recentAllGrouped)): ?>
                       <tr class="row-all"><td colspan="5" class="py-6 text-center text-gray-400 text-sm">No assets found.</td></tr>
                       <?php endif; ?>
+
                       <?php
-                      foreach ($recentMonth as $row):
-                        $cid = (int)$row['category_id'];
+                      // Loop for "This Month" grouped assets
+                      foreach ($recentMonthGrouped as $batch_id => $batch):
+                        $details = $batch['details'];
+                        $cid = (int)$details['category_id'];
                         $color = $catColors[$cid] ?? 'gray';
-                        $label = $catLabels[$cid] ?? $row['category_name'];
-                        $loc = htmlspecialchars($row['location'] ?: ($row['assigned_to'] ?: '—'));
+                        $label = $catLabels[$cid] ?? 'Unknown';
+                        $loc = htmlspecialchars($details['location'] ?: ($details['assigned_to'] ?: '—'));
                       ?>
-                      <tr class="row-month hidden">
-                        <td class="py-3.5 px-1 font-medium text-gray-900"><?php echo htmlspecialchars($row['asset_no']); ?></td>
-                        <td class="py-3.5 px-1 text-gray-600"><?php echo htmlspecialchars($row['asset_name']); ?></td>
+                      <tr class="row-month hidden cursor-pointer" onclick="window.location.href='view-asset-details.php?category_id=<?php echo $cid; ?>&asset_name=<?php echo urlencode($details['asset_name']); ?>'">
+                        <td class="py-3.5 px-1 font-medium text-gray-900"><?php echo htmlspecialchars($details['asset_no']); ?></td>
+                        <td class="py-3.5 px-1 text-gray-600"><?php echo htmlspecialchars($details['asset_name']); ?></td>
                         <td class="py-3.5 px-1"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-<?php echo $color; ?>-50 text-<?php echo $color; ?>-600"><?php echo $label; ?></span></td>
                         <td class="py-3.5 px-1 text-gray-500"><?php echo $loc; ?></td>
-                        <td class="py-3.5 px-1 text-gray-500 text-right"><?php echo date('Y-m-d', strtotime($row['created_at'])); ?></td>
+                        <td class="py-3.5 px-1 text-gray-500 text-right"><?php echo date('Y-m-d', strtotime($details['created_at'])); ?></td>
                       </tr>
                       <?php endforeach; ?>
-                      <?php if (empty($recentMonth)): ?>
+                      
+                      <?php if (empty($recentMonthGrouped)): ?>
                       <tr class="row-month hidden"><td colspan="5" class="py-6 text-center text-gray-400 text-sm">No assets added this month.</td></tr>
                       <?php endif; ?>
                     </tbody>
@@ -578,9 +616,60 @@ function getInitials($name)
   </div>
 </div>
 
-<!-- General Notification Toast -->
-<div id="notification" class="fixed top-5 right-5 bg-red-500 text-white py-2.5 px-5 rounded-lg shadow-xl text-sm font-medium hidden z-[60]">
-  <!-- Message will be inserted here -->
+<!-- View All Recent Activity Modal -->
+<div id="recentActivityModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+  <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col transform transition-all">
+    <div class="p-5 border-b border-gray-200 flex items-center justify-between">
+      <h3 class="text-lg font-bold text-gray-900">All Recent Activity</h3>
+      <button type="button" id="closeActivityModalBtn" class="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600">
+        <i data-lucide="x" style="width:20px;height:20px"></i>
+      </button>
+    </div>
+    <div class="p-5 flex-1 overflow-y-auto">
+      <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-[11px] text-gray-400 uppercase tracking-wider">
+              <th class="pb-3 px-1 font-medium">ASSET NO</th>
+              <th class="pb-3 px-1 font-medium">EQUIPMENT NAME</th>
+              <th class="pb-3 px-1 font-medium">CATEGORY</th>
+              <th class="pb-3 px-1 font-medium">LOCATION</th>
+              <th class="pb-3 px-1 font-medium text-right">DATE ADDED</th>
+            </tr>
+          </thead>
+          <tbody id="activityModalBody" class="divide-y divide-gray-100">
+            <?php
+            // The modal starts from the all-time activity list. The month view is
+            // handled client-side by data attributes so all-time never hides rows.
+            $all_modal_assets = $recentAllGrouped_modal;
+            uasort($all_modal_assets, function($a, $b) {
+                return strtotime($b['details']['created_at']) - strtotime($a['details']['created_at']);
+            });
+
+            // Loop for "All" modal assets
+            foreach ($all_modal_assets as $batch_id => $batch):
+              $details = $batch['details'];
+              $cid = (int)$details['category_id'];
+              $color = $catColors[$cid] ?? 'gray';
+              $label = $catLabels[$cid] ?? 'Unknown';
+              $loc = htmlspecialchars($details['location'] ?: ($details['assigned_to'] ?: '—'));
+              $is_month_row = strpos($details['created_at'], $thisMonth) === 0;
+            ?>
+            <tr class="activity-modal-row" data-is-month="<?php echo $is_month_row ? '1' : '0'; ?>" onclick="window.location.href='view-asset-details.php?category_id=<?php echo $cid; ?>&asset_name=<?php echo urlencode($details['asset_name']); ?>'">
+              <td class="py-3.5 px-1 font-medium text-gray-900"><?php echo htmlspecialchars($details['asset_no']); ?></td>
+              <td class="py-3.5 px-1 text-gray-600"><?php echo htmlspecialchars($details['asset_name']); ?></td>
+              <td class="py-3.5 px-1"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-<?php echo $color; ?>-50 text-<?php echo $color; ?>-600"><?php echo $label; ?></span></td>
+              <td class="py-3.5 px-1 text-gray-500"><?php echo $loc; ?></td>
+              <td class="py-3.5 px-1 text-gray-500 text-right"><?php echo date('Y-m-d', strtotime($details['created_at'])); ?></td>
+            </tr>
+            <?php endforeach; ?>
+            
+            <?php if (empty($all_modal_assets)): ?>
+            <tr><td colspan="5" class="py-10 text-center text-gray-500">No recent activity to display.</td></tr>
+            <?php endif; ?>
+          </tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
   <script>
@@ -834,6 +923,39 @@ function getInitials($name)
       userMenuDropdown.classList.add('hidden');
     }
   });
+
+  // --- View All Activity Modal Logic ---
+  const activityModal = document.getElementById('recentActivityModal');
+  const viewAllBtn = document.getElementById('viewAllBtn');
+  const closeActivityModalBtn = document.getElementById('closeActivityModalBtn');
+
+  if (viewAllBtn && activityModal && closeActivityModalBtn) {
+    viewAllBtn.addEventListener('click', () => {
+      // Check which tab is active on the main page
+      const isMonthView = document.getElementById('btnThisMonth').classList.contains('bg-blue-600');
+      
+      // All Time should show every recent activity row; This Month filters only
+      // rows whose created_at belongs to the current month.
+      document.querySelectorAll('.activity-modal-row').forEach(row => {
+        const isMonthRow = row.dataset.isMonth === '1';
+        row.classList.toggle('hidden', isMonthView && !isMonthRow);
+      });
+
+      activityModal.classList.remove('hidden');
+      lucide.createIcons(); // Re-render icons if any are in the modal
+    });
+
+    closeActivityModalBtn.addEventListener('click', () => {
+      activityModal.classList.add('hidden');
+    });
+
+    activityModal.addEventListener('click', (e) => {
+      if (e.target === activityModal) {
+        activityModal.classList.add('hidden');
+      }
+    });
+  }
+  
 </script>
 
 </body>
