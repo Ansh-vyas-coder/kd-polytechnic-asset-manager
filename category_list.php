@@ -181,9 +181,11 @@ function getInitials($name)
             background: #D1D5DB;
         }
     </style>
-</head>
+    <link rel="stylesheet" href="loader/loader.css" />
+
 
 <body class="h-screen bg-gray-50 text-gray-900 antialiased">
+  <?php include 'loader/loader.html'; ?>
 
     <div class="h-screen flex overflow-hidden">
         <aside id="sidebar" class="w-64 border-r border-gray-200 bg-white flex flex-col fixed inset-y-0 left-0 z-40 -translate-x-full lg:translate-x-0 lg:static transition-transform duration-200 ease-out">
@@ -646,6 +648,7 @@ function getInitials($name)
             document.getElementById("retireForm").submit();
         }
     </script>
-</body>
+  <script src="loader/loader.js"></script>
+
 
 </html>

@@ -77,8 +77,10 @@ function getInitials($name) {
 <style>
   html, body { font-family: 'Inter', sans-serif; }
 </style>
-</head>
+    <link rel="stylesheet" href="loader/loader.css" />
+
 <body class="h-screen bg-gray-50 text-gray-900 antialiased">
+  <?php include 'loader/loader.html'; ?>
 
 <div class="h-screen flex overflow-hidden">
 
@@ -160,5 +162,6 @@ function getInitials($name) {
   lucide.createIcons();
 </script>
 
-</body>
+  <script src="loader/loader.js"></script>
+
 </html>

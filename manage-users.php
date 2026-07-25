@@ -28,6 +28,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
     $stmt->bind_param("ssss", $full_name, $email, $password_hash, $role);
 
     if ($stmt->execute()) {
+        // Notify all admins about the new user
+        $new_user_name = htmlspecialchars($full_name);
+        $message = "New user '{$new_user_name}' was created.";
+        create_admin_notification($conn, $message, 'manage-users.php', $_SESSION['user_id']);
+
         header("Location: manage-users.php?status=user_added&new_password=" . urlencode($plain_password) . "&user_name=" . urlencode($full_name));
     } else {
         header("Location: manage-users.php?status=error&message=" . urlencode($stmt->error));
@@ -91,8 +96,10 @@ if ($result) {
   ::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 9999px; }
   ::-webkit-scrollbar-thumb:hover { background: #D1D5DB; }
 </style>
-</head>
+    <link rel="stylesheet" href="loader/loader.css" />
+
 <body class="h-screen bg-gray-50 text-gray-900 antialiased">
+  <?php include 'loader/loader.html'; ?>
 
 <div class="h-screen flex overflow-hidden">
 
@@ -449,5 +456,6 @@ if ($result) {
 
 </script>
 
-</body>
+  <script src="loader/loader.js"></script>
+
 </html>

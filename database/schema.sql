@@ -54,3 +54,15 @@ ALTER TABLE assets
 ALTER TABLE assets
     ADD COLUMN IF NOT EXISTS product_no INT NULL AFTER item_no,
     ADD COLUMN IF NOT EXISTS total_quantity INT NULL AFTER product_no;
+
+-- 4. NOTIFICATIONS TABLE (For the new notification system)
+CREATE TABLE IF NOT EXISTS notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    message VARCHAR(255) NOT NULL,
+    link VARCHAR(255) NULL,
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX user_id_index (user_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);

@@ -35,10 +35,115 @@ if ($category_id === 0 || !array_key_exists($category_id, $categories) || empty(
 
 $category_name = $categories[$category_id];
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'retire_batch') {
+    $post_category_id = isset($_POST['category_id']) ? (int)$_POST['category_id'] : 0;
+    $post_asset_name = isset($_POST['asset_name']) ? trim($_POST['asset_name']) : '';
+    $post_batch_id = isset($_POST['batch_id']) ? trim($_POST['batch_id']) : '';
+
+    if ($post_category_id !== $category_id || $post_asset_name !== $asset_name_raw || $post_batch_id !== $batch_id) {
+        header("Location: view-asset-details.php?category_id=" . $category_id . "&asset_name=" . urlencode($asset_name_raw) . "&status=error&message=" . urlencode("Invalid retire request."));
+        exit();
+    }
+
+    if (strpos($batch_id, 'batch_uncategorized_') === 0) {
+        $retire_id = (int)substr($batch_id, strlen('batch_uncategorized_'));
+        $stmt = $conn->prepare("UPDATE assets SET retire_at = NOW() WHERE id = ? AND category_id = ? AND asset_name = ? AND retire_at IS NULL");
+        if ($stmt) {
+            $stmt->bind_param("iis", $retire_id, $category_id, $asset_name_raw);
+        }
+    } else {
+        $stmt = $conn->prepare("UPDATE assets SET retire_at = NOW() WHERE batch_id = ? AND category_id = ? AND asset_name = ? AND retire_at IS NULL");
+        if ($stmt) {
+            $stmt->bind_param("sis", $batch_id, $category_id, $asset_name_raw);
+        }
+    }
+
+    if ($stmt && $stmt->execute()) {
+        $stmt->close();
+        header("Location: view-asset-details.php?category_id=" . $category_id . "&asset_name=" . urlencode($asset_name_raw) . "&status=retired");
+        exit();
+    }
+
+    if ($stmt) {
+        $stmt->close();
+    }
+    header("Location: view-batch-details.php?category_id=" . $category_id . "&asset_name=" . urlencode($asset_name_raw) . "&batch_id=" . urlencode($batch_id) . "&status=error&message=" . urlencode("Unable to retire record."));
+    exit();
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'retire_item') {
+    $post_category_id = isset($_POST['category_id']) ? (int)$_POST['category_id'] : 0;
+    $post_asset_name = isset($_POST['asset_name']) ? trim($_POST['asset_name']) : '';
+    $post_batch_id = isset($_POST['batch_id']) ? trim($_POST['batch_id']) : '';
+    $retire_item_id = isset($_POST['item_id']) ? (int)$_POST['item_id'] : 0;
+
+    if ($post_category_id !== $category_id || $post_asset_name !== $asset_name_raw || $post_batch_id !== $batch_id || $retire_item_id <= 0) {
+        header("Location: view-batch-details.php?category_id=" . $category_id . "&asset_name=" . urlencode($asset_name_raw) . "&batch_id=" . urlencode($batch_id) . "&status=error&message=" . urlencode("Invalid retire asset request."));
+        exit();
+    }
+
+    if (strpos($batch_id, 'batch_uncategorized_') === 0) {
+        $uncategorized_id = (int)substr($batch_id, strlen('batch_uncategorized_'));
+        $stmt = $conn->prepare("UPDATE assets SET retire_at = NOW() WHERE id = ? AND id = ? AND category_id = ? AND asset_name = ? AND retire_at IS NULL");
+        if ($stmt) {
+            $stmt->bind_param("iiis", $retire_item_id, $uncategorized_id, $category_id, $asset_name_raw);
+        }
+    } else {
+        $stmt = $conn->prepare("UPDATE assets SET retire_at = NOW() WHERE id = ? AND batch_id = ? AND category_id = ? AND asset_name = ? AND retire_at IS NULL");
+        if ($stmt) {
+            $stmt->bind_param("isis", $retire_item_id, $batch_id, $category_id, $asset_name_raw);
+        }
+    }
+
+    if ($stmt && $stmt->execute()) {
+        $stmt->close();
+
+        $remaining_items = 0;
+        if (strpos($batch_id, 'batch_uncategorized_') === 0) {
+            $count_stmt = $conn->prepare("SELECT COUNT(*) AS total FROM assets WHERE id = ? AND category_id = ? AND asset_name = ? AND retire_at IS NULL");
+            if ($count_stmt) {
+                $count_stmt->bind_param("iis", $retire_item_id, $category_id, $asset_name_raw);
+            }
+        } else {
+            $count_stmt = $conn->prepare("SELECT COUNT(*) AS total FROM assets WHERE batch_id = ? AND category_id = ? AND asset_name = ? AND retire_at IS NULL");
+            if ($count_stmt) {
+                $count_stmt->bind_param("sis", $batch_id, $category_id, $asset_name_raw);
+            }
+        }
+
+        if ($count_stmt && $count_stmt->execute()) {
+            $count_result = $count_stmt->get_result();
+            if ($count_result) {
+                $remaining_items = (int)($count_result->fetch_assoc()['total'] ?? 0);
+            }
+            $count_stmt->close();
+        }
+
+        if ($remaining_items > 0) {
+            header("Location: view-batch-details.php?category_id=" . $category_id . "&asset_name=" . urlencode($asset_name_raw) . "&batch_id=" . urlencode($batch_id) . "&status=item_retired");
+        } else {
+            header("Location: view-asset-details.php?category_id=" . $category_id . "&asset_name=" . urlencode($asset_name_raw) . "&status=item_retired");
+        }
+        exit();
+    }
+
+    if ($stmt) {
+        $stmt->close();
+    }
+    header("Location: view-batch-details.php?category_id=" . $category_id . "&asset_name=" . urlencode($asset_name_raw) . "&batch_id=" . urlencode($batch_id) . "&status=error&message=" . urlencode("Unable to retire asset."));
+    exit();
+}
+
 // Fetch asset details for the specified batch
 $items = [];
-$sql = "SELECT * FROM assets WHERE batch_id = ?";
-$params = ["s", $batch_id];
+if (strpos($batch_id, 'batch_uncategorized_') === 0) {
+    $uncategorized_id = (int)substr($batch_id, strlen('batch_uncategorized_'));
+    $sql = "SELECT * FROM assets WHERE id = ? AND category_id = ? AND asset_name = ? AND retire_at IS NULL";
+    $params = ["iis", $uncategorized_id, $category_id, $asset_name_raw];
+} else {
+    $sql = "SELECT * FROM assets WHERE batch_id = ? AND category_id = ? AND asset_name = ? AND retire_at IS NULL";
+    $params = ["sis", $batch_id, $category_id, $asset_name_raw];
+}
 
 // Staff can only view rows assigned to themselves
 if ($_SESSION['role'] === 'staff') {
@@ -79,7 +184,8 @@ $total_cost_of_batch = $total_quantity_in_batch * (float)$batch_details['cost'];
 
 // Helper function to generate initials
 if (!function_exists('getInitials')) {
-    function getInitials($name) {
+    function getInitials($name)
+    {
         $words = explode(' ', $name);
         $initials = '';
         foreach ($words as $word) {
@@ -91,196 +197,685 @@ if (!function_exists('getInitials')) {
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Record Details - KDP Asset Manager</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-<script>
-  tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } } };
-</script>
-<style>
-  html, body { font-family: 'Inter', sans-serif; }
-</style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Record Details - KDP Asset Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        };
+    </script>
+    <style>
+        html,
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+
+    <link rel="stylesheet" href="loader/loader.css" />
 </head>
+
 <body class="h-screen bg-gray-50 text-gray-900 antialiased">
+    <?php include 'loader/loader.html'; ?>
+    <div class="h-screen flex overflow-hidden">
 
-<div class="h-screen flex overflow-hidden">
-
-  <!-- Sidebar -->
-  <aside id="sidebar" class="w-64 border-r border-gray-200 bg-white flex flex-col fixed inset-y-0 left-0 z-40 lg:translate-x-0 lg:static">
-    <div class="h-16 flex items-center gap-3 px-4 border-b border-gray-200 shrink-0">
-      <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center shrink-0 p-1">
-        <img src="kdp_logo.jpeg" alt="KDP Logo" class="w-full h-full object-contain">
-      </div>
-      <span class="font-bold text-sm tracking-tight text-gray-900">Smart Asset Manager</span>
-    </div>
-    <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-      <a href="dashboard.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
-        <i data-lucide="layout-dashboard" style="width:18px;height:18px"></i> Dashboard
-      </a>
-      <?php if ($_SESSION['role'] === 'admin'): ?>
-      <a href="dashboard.php?view=add-asset" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
-        <i data-lucide="plus-square" style="width:18px;height:18px"></i> Add Item(s)
-      </a>
-      <a href="dashboard.php?view=register" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
-        <i data-lucide="book-open" style="width:18px;height:18px"></i> Virtual Register
-      </a>
-      <a href="dashboard.php?view=generate-report" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
-        <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i> Generate Report
-      </a>
-      <a href="manage-users.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
-        <i data-lucide="users" style="width:18px;height:18px"></i> Manage Users
-      </a>
-      <?php endif; ?>
-      <?php if ($_SESSION['role'] === 'staff'): ?>
-      <a href="dashboard.php?view=my-assets" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
-        <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i> My Assigned Assets
-      </a>
-      <?php endif; ?>
-    </nav>
-  </aside>
-
-  <div class="flex-1 flex flex-col min-w-0">
-    <!-- Header -->
-    <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-end px-4 lg:px-6">
-        <div class="flex items-center gap-3 sm:gap-4">
-            <div class="relative">
-                <button id="userMenuBtn" class="flex items-center gap-2.5 group">
-                    <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-semibold shrink-0"><?php echo getInitials($_SESSION['user_name']); ?></div>
-                </button>
+        <!-- Sidebar -->
+        <aside id="sidebar" class="w-64 border-r border-gray-200 bg-white flex flex-col fixed inset-y-0 left-0 z-40 lg:translate-x-0 lg:static">
+            <div class="h-16 flex items-center gap-3 px-4 border-b border-gray-200 shrink-0">
+                <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center shrink-0 p-1">
+                    <img src="kdp_logo.jpeg" alt="KDP Logo" class="w-full h-full object-contain">
+                </div>
+                <span class="font-bold text-sm tracking-tight text-gray-900">Smart Asset Manager</span>
             </div>
-        </div>
-    </header>
-
-    <!-- Main Content -->
-    <main class="flex-1 overflow-y-auto bg-gray-50 p-4 lg:p-6">
-      <div class="max-w-7xl mx-auto">
-        
-        <!-- Breadcrumb Navigation -->
-        <div class="mb-6">
-            <nav class="text-sm font-medium text-gray-500 mb-3">
-                <a href="dashboard.php" class="hover:text-blue-600">Dashboard</a>
-                <span class="mx-2 text-gray-400">&gt;</span>
-                <a href="view-assets.php?category_id=<?php echo $category_id; ?>" class="hover:text-blue-600"><?php echo htmlspecialchars($category_name); ?></a>
-                <span class="mx-2 text-gray-400">&gt;</span>
-                <a href="view-asset-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset_name_raw); ?>" class="hover:text-blue-600 capitalize"><?php echo htmlspecialchars($asset_name_raw); ?></a>
-                <span class="mx-2 text-gray-400">&gt;</span>
-                <span class="text-gray-900">Record of <?php echo date('M d, Y', strtotime($batch_details['date_of_issue'])); ?></span>
+            <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+                <a href="dashboard.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
+                    <i data-lucide="layout-dashboard" style="width:18px;height:18px"></i> Dashboard
+                </a>
+                <?php if ($_SESSION['role'] === 'admin'): ?>
+                    <a href="dashboard.php?view=add-asset" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
+                        <i data-lucide="plus-square" style="width:18px;height:18px"></i> Add Item(s)
+                    </a>
+                    <a href="dashboard.php?view=register" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
+                        <i data-lucide="book-open" style="width:18px;height:18px"></i> Virtual Register
+                    </a>
+                    <a href="dashboard.php?view=generate-report" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
+                        <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i> Generate Report
+                    </a>
+                    <a href="manage-users.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
+                        <i data-lucide="users" style="width:18px;height:18px"></i> Manage Users
+                    </a>
+                <?php endif; ?>
+                <?php if ($_SESSION['role'] === 'staff'): ?>
+                    <a href="dashboard.php?view=my-assets" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
+                        <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i> My Assigned Assets
+                    </a>
+                <?php endif; ?>
             </nav>
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Record Details</h1>
-                <form action="view-batch-details.php" method="GET" class="flex items-center gap-2">
-                    <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
-                    <input type="hidden" name="asset_name" value="<?php echo htmlspecialchars($asset_name_raw); ?>">
-                    <input type="hidden" name="batch_id" value="<?php echo htmlspecialchars($batch_id); ?>">
-                    <div class="relative flex-grow">
-                        <input type="text" name="search" value="<?php echo htmlspecialchars($search_query); ?>" placeholder="Search in this record..." class="w-full pl-4 pr-10 py-2.5 text-sm rounded-full bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
-                        <button type="submit" class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600">
-                            <i data-lucide="search" style="width:16px;height:16px"></i>
+        </aside>
+
+        <div class="flex-1 flex flex-col min-w-0">
+            <!-- Header -->
+            <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-end px-4 lg:px-6">
+                <div class="flex items-center gap-3 sm:gap-4">
+                    <div class="relative">
+                        <button id="userMenuBtn" class="flex items-center gap-2.5 group">
+                            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-semibold shrink-0"><?php echo getInitials($_SESSION['user_name']); ?></div>
                         </button>
                     </div>
-                    <?php if (!empty($search_query)): ?>
-                        <a href="view-batch-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset_name_raw); ?>&batch_id=<?php echo urlencode($batch_id); ?>" class="px-4 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200">Clear</a>
-                    <?php endif; ?>
-                </form>
-            </div>
-        </div>
+                </div>
+            </header>
 
-        <!-- Record Summary -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">Record Summary</h2>
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-5 text-sm">
-                <div>
-                    <p class="text-gray-500">Location</p>
-                    <p class="font-semibold text-gray-800"><?php echo htmlspecialchars($batch_details['location'] ?: 'N/A'); ?></p>
-                </div>
-                <div>
-                    <p class="text-gray-500">Cost per Item</p>
-                    <p class="font-semibold text-gray-800">₹<?php echo htmlspecialchars(number_format($batch_details['cost'], 2)); ?></p>
-                </div>
-                <div>
-                    <p class="text-gray-500">Total Items</p>
-                    <p class="font-semibold text-gray-800"><?php echo $total_quantity_in_batch; ?></p>
-                </div>
-                <div>
-                    <p class="text-gray-500">Total Cost</p>
-                    <p class="font-semibold text-gray-800">₹<?php echo htmlspecialchars(number_format($total_cost_of_batch, 2)); ?></p>
-                </div>
-                <div>
-                    <p class="text-gray-500">Page No.</p>
-                    <p class="font-semibold text-gray-800"><?php echo htmlspecialchars($batch_details['page_no'] ?: 'N/A'); ?></p>
-                </div>
-                <div>
-                    <p class="text-gray-500">GeM Order No.</p>
-                    <p class="font-semibold text-gray-800"><?php echo htmlspecialchars($batch_details['gem_order_no'] ?: 'N/A'); ?></p>
-                </div>
-                <div>
-                    <p class="text-gray-500">GeM Invoice No.</p>
-                    <p class="font-semibold text-gray-800"><?php echo htmlspecialchars($batch_details['gem_invoice_no'] ?: 'N/A'); ?></p>
-                </div>
-                <div>
-                    <p class="text-gray-500">GPR No.</p>
-                    <p class="font-semibold text-gray-800"><?php echo htmlspecialchars($batch_details['gpr_no'] ?: 'N/A'); ?></p>
-                </div>
-                <div>
-                    <p class="text-gray-500">GPR Page No.</p>
-                    <p class="font-semibold text-gray-800"><?php echo htmlspecialchars($batch_details['pr_page_no'] ?: 'N/A'); ?></p>
-                </div>
-                <div>
-                    <p class="text-gray-500">GPR Item No.</p>
-                    <p class="font-semibold text-gray-800"><?php echo htmlspecialchars($batch_details['gpr_item_no'] ?: 'N/A'); ?></p>
-                </div>
-            </div>
-        </div>
+            <!-- Main Content -->
+            <main class="flex-1 overflow-y-auto bg-gray-50 p-4 lg:p-6">
+                <div class="max-w-7xl mx-auto">
 
-        <!-- Items Table -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100">
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead class="bg-gray-50">
-                <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
-                  <th class="px-6 py-3 font-medium">Item No</th>
-                  <th class="px-6 py-3 font-medium">Asset No</th>
-                  <th class="px-6 py-3 font-medium">Assigned To</th>
-                  <th class="px-6 py-3 font-medium">Remarks</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-100">
-                <?php if (empty($items)): ?>
-                    <tr>
-                        <td colspan="4" class="text-center py-16 text-gray-500">
-                            <div class="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-3">
-                                <i data-lucide="search-slash" class="w-7 h-7 text-gray-400"></i>
+                    <!-- Breadcrumb Navigation -->
+                    <div class="mb-6">
+                        <nav class="text-sm font-medium text-gray-500 mb-3">
+                            <a href="dashboard.php" class="hover:text-blue-600">Dashboard</a>
+                            <span class="mx-2 text-gray-400">&gt;</span>
+                            <a href="view-assets.php?category_id=<?php echo $category_id; ?>" class="hover:text-blue-600"><?php echo htmlspecialchars($category_name); ?></a>
+                            <span class="mx-2 text-gray-400">&gt;</span>
+                            <a href="view-asset-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset_name_raw); ?>" class="hover:text-blue-600 capitalize"><?php echo htmlspecialchars($asset_name_raw); ?></a>
+                            <span class="mx-2 text-gray-400">&gt;</span>
+                            <span class="text-gray-900">Record of <?php echo date('M d, Y', strtotime($batch_details['date_of_issue'])); ?></span>
+                        </nav>
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Record Details</h1>
+                            <form action="view-batch-details.php" method="GET" class="flex items-center gap-2">
+                                <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
+                                <input type="hidden" name="asset_name" value="<?php echo htmlspecialchars($asset_name_raw); ?>">
+                                <input type="hidden" name="batch_id" value="<?php echo htmlspecialchars($batch_id); ?>">
+                                <div class="relative flex-grow">
+                                    <input type="text" name="search" value="<?php echo htmlspecialchars($search_query); ?>" placeholder="Search in this record..." class="w-full pl-4 pr-10 py-2.5 text-sm rounded-full bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                                    <button type="submit" class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+                                        <i data-lucide="search" style="width:16px;height:16px"></i>
+                                    </button>
+                                </div>
+                                <?php if (!empty($search_query)): ?>
+                                    <a href="view-batch-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset_name_raw); ?>&batch_id=<?php echo urlencode($batch_id); ?>" class="px-4 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200">Clear</a>
+                                <?php endif; ?>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Record Summary -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Record Summary</h2>
+                        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-5 text-sm">
+                            <div>
+                                <p class="text-gray-500">Location</p>
+                                <p class="font-semibold text-gray-800"><?php echo htmlspecialchars($batch_details['location'] ?: 'N/A'); ?></p>
                             </div>
-                            <h3 class="font-semibold text-gray-800">No items found</h3>
-                            <p class="text-sm mt-1"><?php echo !empty($search_query) ? 'Your search for "' . htmlspecialchars($search_query) . '" did not return any results.' : 'There are no items in this record.'; ?></p>
-                        </td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($items as $item): ?>
-                    <tr class="text-gray-600">
-                        <td class="px-6 py-4 font-mono text-xs"><?php echo htmlspecialchars($item['item_no']); ?></td>
-                        <td class="px-6 py-4 font-mono text-xs"><?php echo htmlspecialchars($item['asset_no']); ?></td>
-                        <td class="px-6 py-4"><?php echo htmlspecialchars($item['assigned_to'] ?: 'N/A'); ?></td>
-                        <td class="px-6 py-4 text-xs"><?php echo htmlspecialchars($item['remarks'] ?: 'None'); ?></td>
-                    </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </main>
-  </div>
-</div>
+                            <div>
+                                <p class="text-gray-500">Cost per Item</p>
+                                <p class="font-semibold text-gray-800">₹<?php echo htmlspecialchars(number_format($batch_details['cost'], 2)); ?></p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500">Total Items</p>
+                                <p class="font-semibold text-gray-800"><?php echo $total_quantity_in_batch; ?></p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500">Total Cost</p>
+                                <p class="font-semibold text-gray-800">₹<?php echo htmlspecialchars(number_format($total_cost_of_batch, 2)); ?></p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500">Page No.</p>
+                                <p class="font-semibold text-gray-800"><?php echo htmlspecialchars($batch_details['page_no'] ?: 'N/A'); ?></p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500">GeM Order No.</p>
+                                <p class="font-semibold text-gray-800"><?php echo htmlspecialchars($batch_details['gem_order_no'] ?: 'N/A'); ?></p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500">GeM Invoice No.</p>
+                                <p class="font-semibold text-gray-800"><?php echo htmlspecialchars($batch_details['gem_invoice_no'] ?: 'N/A'); ?></p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500">GPR No.</p>
+                                <p class="font-semibold text-gray-800"><?php echo htmlspecialchars($batch_details['gpr_no'] ?: 'N/A'); ?></p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500">GPR Page No.</p>
+                                <p class="font-semibold text-gray-800"><?php echo htmlspecialchars($batch_details['pr_page_no'] ?: 'N/A'); ?></p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500">GPR Item No.</p>
+                                <p class="font-semibold text-gray-800"><?php echo htmlspecialchars($batch_details['gpr_item_no'] ?: 'N/A'); ?></p>
+                            </div>
+                        </div>
+                        <!-- Action buttons -->
+                        <div class="flex justify-end mt-6 space-x-3">
+                            <button id="openEditModalBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                Edit
+                            </button>
+                            <button type="button" id="openRetireModalBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                Retire
+                            </button>
+                        </div>
+                    </div>
 
-<script>
-  lucide.createIcons();
-</script>
+                    <!-- Items Table -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
+                                        <th class="px-6 py-3 font-medium">Item No</th>
+                                        <th class="px-6 py-3 font-medium">Asset No</th>
+                                        <th class="px-6 py-3 font-medium">Assigned To</th>
+                                        <th class="px-6 py-3 font-medium">Location</th>
+                                        <th class="px-6 py-3 font-medium">Status</th>
+                                        <th class="px-6 py-3 font-medium">Remarks</th>
+                                        <th class="px-6 py-3 font-medium">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    <?php if (empty($items)): ?>
+                                        <tr>
+                                            <td colspan="5" class="text-center py-16 text-gray-500">
+                                                <div class="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                                                    <i data-lucide="search-slash" class="w-7 h-7 text-gray-400"></i>
+                                                </div>
+                                                <h3 class="font-semibold text-gray-800">No items found</h3>
+                                                <p class="text-sm mt-1"><?php echo !empty($search_query) ? 'Your search for "' . htmlspecialchars($search_query) . '" did not return any results.' : 'There are no items in this record.'; ?></p>
+                                            </td>
+                                        </tr>
+                                    <?php else: ?>
+                                        <?php foreach ($items as $item): ?>
+                                            <tr class="text-gray-600">
+                                                <td class="px-6 py-4 font-mono text-xs"><?php echo htmlspecialchars($item['item_no']); ?></td>
+                                                <td class="px-6 py-4 font-mono text-xs"><?php echo htmlspecialchars($item['asset_no']); ?></td>
+                                                <td class="px-6 py-4"><?php echo htmlspecialchars($item['assigned_to'] ?: 'N/A'); ?></td>
+                                                <td class="px-6 py-4"><?php echo htmlspecialchars($item['location'] ?: 'N/A'); ?></td>
+                                                <td class="px-6 py-4"><span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-emerald-100 text-emerald-800"><?php echo htmlspecialchars($item['status'] ?: 'N/A'); ?></span></td>
+                                                <td class="px-6 py-4 text-xs"><?php echo htmlspecialchars($item['remarks'] ?: 'None'); ?></td>
+                                                <td class="px-6 py-4 text-sm whitespace-nowrap">
+                                                    <button type="button"
+                                                        class="edit-item-btn text-blue-600 hover:text-blue-800 font-medium mr-2"
+                                                        data-id="<?php echo htmlspecialchars($item['id']); ?>"
+                                                        data-assigned-to="<?php echo htmlspecialchars($item['assigned_to']); ?>"
+                                                        data-location="<?php echo htmlspecialchars($item['location']); ?>"
+                                                        data-status="<?php echo htmlspecialchars($item['status']); ?>"
+                                                        data-remarks="<?php echo htmlspecialchars($item['remarks']); ?>">
+                                                        Edit
+                                                    </button>
+                                                    <button type="button"
+                                                        class="retire-item-btn text-red-600 hover:text-red-800 font-medium"
+                                                        data-id="<?php echo htmlspecialchars($item['id']); ?>"
+                                                        data-asset-no="<?php echo htmlspecialchars($item['asset_no']); ?>">
+                                                        Retire Asset
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Retire Asset Confirmation Modal -->
+    <div id="retireItemModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">Retire this asset?</h3>
+                    <p class="mt-2 text-sm text-gray-600">This asset will be removed from the website view. It will not be deleted from the database, and the retire time will be saved.</p>
+                    <p id="retireItemAssetNo" class="mt-2 text-xs font-mono text-gray-500 break-all"></p>
+                </div>
+            </div>
+            <form method="POST" action="view-batch-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset_name_raw); ?>&batch_id=<?php echo urlencode($batch_id); ?>" class="mt-6 flex justify-end space-x-3">
+                <input type="hidden" name="action" value="retire_item">
+                <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
+                <input type="hidden" name="asset_name" value="<?php echo htmlspecialchars($asset_name_raw); ?>">
+                <input type="hidden" name="batch_id" value="<?php echo htmlspecialchars($batch_id); ?>">
+                <input type="hidden" name="item_id" id="retireItemId">
+                <button type="button" id="cancelRetireItemBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Confirm</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Retire Confirmation Modal -->
+    <div id="retireModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">Retire this record?</h3>
+                    <p class="mt-2 text-sm text-gray-600">This record will be removed from the website view. It will not be deleted from the database, and the retire time will be saved.</p>
+                </div>
+            </div>
+            <form method="POST" action="view-batch-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset_name_raw); ?>&batch_id=<?php echo urlencode($batch_id); ?>" class="mt-6 flex justify-end space-x-3">
+                <input type="hidden" name="action" value="retire_batch">
+                <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
+                <input type="hidden" name="asset_name" value="<?php echo htmlspecialchars($asset_name_raw); ?>">
+                <input type="hidden" name="batch_id" value="<?php echo htmlspecialchars($batch_id); ?>">
+                <button type="button" id="cancelRetireBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Confirm</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Batch Modal -->
+    <div id="editModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-5 border w-full max-w-xl shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center border-b pb-3 mb-5">
+                <h3 class="text-xl font-semibold text-gray-900">Edit Record Details</h3>
+                <button id="closeEditModalBtn" class="text-gray-400 hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form id="editForm">
+                <input type="hidden" name="batch_id" value="<?php echo htmlspecialchars($batch_id); ?>">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="location" class="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                        <select name="location" id="location" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                            <!-- Options will be populated by JavaScript -->
+                        </select>
+                    </div>
+                    <div>
+                        <label for="cost" class="block text-sm font-medium text-gray-700 mb-1">Cost per Item</label>
+                        <input type="number" step="0.01" name="cost" id="cost" value="<?php echo htmlspecialchars($batch_details['cost']); ?>" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                    </div>
+                    <div>
+                        <label for="page_no" class="block text-sm font-medium text-gray-700 mb-1">Page No.</label>
+                        <input type="text" name="page_no" id="page_no" value="<?php echo htmlspecialchars($batch_details['page_no']); ?>" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                    </div>
+                    <div>
+                        <label for="gem_order_no" class="block text-sm font-medium text-gray-700 mb-1">GeM Order No.</label>
+                        <input type="text" name="gem_order_no" id="gem_order_no" value="<?php echo htmlspecialchars($batch_details['gem_order_no']); ?>" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                    </div>
+                    <div>
+                        <label for="gem_invoice_no" class="block text-sm font-medium text-gray-700 mb-1">GeM Invoice No.</label>
+                        <input type="text" name="gem_invoice_no" id="gem_invoice_no" value="<?php echo htmlspecialchars($batch_details['gem_invoice_no']); ?>" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                    </div>
+                    <div>
+                        <label for="gpr_no" class="block text-sm font-medium text-gray-700 mb-1">GPR No.</label>
+                        <input type="text" name="gpr_no" id="gpr_no" value="<?php echo htmlspecialchars($batch_details['gpr_no']); ?>" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                    </div>
+                    <div>
+                        <label for="pr_page_no" class="block text-sm font-medium text-gray-700 mb-1">GPR Page No.</label>
+                        <input type="text" name="pr_page_no" id="pr_page_no" value="<?php echo htmlspecialchars($batch_details['pr_page_no']); ?>" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                    </div>
+                    <div>
+                        <label for="gpr_item_no" class="block text-sm font-medium text-gray-700 mb-1">GPR Item No.</label>
+                        <input type="text" name="gpr_item_no" id="gpr_item_no" value="<?php echo htmlspecialchars($batch_details['gpr_item_no']); ?>" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" id="cancelEditBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Update</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Item Modal -->
+    <div id="itemEditModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-5 border w-full max-w-xl shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center border-b pb-3 mb-5">
+                <h3 class="text-xl font-semibold text-gray-900">Edit Item Details</h3>
+                <button id="closeItemEditModalBtn" class="text-gray-400 hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form id="itemEditForm">
+                <input type="hidden" name="id" id="item_id">
+                <div class="grid grid-cols-1 gap-6">
+                    <div>
+                        <label for="item_assigned_to" class="block text-sm font-medium text-gray-700 mb-1">Assigned To</label>
+                        <select name="assigned_to" id="item_assigned_to" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                            <option value="">Loading faculty...</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="item_location" class="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                        <select name="location" id="item_location" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                            <!-- Options will be populated by JavaScript -->
+                        </select>
+                    </div>
+                    <div>
+                        <label for="item_status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <select name="status" id="item_status" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                            <option value="Active" >Active</option>
+                            <option value="Under Maintenance">Under Maintenance</option>
+                            <option value="Not Working">Not Working</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="item_remarks" class="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
+                        <textarea name="remarks" id="item_remarks" rows="3" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"></textarea>
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" id="cancelItemEditBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Update</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <script>
+        lucide.createIcons();
+
+        // Batch Edit Modal handling
+        const editModal = document.getElementById('editModal');
+        const openEditModalBtn = document.getElementById('openEditModalBtn');
+        const closeEditModalBtn = document.getElementById('closeEditModalBtn');
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+        const editForm = document.getElementById('editForm');
+        const retireModal = document.getElementById('retireModal');
+        const openRetireModalBtn = document.getElementById('openRetireModalBtn');
+        const cancelRetireBtn = document.getElementById('cancelRetireBtn');
+        const retireItemModal = document.getElementById('retireItemModal');
+        const retireItemId = document.getElementById('retireItemId');
+        const retireItemAssetNo = document.getElementById('retireItemAssetNo');
+        const cancelRetireItemBtn = document.getElementById('cancelRetireItemBtn');
+
+        document.querySelectorAll('.retire-item-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                retireItemId.value = this.dataset.id;
+                retireItemAssetNo.textContent = this.dataset.assetNo ? `Asset No: ${this.dataset.assetNo}` : '';
+                retireItemModal.classList.remove('hidden');
+                lucide.createIcons();
+            });
+        });
+
+        if (cancelRetireItemBtn) {
+            cancelRetireItemBtn.addEventListener('click', () => {
+                retireItemModal.classList.add('hidden');
+            });
+        }
+
+        if (openRetireModalBtn) {
+            openRetireModalBtn.addEventListener('click', () => {
+                retireModal.classList.remove('hidden');
+                lucide.createIcons();
+            });
+        }
+
+        if (cancelRetireBtn) {
+            cancelRetireBtn.addEventListener('click', () => {
+                retireModal.classList.add('hidden');
+            });
+        }
+
+        if (openEditModalBtn) {
+            openEditModalBtn.addEventListener('click', () => {
+                const currentLocation = <?php echo json_encode($batch_details['location']); ?>;
+                populateLocationOptions('location', currentLocation);
+                editModal.classList.remove('hidden');
+                lucide.createIcons(); // Re-render icons if any in modal
+            });
+        }
+
+        if (closeEditModalBtn) {
+            closeEditModalBtn.addEventListener('click', () => {
+                editModal.classList.add('hidden');
+            });
+        }
+
+        if (cancelEditBtn) {
+            cancelEditBtn.addEventListener('click', () => {
+                editModal.classList.add('hidden');
+            });
+        }
+
+        window.addEventListener('click', (event) => {
+            if (event.target === editModal) {
+                editModal.classList.add('hidden');
+            }
+            if (event.target === retireModal) {
+                retireModal.classList.add('hidden');
+            }
+            if (event.target === retireItemModal) {
+                retireItemModal.classList.add('hidden');
+            }
+        });
+
+        if (editForm) {
+            editForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData(this);
+
+                fetch('update-batch.php', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.status === 'success') {
+                            alert('Record updated successfully!');
+                            window.location.reload();
+                        } else {
+                            alert('Error updating record: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An unexpected error occurred. Please check the console for details.');
+                    });
+            });
+        }
+
+        // Item Edit Modal handling
+        const itemEditModal = document.getElementById('itemEditModal');
+        const closeItemEditModalBtn = document.getElementById('closeItemEditModalBtn');
+        const cancelItemEditBtn = document.getElementById('cancelItemEditBtn');
+        const itemEditForm = document.getElementById('itemEditForm');
+
+        document.querySelectorAll('.edit-item-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const id = this.dataset.id;
+                const assignedTo = this.dataset.assignedTo;
+                const location = this.dataset.location;
+                const status = this.dataset.status;
+                const remarks = this.dataset.remarks;
+
+                document.getElementById('item_id').value = id;
+                
+                const assignedToSelect = document.getElementById('item_assigned_to');
+                if (typeof facultyData !== 'undefined' && facultyData.length > 0) {
+                    populateFacultyOptions(assignedToSelect, assignedTo);
+                } else {
+                    assignedToSelect.value = assignedTo || '';
+                }
+                
+                populateLocationOptions('item_location', location);
+                document.getElementById('item_status').value = status;
+                document.getElementById('item_remarks').value = remarks;
+
+                itemEditModal.classList.remove('hidden');
+                lucide.createIcons();
+            });
+        });
+
+        if (closeItemEditModalBtn) {
+            closeItemEditModalBtn.addEventListener('click', () => {
+                itemEditModal.classList.add('hidden');
+            });
+        }
+
+        if (cancelItemEditBtn) {
+            cancelItemEditBtn.addEventListener('click', () => {
+                itemEditModal.classList.add('hidden');
+            });
+        }
+
+        window.addEventListener('click', (event) => {
+            if (event.target === itemEditModal) {
+                itemEditModal.classList.add('hidden');
+            }
+        });
+
+        if (itemEditForm) {
+            itemEditForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData(this);
+
+                fetch('update-item.php', { // This will be created in the next step
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.status === 'success') {
+                            alert('Item updated successfully!');
+                            window.location.reload();
+                        } else {
+                            alert('Error updating item: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An unexpected error occurred. Please check the console for details.');
+                    });
+            });
+        }
+
+        // --- Faculty Dropdown Logic for Item Edit Modal ---
+        let facultyData = [];
+
+        function populateFacultyOptions(selectElement, currentValue) {
+            if (!selectElement) return;
+            
+            let optionsHTML = '<option value="">Select faculty</option>';
+            
+            facultyData.forEach(user => {
+                optionsHTML += `<option value="${user.full_name}">${user.full_name}</option>`;
+            });
+            
+            selectElement.innerHTML = optionsHTML;
+            
+            if (currentValue && facultyData.some(user => user.full_name === currentValue)) {
+                selectElement.value = currentValue;
+            } else {
+                selectElement.value = "";
+            }
+        }
+
+        fetch('get-faculty.php')
+            .then(response => response.json())
+            .then(data => {
+                facultyData = data;
+                const assignedToSelect = document.getElementById('item_assigned_to');
+                if (assignedToSelect && itemEditModal.classList.contains('hidden') === false) {
+                    const currentValue = assignedToSelect.value;
+                    populateFacultyOptions(assignedToSelect, currentValue);
+                }
+            })
+            .catch(() => {
+                const select = document.getElementById('item_assigned_to');
+                if (select) {
+                    select.innerHTML = '<option value="">No faculty available</option>';
+                }
+            });
+
+        // --- Location Dropdown Logic for Item Edit Modal ---
+        const locationStorageKey = 'kd_polytechnic_saved_locations';
+
+        function getSavedLocations() {
+            try {
+                return JSON.parse(localStorage.getItem(locationStorageKey)) || [];
+            } catch (error) {
+                return [];
+            }
+        }
+
+        function populateLocationOptions(elementId, currentValue) {
+            const locationSelect = document.getElementById(elementId);
+            if (!locationSelect) return;
+            const savedLocations = getSavedLocations();
+
+            let optionsHTML = `
+            <option value="">Select location</option>
+            
+            <optgroup label="Ground Floor">
+                <option value="F001 - STAFF ROOM">F001 - STAFF ROOM</option>
+                <option value="F002 - HOD OFFICE">F002 - HOD OFFICE</option>
+                <option value="F003 - CLASS ROOM - 1">F003 - CLASS ROOM - 1</option>
+                <option value="F004 - CLASS ROOM - 2">F004 - CLASS ROOM - 2</option>
+                <option value="F005 - TRAINING AND PLACEMENT ROOM">F005 - TRAINING AND PLACEMENT ROOM</option>
+                <option value="F006 - SERVER ROOM">F006 - SERVER ROOM</option>
+                <option value="F007 - BASIC PROGRAMMING LAB">F007 - BASIC PROGRAMMING LAB</option>
+                <option value="F008 - ELECTRIC ROOM">F008 - ELECTRIC ROOM</option>
+                <option value="F009 - DRINKING WATER, TOILET">F009 - DRINKING WATER, TOILET</option>
+                <option value="F010 - ADVANCE PROGRAMMING LAB">F010 - ADVANCE PROGRAMMING LAB</option>
+                <option value="F011 - DATABASE PROGRAMMING LAB">F011 - DATABASE PROGRAMMING LAB</option>
+                <option value="F012 - WEB DEVELOPMENT LAB">F012 - WEB DEVELOPMENT LAB</option>
+            </optgroup>
+
+            <optgroup label="First Floor">
+                <option value="F101 - DEPARTMENT LIBRARY">F101 - DEPARTMENT LIBRARY</option>
+                <option value="F102 - COMPUTER NETWORK LAB">F102 - COMPUTER NETWORK LAB</option>
+                <option value="F103 - COMPUTER MAINTENANCE LAB">F103 - COMPUTER MAINTENANCE LAB</option>
+                <option value="F104 - BASIC ELECTRONICS LAB">F104 - BASIC ELECTRONICS LAB</option>
+                <option value="F105 - ELECTRIC ROOM">F105 - ELECTRIC ROOM</option>
+                <option value="F106 - DRINKING WATER, TOILET">F106 - DRINKING WATER, TOILET</option>
+                <option value="F107 - SEMINAR HALL">F107 - SEMINAR HALL</option>
+                <option value="F108 - ADVANCE WEB DEVELOPMENT LAB">F108 - ADVANCE WEB DEVELOPMENT LAB</option>
+                <option value="F109 - CONFERENCE ROOM">F109 - CONFERENCE ROOM</option>
+                <option value="F110 - STAFF ROOM">F110 - STAFF ROOM</option>
+                <option value="F111 - CLASS ROOM - 3">F111 - CLASS ROOM - 3</option>
+                <option value="F112 - CLASS ROOM - 4">F112 - CLASS ROOM - 4</option>
+            </optgroup>
+        `;
+
+            if (savedLocations.length > 0) {
+                optionsHTML += `<optgroup label="Custom Locations">`;
+                savedLocations.forEach(location => {
+                    optionsHTML += `<option value="${location}">${location}</option>`;
+                });
+                optionsHTML += `</optgroup>`;
+            }
+
+            locationSelect.innerHTML = optionsHTML;
+
+            // Set the selected value
+            if (currentValue && Array.from(locationSelect.options).some(option => option.value === currentValue)) {
+                locationSelect.value = currentValue;
+            } else {
+                locationSelect.value = ""; // Default to "Select location" if not found
+            }
+        }
+    </script>
+
+    <script src="loader/loader.js"></script>
 
 </body>
+
 </html>
