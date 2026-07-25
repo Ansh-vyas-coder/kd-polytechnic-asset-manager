@@ -32,12 +32,12 @@ $staffName = $_SESSION['user_name'];
 
 $category_counts = [1 => 0, 2 => 0, 3 => 0, 4 => 0];
 if ($isStaff) {
-  $stmt = $conn->prepare("SELECT category_id, SUM(quantity) as total_quantity FROM assets WHERE assigned_to = ? GROUP BY category_id");
+  $stmt = $conn->prepare("SELECT category_id, SUM(quantity) as total_quantity FROM assets WHERE assigned_to = ? AND retire_at IS NULL GROUP BY category_id");
   $stmt->bind_param("s", $staffName);
   $stmt->execute();
   $result = $stmt->get_result();
 } else {
-  $result = $conn->query("SELECT category_id, SUM(quantity) as total_quantity FROM assets GROUP BY category_id");
+  $result = $conn->query("SELECT category_id, SUM(quantity) as total_quantity FROM assets WHERE retire_at IS NULL GROUP BY category_id");
 }
 if ($result) {
   while ($row = $result->fetch_assoc()) {
@@ -49,12 +49,12 @@ if ($result) {
 // This-month counts
 $month_counts = [1 => 0, 2 => 0, 3 => 0, 4 => 0];
 if ($isStaff) {
-  $stmt = $conn->prepare("SELECT category_id, SUM(quantity) as total_quantity FROM assets WHERE DATE_FORMAT(created_at, '%Y-%m') = ? AND assigned_to = ? GROUP BY category_id");
+  $stmt = $conn->prepare("SELECT category_id, SUM(quantity) as total_quantity FROM assets WHERE DATE_FORMAT(created_at, '%Y-%m') = ? AND assigned_to = ? AND retire_at IS NULL GROUP BY category_id");
   $stmt->bind_param("ss", $thisMonth, $staffName);
   $stmt->execute();
   $mResult = $stmt->get_result();
 } else {
-  $mResult = $conn->query("SELECT category_id, SUM(quantity) as total_quantity FROM assets WHERE DATE_FORMAT(created_at, '%Y-%m') = '$thisMonth' GROUP BY category_id");
+  $mResult = $conn->query("SELECT category_id, SUM(quantity) as total_quantity FROM assets WHERE DATE_FORMAT(created_at, '%Y-%m') = '$thisMonth' AND retire_at IS NULL GROUP BY category_id");
 }
 if ($mResult) {
   while ($row = $mResult->fetch_assoc()) {
@@ -76,7 +76,7 @@ function get_grouped_assets($conn, $period = 'all', $limit = null)
   $params = [];
   $types = "";
 
-  $where_clauses = [];
+  $where_clauses = ["retire_at IS NULL"];
   if ($period === 'month') {
     $where_clauses[] = "DATE_FORMAT(created_at, '%Y-%m') = ?";
     $types .= "s";
@@ -930,7 +930,7 @@ function getInitials($name)
         searchResults.classList.add('hidden');
       }
       if (!userMenuBtn.contains(event.target) && !userMenuDropdown.contains(event.target)) {
-        userMenuDropdown.classList .add('hidden');
+        userMenuDropdown.classList.add('hidden');
       }
     });
 

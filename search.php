@@ -29,7 +29,8 @@ $categories = [
 $stmt = $conn->prepare("
     SELECT asset_name, category_id, location, assigned_to
     FROM assets 
-    WHERE asset_name LIKE ? OR location LIKE ? OR asset_no LIKE ? OR assigned_to LIKE ?
+    WHERE retire_at IS NULL
+      AND (asset_name LIKE ? OR location LIKE ? OR asset_no LIKE ? OR assigned_to LIKE ?)
     GROUP BY asset_name, category_id, location, assigned_to
     LIMIT 15
 ");
