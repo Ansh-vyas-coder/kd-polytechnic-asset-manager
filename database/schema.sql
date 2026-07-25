@@ -66,3 +66,6 @@ CREATE TABLE IF NOT EXISTS notifications (
     INDEX user_id_index (user_id),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+ALTER TABLE assets 
+ADD COLUMN status varchar(50) DEFAULT 'active' AFTER cost,
+ADD COLUMN retire_at timestamp NULL DEFAULT NULL AFTER location;
