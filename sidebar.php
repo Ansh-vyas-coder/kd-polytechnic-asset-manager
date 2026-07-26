@@ -37,10 +37,14 @@ $current_page = $current_page ?? '';
                 <i data-lucide="users" style="width:18px;height:18px"></i>
                 Manage Users
             </a>
+            <a href="assigned-assets.php" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors <?php echo ($current_page === 'assigned-assets') ? 'bg-slate-700 text-white font-semibold' : 'text-slate-300 hover:bg-slate-700 hover:text-white'; ?>">
+                <i data-lucide="user-check" style="width:18px;height:18px"></i>
+                Assigned Assets
+            </a>
         <?php endif; ?>
 
         <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'staff'): ?>
-            <a href="dashboard.php?view=my-assets" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors <?php echo ($current_page === 'my-assets') ? 'bg-slate-700 text-white font-semibold' : 'text-slate-300 hover:bg-slate-700 hover:text-white'; ?>">
+            <a href="assigned-assets.php" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors <?php echo ($current_page === 'assigned-assets') ? 'bg-slate-700 text-white font-semibold' : 'text-slate-300 hover:bg-slate-700 hover:text-white'; ?>">
                 <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i>
                 My Assigned Assets
             </a>

@@ -137,12 +137,8 @@ if (!empty($maintenance_params)) {
 }
 
 if ($not_working_all_result) {
-    while ($row = $not_working_all_result->fetch_assoc()) {
-        $all_items_not_working[] = $row;
-    }
-    if (isset($not_working_all_stmt)) {
-        $not_working_all_stmt->close();
-    }
+    $all_items_not_working = $not_working_all_result->fetch_all(MYSQLI_ASSOC);
+    if (isset($not_working_all_stmt)) $not_working_all_stmt->close();
 }
 
 // Fetch Under Maintenance items (limited to 4)
@@ -203,12 +199,8 @@ if (!empty($maintenance_params)) {
 }
 
 if ($under_maintenance_all_result) {
-    while ($row = $under_maintenance_all_result->fetch_assoc()) {
-        $all_items_under_maintenance[] = $row;
-    }
-    if (isset($under_maintenance_all_stmt)) {
-        $under_maintenance_all_stmt->close();
-    }
+    $all_items_under_maintenance = $under_maintenance_all_result->fetch_all(MYSQLI_ASSOC);
+    if (isset($under_maintenance_all_stmt)) $under_maintenance_all_stmt->close();
 }
 
 // --- END: Fetch items for maintenance widgets (limited and total counts) ---
@@ -787,6 +779,7 @@ $current_page = $pageView;
                       </div>
                   </div>
             </div>
+
         <?php else: ?>
           <div id="assetView" class="w-full">
             <?php define('IS_EMBEDDED', true);
@@ -1304,6 +1297,7 @@ $current_page = $pageView;
             }
         });
     }
+
   </script>
   <script src="loader/loader.js"></script>
   <script src="notifications.js"></script>
