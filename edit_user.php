@@ -61,6 +61,8 @@ function getInitials($name) {
     return substr($initials, 0, 2);
 }
 
+$current_page = 'manage-users';
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -85,29 +87,16 @@ function getInitials($name) {
 <div class="h-screen flex overflow-hidden">
 
   <!-- Sidebar -->
-  <aside class="w-64 border-r border-gray-200 bg-white flex flex-col fixed inset-y-0 left-0 z-40 lg:static">
-    <div class="h-16 flex items-center gap-3 px-4 border-b border-gray-200 shrink-0">
-      <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center shrink-0 p-1">
-        <img src="kdp_logo.jpeg" alt="KDP Logo" class="w-full h-full object-contain">
-      </div>
-      <span class="font-bold text-sm tracking-tight text-gray-900">Smart Asset Manager</span>
-    </div>
-    <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-      <a href="dashboard.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
-        <i data-lucide="layout-dashboard" style="width:18px;height:18px"></i> Dashboard
-      </a>
-      <a href="dashboard.php?view=register" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
-        <i data-lucide="book-open" style="width:18px;height:18px"></i> Virtual Register
-      </a>
-      <a href="manage-users.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-blue-50 text-blue-600 text-sm font-medium">
-        <i data-lucide="users" style="width:18px;height:18px"></i> Manage Users
-      </a>
-    </nav>
-  </aside>
+  <?php include 'sidebar.php'; ?>
 
-  <div class="flex-1 flex flex-col min-w-0">
+  <div id="mainContent" class="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300 ease-in-out">
     <!-- Header -->
-    <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-end px-4 lg:px-6">
+    <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6">
+        <div class="flex items-center gap-2">
+            <button id="menuBtn" class="p-2 -ml-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0">
+                <i data-lucide="menu" style="width:20px;height:20px"></i>
+            </button>
+        </div>
         <div class="flex items-center gap-3 sm:gap-4">
             <div class="relative">
                 <button id="userMenuBtn" class="flex items-center gap-2.5 group">
@@ -159,7 +148,23 @@ function getInitials($name) {
 </div>
 
 <script>
-  lucide.createIcons();
+    lucide.createIcons();
+
+    const sidebar = document.getElementById('sidebar');
+    const mainContent = document.getElementById('mainContent');
+    const menuBtn = document.getElementById('menuBtn');
+
+    function toggleSidebar() {
+        sidebar.classList.toggle('-translate-x-full');
+        mainContent.classList.toggle('lg:ml-64');
+    }
+
+    menuBtn.addEventListener('click', toggleSidebar);
+
+    if (window.innerWidth < 1024) {
+        sidebar.classList.add('-translate-x-full');
+        mainContent.classList.remove('lg:ml-64');
+    }
 </script>
 
   <script src="loader/loader.js"></script>

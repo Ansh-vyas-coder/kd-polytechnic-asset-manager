@@ -168,6 +168,8 @@ function getInitials($name)
   }
   return substr($initials, 0, 2); // Return the first 2 initials
 }
+
+$current_page = $pageView;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -226,56 +228,13 @@ function getInitials($name)
   <?php include 'loader/loader.html'; ?>
   <div class="h-screen flex overflow-hidden">
 
-    <aside id="sidebar"
-      class="w-64 border-r border-gray-200 bg-white flex flex-col fixed inset-y-0 left-0 z-40 -translate-x-full lg:translate-x-0 lg:static transition-transform duration-200 ease-out">
+    <?php include 'sidebar.php'; ?>
 
-      <div class="h-16 flex items-center gap-3 px-4 border-b border-gray-200 shrink-0">
-        <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center shrink-0 p-1">
-          <img src="kdp_logo.jpeg"
-            alt="KDP Logo" class="w-full h-full object-contain">
-        </div>
-        <span class="font-bold text-sm tracking-tight text-gray-900">Smart Asset Manager</span>
-      </div>
-
-      <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-        <a href="dashboard.php?view=dashboard" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo ($pageView === 'dashboard') ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
-          <i data-lucide="layout-dashboard" style="width:18px;height:18px"></i>
-          Dashboard
-        </a>
-        <?php if ($_SESSION['role'] === 'admin'): ?>
-          <a href="dashboard.php?view=add-asset" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showAddAsset ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
-            <i data-lucide="plus-square" style="width:18px;height:18px"></i>
-            Add Item(s)
-          </a>
-          <a href="dashboard.php?view=register" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showRegister ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
-            <i data-lucide="book-open" style="width:18px;height:18px"></i>
-            Virtual Register
-          </a>
-          <a href="dashboard.php?view=generate-report" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showGenerateReport ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
-            <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i>
-            Generate Report
-          </a>
-          <a href="manage-users.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
-            <i data-lucide="users" style="width:18px;height:18px"></i>
-            Manage Users
-          </a>
-        <?php endif; ?>
-        <?php if ($_SESSION['role'] === 'staff'): ?>
-          <a href="dashboard.php?view=my-assets" class="flex items-center gap-3 px-3 py-2.5 rounded-lg <?php echo $showMyAssets ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'; ?> text-sm font-medium transition-colors">
-            <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i>
-            My Assigned Assets
-          </a>
-        <?php endif; ?>
-      </nav>
-    </aside>
-
-    <div id="overlay" class="fixed inset-0 bg-gray-900/30 z-30 hidden"></div>
-
-    <div class="flex-1 flex flex-col min-w-0">
+    <div id="mainContent" class="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300 ease-in-out">
 
       <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6 gap-4 shrink-0">
         <div class="flex items-center gap-2 flex-1 min-w-0">
-          <button id="menuBtn" class="lg:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0">
+          <button id="menuBtn" class="p-2 -ml-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0">
             <i data-lucide="menu" style="width:20px;height:20px"></i>
           </button>
           <div id="search-container" class="relative w-full flex items-center">
@@ -743,9 +702,6 @@ function getInitials($name)
     }
 
 
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('overlay');
-    const menuBtn = document.getElementById('menuBtn');
     const userMenuBtn = document.getElementById('userMenuBtn');
     const userMenuDropdown = document.getElementById('userMenuDropdown');
     const changePasswordBtn = document.getElementById('changePasswordBtn');
@@ -755,23 +711,27 @@ function getInitials($name)
     const changePasswordForm = document.getElementById('changePasswordForm');
     const notification = document.getElementById('notification');
 
-    function openSidebar() {
-      sidebar.classList.remove('-translate-x-full');
-      overlay.classList.remove('hidden');
+    const sidebar = document.getElementById('sidebar');
+    const mainContent = document.getElementById('mainContent');
+    const menuBtn = document.getElementById('menuBtn');
+
+    function toggleSidebar() {
+        sidebar.classList.toggle('-translate-x-full');
+        mainContent.classList.toggle('lg:ml-64');
     }
 
-    function closeSidebar() {
-      sidebar.classList.add('-translate-x-full');
-      overlay.classList.add('hidden');
-    }
+    menuBtn.addEventListener('click', toggleSidebar);
 
     // --- User Menu Dropdown Logic ---
     userMenuBtn.addEventListener('click', () => {
       userMenuDropdown.classList.toggle('hidden');
     });
 
-    menuBtn.addEventListener('click', openSidebar);
-    overlay.addEventListener('click', closeSidebar);
+    // Set initial state based on screen size
+    if (window.innerWidth < 1024) {
+        sidebar.classList.add('-translate-x-full');
+        mainContent.classList.remove('lg:ml-64');
+    }
 
     // --- Change Password Modal Logic ---
     function showPasswordModal() {
