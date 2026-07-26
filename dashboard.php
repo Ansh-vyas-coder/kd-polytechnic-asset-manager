@@ -63,6 +63,155 @@ if ($mResult) {
   if ($isStaff && isset($stmt)) $stmt->close();
 }
 
+// --- START: Fetch items for maintenance widgets (limited and total counts) ---
+$items_not_working = [];
+$all_items_not_working = [];
+$items_under_maintenance = [];
+$all_items_under_maintenance = [];
+$maintenance_params = [];
+$maintenance_types = "";
+$total_not_working_count = 0;
+$total_under_maintenance_count = 0;
+
+if ($isStaff) {
+    $maintenance_types .= "s";
+    $maintenance_params[] = $staffName;
+}
+
+// Fetch Not Working items (limited to 4)
+$not_working_sql_limited = "SELECT asset_no, asset_name, location, category_id, status FROM assets WHERE status = 'Not Working' AND retire_at IS NULL";
+if ($isStaff) {
+    $not_working_sql_limited .= " AND assigned_to = ?";
+}
+$not_working_sql_limited .= " ORDER BY updated_at DESC LIMIT 4";
+
+if (!empty($maintenance_params)) {
+    $not_working_stmt = $conn->prepare($not_working_sql_limited);
+    $not_working_stmt->bind_param($maintenance_types, ...$maintenance_params);
+    $not_working_stmt->execute();
+    $not_working_result = $not_working_stmt->get_result();
+} else {
+    $not_working_result = $conn->query($not_working_sql_limited);
+}
+
+if ($not_working_result) {
+    while ($row = $not_working_result->fetch_assoc()) {
+        $items_not_working[] = $row;
+    }
+    if (isset($not_working_stmt)) {
+        $not_working_stmt->close();
+    }
+}
+
+// Fetch total count for Not Working items
+$not_working_count_sql = "SELECT COUNT(*) as total_count FROM assets WHERE status = 'Not Working' AND retire_at IS NULL";
+if ($isStaff) {
+    $not_working_count_sql .= " AND assigned_to = ?";
+}
+if (!empty($maintenance_params)) {
+    $not_working_count_stmt = $conn->prepare($not_working_count_sql);
+    $not_working_count_stmt->bind_param($maintenance_types, ...$maintenance_params);
+    $not_working_count_stmt->execute();
+    $not_working_count_result = $not_working_count_stmt->get_result()->fetch_assoc();
+    $total_not_working_count = $not_working_count_result['total_count'];
+    $not_working_count_stmt->close();
+} else {
+    $not_working_count_result = $conn->query($not_working_count_sql)->fetch_assoc();
+    $total_not_working_count = $not_working_count_result['total_count'];
+}
+
+// Fetch ALL Not Working items for modal
+$not_working_sql_all = "SELECT asset_no, asset_name, location, category_id, status FROM assets WHERE status = 'Not Working' AND retire_at IS NULL";
+if ($isStaff) {
+    $not_working_sql_all .= " AND assigned_to = ?";
+}
+$not_working_sql_all .= " ORDER BY updated_at DESC";
+
+if (!empty($maintenance_params)) {
+    $not_working_all_stmt = $conn->prepare($not_working_sql_all);
+    $not_working_all_stmt->bind_param($maintenance_types, ...$maintenance_params);
+    $not_working_all_stmt->execute();
+    $not_working_all_result = $not_working_all_stmt->get_result();
+} else {
+    $not_working_all_result = $conn->query($not_working_sql_all);
+}
+
+if ($not_working_all_result) {
+    while ($row = $not_working_all_result->fetch_assoc()) {
+        $all_items_not_working[] = $row;
+    }
+    if (isset($not_working_all_stmt)) {
+        $not_working_all_stmt->close();
+    }
+}
+
+// Fetch Under Maintenance items (limited to 4)
+$under_maintenance_sql_limited = "SELECT asset_no, asset_name, location, category_id, status FROM assets WHERE status = 'Under Maintenance' AND retire_at IS NULL";
+if ($isStaff) {
+    $under_maintenance_sql_limited .= " AND assigned_to = ?";
+}
+$under_maintenance_sql_limited .= " ORDER BY updated_at DESC LIMIT 4";
+
+if (!empty($maintenance_params)) {
+    $under_maintenance_stmt = $conn->prepare($under_maintenance_sql_limited);
+    $under_maintenance_stmt->bind_param($maintenance_types, ...$maintenance_params);
+    $under_maintenance_stmt->execute();
+    $under_maintenance_result = $under_maintenance_stmt->get_result();
+} else {
+    $under_maintenance_result = $conn->query($under_maintenance_sql_limited);
+}
+if ($under_maintenance_result) {
+    while ($row = $under_maintenance_result->fetch_assoc()) {
+        $items_under_maintenance[] = $row;
+    }
+    if (isset($under_maintenance_stmt)) {
+        $under_maintenance_stmt->close();
+    }
+}
+
+// Fetch total count for Under Maintenance items
+$under_maintenance_count_sql = "SELECT COUNT(*) as total_count FROM assets WHERE status = 'Under Maintenance' AND retire_at IS NULL";
+if ($isStaff) {
+    $under_maintenance_count_sql .= " AND assigned_to = ?";
+}
+if (!empty($maintenance_params)) {
+    $under_maintenance_count_stmt = $conn->prepare($under_maintenance_count_sql);
+    $under_maintenance_count_stmt->bind_param($maintenance_types, ...$maintenance_params);
+    $under_maintenance_count_stmt->execute();
+    $under_maintenance_count_result = $under_maintenance_count_stmt->get_result()->fetch_assoc();
+    $total_under_maintenance_count = $under_maintenance_count_result['total_count'];
+    $under_maintenance_count_stmt->close();
+} else {
+    $under_maintenance_count_result = $conn->query($under_maintenance_count_sql)->fetch_assoc();
+    $total_under_maintenance_count = $under_maintenance_count_result['total_count'];
+}
+
+// Fetch ALL Under Maintenance items for modal
+$under_maintenance_sql_all = "SELECT asset_no, asset_name, location, category_id, status FROM assets WHERE status = 'Under Maintenance' AND retire_at IS NULL";
+if ($isStaff) {
+    $under_maintenance_sql_all .= " AND assigned_to = ?";
+}
+$under_maintenance_sql_all .= " ORDER BY updated_at DESC";
+
+if (!empty($maintenance_params)) {
+    $under_maintenance_all_stmt = $conn->prepare($under_maintenance_sql_all);
+    $under_maintenance_all_stmt->bind_param($maintenance_types, ...$maintenance_params);
+    $under_maintenance_all_stmt->execute();
+    $under_maintenance_all_result = $under_maintenance_all_stmt->get_result();
+} else {
+    $under_maintenance_all_result = $conn->query($under_maintenance_sql_all);
+}
+
+if ($under_maintenance_all_result) {
+    while ($row = $under_maintenance_all_result->fetch_assoc()) {
+        $all_items_under_maintenance[] = $row;
+    }
+    if (isset($under_maintenance_all_stmt)) {
+        $under_maintenance_all_stmt->close();
+    }
+}
+
+// --- END: Fetch items for maintenance widgets (limited and total counts) ---
 // --- START: New Grouped Recent Activity ---
 
 // Helper function to group assets by batch
@@ -394,7 +543,7 @@ $current_page = $pageView;
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
 
-              <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:p-6">
+              <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:p-6 self-start">
                 <div class="flex items-center justify-between mb-4">
                   <div>
                     <h2 class="font-semibold text-gray-900">Recent Activity
@@ -473,79 +622,171 @@ $current_page = $pageView;
               </div>
 
               <div class="lg:col-span-1 bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:p-6 flex flex-col">
-                <h2 class="font-semibold text-gray-900">Category Overview</h2>
-                <p class="text-xs text-gray-400 mt-1 mb-6">Assets by category, this month</p>
+                  <h2 class="font-semibold text-gray-900">Category Overview</h2>
+                  <p class="text-xs text-gray-400 mt-1 mb-6">Total assets by category</p>
 
-                <div class="flex-1 flex items-end justify-between gap-3 min-h-[180px]">
+                  <div class="flex-1 flex items-end justify-between gap-3 min-h-[180px]">
 
-                  <!-- Expandable -->
-                  <div class="flex flex-col items-center gap-2 flex-1">
-                    <span class="text-[11px] font-semibold text-gray-600">
-                      <?php echo number_format($category_counts[1]); ?>
-                    </span>
+                    <!-- Expandable -->
+                    <div class="flex flex-col items-center gap-2 flex-1">
+                      <span class="text-[11px] font-semibold text-gray-600">
+                        <?php echo number_format($category_counts[1]); ?>
+                      </span>
 
-                    <div
-                      class="w-full max-w-[34px] bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-md transition-all duration-500"
-                      style="height:<?php echo $chartHeights[1]; ?>px">
+                      <div
+                        class="w-full max-w-[34px] bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-md transition-all duration-500"
+                        style="height:<?php echo $chartHeights[1]; ?>px">
+                      </div>
+
+                      <span class="text-[11px] text-gray-400">
+                        Expandable
+                      </span>
                     </div>
 
-                    <span class="text-[11px] text-gray-400">
-                      Expandable
-                    </span>
-                  </div>
+                    <!-- Consumables -->
+                    <div class="flex flex-col items-center gap-2 flex-1">
+                      <span class="text-[11px] font-semibold text-gray-600">
+                        <?php echo number_format($category_counts[2]); ?>
+                      </span>
 
-                  <!-- Consumables -->
-                  <div class="flex flex-col items-center gap-2 flex-1">
-                    <span class="text-[11px] font-semibold text-gray-600">
-                      <?php echo number_format($category_counts[2]); ?>
-                    </span>
+                      <div
+                        class="w-full max-w-[34px] bg-gradient-to-t from-purple-500 to-purple-400 rounded-t-md transition-all duration-500"
+                        style="height:<?php echo $chartHeights[2]; ?>px">
+                      </div>
 
-                    <div
-                      class="w-full max-w-[34px] bg-gradient-to-t from-purple-500 to-purple-400 rounded-t-md transition-all duration-500"
-                      style="height:<?php echo $chartHeights[2]; ?>px">
+                      <span class="text-[11px] text-gray-400">
+                        Consumables
+                      </span>
                     </div>
 
-                    <span class="text-[11px] text-gray-400">
-                      Consumables
-                    </span>
-                  </div>
+                    <!-- Deadstock -->
+                    <div class="flex flex-col items-center gap-2 flex-1">
+                      <span class="text-[11px] font-semibold text-gray-600">
+                        <?php echo number_format($category_counts[3]); ?>
+                      </span>
 
-                  <!-- Deadstock -->
-                  <div class="flex flex-col items-center gap-2 flex-1">
-                    <span class="text-[11px] font-semibold text-gray-600">
-                      <?php echo number_format($category_counts[3]); ?>
-                    </span>
+                      <div
+                        class="w-full max-w-[34px] bg-gradient-to-t from-amber-500 to-amber-400 rounded-t-md transition-all duration-500"
+                        style="height:<?php echo $chartHeights[3]; ?>px">
+                      </div>
 
-                    <div
-                      class="w-full max-w-[34px] bg-gradient-to-t from-amber-500 to-amber-400 rounded-t-md transition-all duration-500"
-                      style="height:<?php echo $chartHeights[3]; ?>px">
+                      <span class="text-[11px] text-gray-400">
+                        Deadstock
+                      </span>
                     </div>
 
-                    <span class="text-[11px] text-gray-400">
-                      Deadstock
-                    </span>
-                  </div>
+                    <!-- Furniture -->
+                    <div class="flex flex-col items-center gap-2 flex-1">
+                      <span class="text-[11px] font-semibold text-gray-600">
+                        <?php echo number_format($category_counts[4]); ?>
+                      </span>
 
-                  <!-- Furniture -->
-                  <div class="flex flex-col items-center gap-2 flex-1">
-                    <span class="text-[11px] font-semibold text-gray-600">
-                      <?php echo number_format($category_counts[4]); ?>
-                    </span>
+                      <div
+                        class="w-full max-w-[34px] bg-gradient-to-t from-emerald-500 to-emerald-400 rounded-t-md transition-all duration-500"
+                        style="height:<?php echo $chartHeights[4]; ?>px">
+                      </div>
 
-                    <div
-                      class="w-full max-w-[34px] bg-gradient-to-t from-emerald-500 to-emerald-400 rounded-t-md transition-all duration-500"
-                      style="height:<?php echo $chartHeights[4]; ?>px">
+                      <span class="text-[11px] text-gray-400">
+                        Furniture
+                      </span>
                     </div>
 
-                    <span class="text-[11px] text-gray-400">
-                      Furniture
-                    </span>
                   </div>
-
                 </div>
-              </div>
             </div>
-          </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-6">
+                <!-- Not Working Items Widget -->
+                  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:p-6">
+                      <div class="flex items-start justify-between mb-4">
+                          <div>
+                              <h2 class="font-semibold text-gray-900">Not Working Items</h2>
+                              <p class="text-xs text-gray-400 mt-1">Assets reported as not functional.</p>
+                          </div>
+                          <div class="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
+                              <i data-lucide="alert-octagon" class="text-red-600" style="width:18px;height:18px"></i>
+                          </div>
+                      </div>
+                      <div>
+                          <?php if (empty($items_not_working)): ?>
+                              <div class="text-center py-6 border-t border-gray-100">
+                                  <p class="text-sm text-gray-500 mt-4">No items are reported as 'Not Working'.</p>
+                              </div>
+                          <?php else: ?>
+                              <ul class="divide-y divide-gray-100 -mx-5 lg:-mx-6">
+                                  <?php foreach ($items_not_working as $item): ?>
+                                      <li class="px-5 lg:px-6 py-3 hover:bg-gray-50 transition-colors">
+                                          <a href="view-asset-details.php?category_id=<?php echo $item['category_id']; ?>&asset_name=<?php echo urlencode($item['asset_name']); ?>" class="block">
+                                              <div class="flex items-center justify-between">
+                                                  <p class="text-sm font-semibold text-gray-800 truncate"><?php echo htmlspecialchars($item['asset_name']); ?></p>
+                                                  <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                                                      <?php echo htmlspecialchars($item['status']); ?>
+                                                  </span>
+                                              </div>
+                                              <div class="text-xs text-gray-500 mt-1 flex items-center gap-x-3">
+                                                  <span>ID: <strong class="font-mono text-gray-600"><?php echo htmlspecialchars($item['asset_no'] ?: 'N/A'); ?></strong></span>
+                                                  <?php if (!empty($item['location'])): ?>
+                                                      <span>| At: <strong class="text-gray-600"><?php echo htmlspecialchars($item['location']); ?></strong></span>
+                                                  <?php endif; ?>
+                                              </div>
+                                          </a>
+                                      </li>
+                                  <?php endforeach; ?>
+                              </ul>
+                          <?php endif; ?>
+                        <?php if ($total_not_working_count > 4): ?>
+                            <div class="text-center pt-4 border-t border-gray-100 mt-4">
+                                <button type="button" id="viewAllNotWorkingBtn" class="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors">View All (<?php echo $total_not_working_count; ?>)</button>
+                            </div>
+                        <?php endif; ?>
+                      </div>
+                  </div>
+                  <!-- Items Under Maintenance Widget -->
+                  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:p-6">
+                      <div class="flex items-start justify-between mb-4">
+                          <div>
+                              <h2 class="font-semibold text-gray-900">Under Maintenance</h2>
+                              <p class="text-xs text-gray-400 mt-1">Assets currently being repaired.</p>
+                          </div>
+                          <div class="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+                              <i data-lucide="wrench" class="text-amber-600" style="width:18px;height:18px"></i>
+                          </div>
+                      </div>
+                      <div>
+                          <?php if (empty($items_under_maintenance)): ?>
+                              <div class="text-center py-6 border-t border-gray-100">
+                                  <p class="text-sm text-gray-500 mt-4">No assets are under maintenance.</p>
+                              </div>
+                          <?php else: ?>
+                              <ul class="divide-y divide-gray-100 -mx-5 lg:-mx-6">
+                                  <?php foreach ($items_under_maintenance as $item): ?>
+                                      <li class="px-5 lg:px-6 py-3 hover:bg-gray-50 transition-colors">
+                                          <a href="view-asset-details.php?category_id=<?php echo $item['category_id']; ?>&asset_name=<?php echo urlencode($item['asset_name']); ?>" class="block">
+                                              <div class="flex items-center justify-between">
+                                                  <p class="text-sm font-semibold text-gray-800 truncate"><?php echo htmlspecialchars($item['asset_name']); ?></p>
+                                                  <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                                                      <?php echo htmlspecialchars($item['status']); ?>
+                                                  </span>
+                                              </div>
+                                              <div class="text-xs text-gray-500 mt-1 flex items-center gap-x-3">
+                                                  <span>ID: <strong class="font-mono text-gray-600"><?php echo htmlspecialchars($item['asset_no'] ?: 'N/A'); ?></strong></span>
+                                                  <?php if (!empty($item['location'])): ?>
+                                                      <span>| At: <strong class="text-gray-600"><?php echo htmlspecialchars($item['location']); ?></strong></span>
+                                                  <?php endif; ?>
+                                              </div>
+                                          </a>
+                                      </li>
+                                  <?php endforeach; ?>
+                              </ul>
+                          <?php endif; ?>
+                        <?php if ($total_under_maintenance_count > 4): ?>
+                            <div class="text-center pt-4 border-t border-gray-100 mt-4">
+                                <button type="button" id="viewAllUnderMaintenanceBtn" class="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors">View All (<?php echo $total_under_maintenance_count; ?>)</button>
+                            </div>
+                        <?php endif; ?>
+                      </div>
+                  </div>
+            </div>
         <?php else: ?>
           <div id="assetView" class="w-full">
             <?php define('IS_EMBEDDED', true);
@@ -656,6 +897,88 @@ $current_page = $pageView;
         </table>
       </div>
     </div>
+  </div>
+
+  <!-- View All Not Working Modal -->
+  <div id="notWorkingModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col transform transition-all">
+          <div class="p-5 border-b border-gray-200 flex items-center justify-between">
+              <h3 class="text-lg font-bold text-gray-900">All 'Not Working' Items</h3>
+              <button type="button" id="closeNotWorkingModalBtn" class="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600">
+                  <i data-lucide="x" style="width:20px;height:20px"></i>
+              </button>
+          </div>
+          <div class="p-5 flex-1 overflow-y-auto">
+              <table class="w-full text-sm">
+                  <thead>
+                      <tr class="text-left text-[11px] text-gray-400 uppercase tracking-wider">
+                          <th class="pb-3 px-1 font-medium">EQUIPMENT NAME</th>
+                          <th class="pb-3 px-1 font-medium">ASSET ID</th>
+                          <th class="pb-3 px-1 font-medium">LOCATION</th>
+                          <th class="pb-3 px-1 font-medium">STATUS</th>
+                      </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-100">
+                      <?php foreach ($all_items_not_working as $item): ?>
+                          <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.location.href='view-asset-details.php?category_id=<?php echo $item['category_id']; ?>&asset_name=<?php echo urlencode($item['asset_name']); ?>'">
+                              <td class="py-3.5 px-1 font-semibold text-gray-800 truncate"><?php echo htmlspecialchars($item['asset_name']); ?></td>
+                              <td class="py-3.5 px-1 font-mono text-xs text-gray-600"><?php echo htmlspecialchars($item['asset_no'] ?: 'N/A'); ?></td>
+                              <td class="py-3.5 px-1 text-gray-500"><?php echo htmlspecialchars($item['location'] ?: 'N/A'); ?></td>
+                              <td class="py-3.5 px-1">
+                                  <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                                      <?php echo htmlspecialchars($item['status']); ?>
+                                  </span>
+                              </td>
+                          </tr>
+                      <?php endforeach; ?>
+                      <?php if (empty($all_items_not_working)): ?>
+                          <tr><td colspan="4" class="py-10 text-center text-gray-500">No items are reported as 'Not Working'.</td></tr>
+                      <?php endif; ?>
+                  </tbody>
+              </table>
+          </div>
+      </div>
+  </div>
+
+  <!-- View All Under Maintenance Modal -->
+  <div id="underMaintenanceModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+      <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col transform transition-all">
+          <div class="p-5 border-b border-gray-200 flex items-center justify-between">
+              <h3 class="text-lg font-bold text-gray-900">All 'Under Maintenance' Items</h3>
+              <button type="button" id="closeUnderMaintenanceModalBtn" class="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600">
+                  <i data-lucide="x" style="width:20px;height:20px"></i>
+              </button>
+          </div>
+          <div class="p-5 flex-1 overflow-y-auto">
+              <table class="w-full text-sm">
+                  <thead>
+                      <tr class="text-left text-[11px] text-gray-400 uppercase tracking-wider">
+                          <th class="pb-3 px-1 font-medium">EQUIPMENT NAME</th>
+                          <th class="pb-3 px-1 font-medium">ASSET ID</th>
+                          <th class="pb-3 px-1 font-medium">LOCATION</th>
+                          <th class="pb-3 px-1 font-medium">STATUS</th>
+                      </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-100">
+                      <?php foreach ($all_items_under_maintenance as $item): ?>
+                          <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.location.href='view-asset-details.php?category_id=<?php echo $item['category_id']; ?>&asset_name=<?php echo urlencode($item['asset_name']); ?>'">
+                              <td class="py-3.5 px-1 font-semibold text-gray-800 truncate"><?php echo htmlspecialchars($item['asset_name']); ?></td>
+                              <td class="py-3.5 px-1 font-mono text-xs text-gray-600"><?php echo htmlspecialchars($item['asset_no'] ?: 'N/A'); ?></td>
+                              <td class="py-3.5 px-1 text-gray-500"><?php echo htmlspecialchars($item['location'] ?: 'N/A'); ?></td>
+                              <td class="py-3.5 px-1">
+                                  <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                                      <?php echo htmlspecialchars($item['status']); ?>
+                                  </span>
+                              </td>
+                          </tr>
+                      <?php endforeach; ?>
+                      <?php if (empty($all_items_under_maintenance)): ?>
+                          <tr><td colspan="4" class="py-10 text-center text-gray-500">No assets are under maintenance.</td></tr>
+                      <?php endif; ?>
+                  </tbody>
+              </table>
+          </div>
+      </div>
   </div>
 
   <script>
@@ -941,6 +1264,45 @@ $current_page = $pageView;
           activityModal.classList.add('hidden');
         }
       });
+    }
+
+    // --- View All Maintenance Modals Logic ---
+    const notWorkingModal = document.getElementById('notWorkingModal');
+    const viewAllNotWorkingBtn = document.getElementById('viewAllNotWorkingBtn');
+    const closeNotWorkingModalBtn = document.getElementById('closeNotWorkingModalBtn');
+
+    if (viewAllNotWorkingBtn && notWorkingModal && closeNotWorkingModalBtn) {
+        viewAllNotWorkingBtn.addEventListener('click', () => {
+            notWorkingModal.classList.remove('hidden');
+            lucide.createIcons();
+        });
+        closeNotWorkingModalBtn.addEventListener('click', () => {
+            notWorkingModal.classList.add('hidden');
+        });
+        notWorkingModal.addEventListener('click', (e) => {
+            if (e.target === notWorkingModal) {
+                notWorkingModal.classList.add('hidden');
+            }
+        });
+    }
+
+    const underMaintenanceModal = document.getElementById('underMaintenanceModal');
+    const viewAllUnderMaintenanceBtn = document.getElementById('viewAllUnderMaintenanceBtn');
+    const closeUnderMaintenanceModalBtn = document.getElementById('closeUnderMaintenanceModalBtn');
+
+    if (viewAllUnderMaintenanceBtn && underMaintenanceModal && closeUnderMaintenanceModalBtn) {
+        viewAllUnderMaintenanceBtn.addEventListener('click', () => {
+            underMaintenanceModal.classList.remove('hidden');
+            lucide.createIcons();
+        });
+        closeUnderMaintenanceModalBtn.addEventListener('click', () => {
+            underMaintenanceModal.classList.add('hidden');
+        });
+        underMaintenanceModal.addEventListener('click', (e) => {
+            if (e.target === underMaintenanceModal) {
+                underMaintenanceModal.classList.add('hidden');
+            }
+        });
     }
   </script>
   <script src="loader/loader.js"></script>
