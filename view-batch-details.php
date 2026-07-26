@@ -230,41 +230,9 @@ if (!function_exists('getInitials')) {
     <?php include 'loader/loader.html'; ?>
     <div class="h-screen flex overflow-hidden">
 
-        <!-- Sidebar -->
-        <aside id="sidebar" class="w-64 border-r border-gray-200 bg-white flex flex-col fixed inset-y-0 left-0 z-40 lg:translate-x-0 lg:static">
-            <div class="h-16 flex items-center gap-3 px-4 border-b border-gray-200 shrink-0">
-                <div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center shrink-0 p-1">
-                    <img src="kdp_logo.jpeg" alt="KDP Logo" class="w-full h-full object-contain">
-                </div>
-                <span class="font-bold text-sm tracking-tight text-gray-900">Smart Asset Manager</span>
-            </div>
-            <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-                <a href="dashboard.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
-                    <i data-lucide="layout-dashboard" style="width:18px;height:18px"></i> Dashboard
-                </a>
-                <?php if ($_SESSION['role'] === 'admin'): ?>
-                    <a href="dashboard.php?view=add-asset" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
-                        <i data-lucide="plus-square" style="width:18px;height:18px"></i> Add Item(s)
-                    </a>
-                    <a href="dashboard.php?view=register" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
-                        <i data-lucide="book-open" style="width:18px;height:18px"></i> Virtual Register
-                    </a>
-                    <a href="dashboard.php?view=generate-report" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
-                        <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i> Generate Report
-                    </a>
-                    <a href="manage-users.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
-                        <i data-lucide="users" style="width:18px;height:18px"></i> Manage Users
-                    </a>
-                <?php endif; ?>
-                <?php if ($_SESSION['role'] === 'staff'): ?>
-                    <a href="dashboard.php?view=my-assets" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-gray-900 text-sm font-medium transition-colors">
-                        <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i> My Assigned Assets
-                    </a>
-                <?php endif; ?>
-            </nav>
-        </aside>
+        <?php include 'sidebar.php'; ?>
 
-        <div class="flex-1 flex flex-col min-w-0">
+        <div id="mainContent" class="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300 ease-in-out h-screen overflow-hidden">
             <!-- Header -->
             <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-end px-4 lg:px-6">
                 <div class="flex items-center gap-3 sm:gap-4">
@@ -277,8 +245,8 @@ if (!function_exists('getInitials')) {
             </header>
 
             <!-- Main Content -->
-            <main class="flex-1 overflow-y-auto bg-gray-50 p-4 lg:p-6">
-                <div class="max-w-7xl mx-auto">
+            <div class="flex-1 overflow-y-auto flex flex-col">
+                <main class="flex-1 bg-gray-50 p-4 lg:p-6">
 
                     <!-- Breadcrumb Navigation -->
                     <div class="mb-6">
@@ -425,8 +393,9 @@ if (!function_exists('getInitials')) {
                             </table>
                         </div>
                     </div>
-                </div>
-            </main>
+                </main>
+                <?php include 'footer.php'; ?>
+            </div>
         </div>
     </div>
 

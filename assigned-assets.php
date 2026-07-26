@@ -91,7 +91,7 @@ $categories = [
   <!-- Sidebar -->
   <?php include 'sidebar.php'; ?>
 
-  <div id="mainContent" class="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300 ease-in-out">
+  <div id="mainContent" class="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300 ease-in-out h-screen overflow-hidden">
     <!-- Header -->
     <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6 gap-4 shrink-0">
         <div class="flex items-center gap-2 flex-1 min-w-0">
@@ -125,60 +125,63 @@ $categories = [
     </header>
 
     <!-- Main Content -->
-    <main class="flex-1 overflow-y-auto bg-slate-50 p-4 lg:p-6">
-      <div class="max-w-7xl mx-auto">
-        <div class="flex items-center justify-between mb-6">
-            <div>
-                <h1 class="text-2xl font-bold text-gray-900 tracking-tight">
-                    <?php echo $_SESSION['role'] === 'staff' ? 'My Assigned Assets' : 'All Assigned Assets'; ?>
-                </h1>
-                <p class="text-sm text-gray-500 mt-1">List of all assets currently checked out to staff.</p>
-            </div>
-        </div>
+    <div class="flex-1 overflow-y-auto flex flex-col">
+      <main class="flex-1 bg-slate-50 p-4 lg:p-6">
+        <div class="max-w-7xl mx-auto">
+          <div class="flex items-center justify-between mb-6">
+              <div>
+                  <h1 class="text-2xl font-bold text-gray-900 tracking-tight">
+                      <?php echo $_SESSION['role'] === 'staff' ? 'My Assigned Assets' : 'All Assigned Assets'; ?>
+                  </h1>
+                  <p class="text-sm text-gray-500 mt-1">List of all assets currently checked out to staff.</p>
+              </div>
+          </div>
 
-        <!-- Assigned Assets Table -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100">
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm min-w-[720px]">
-              <thead class="bg-gray-50">
-                <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
-                  <th class="px-6 py-3 font-medium">Asset Name</th>
-                  <th class="px-6 py-3 font-medium">Asset ID</th>
-                  <th class="px-6 py-3 font-medium">Category</th>
-                  <th class="px-6 py-3 font-medium">Assigned To</th>
-                  <th class="px-6 py-3 font-medium">Location</th>
-                  <th class="px-6 py-3 font-medium text-right">Last Updated</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-100">
-                <?php if (empty($items)): ?>
-                    <tr>
-                        <td colspan="6" class="text-center py-16 text-gray-500">
-                            <div class="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-3">
-                                <i data-lucide="user-check" class="w-7 h-7 text-gray-400"></i>
-                            </div>
-                            <h3 class="font-semibold text-gray-800">No Assets Assigned</h3>
-                            <p class="text-sm mt-1">There are no assets currently checked out.</p>
-                        </td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($items as $item): ?>
-                    <tr class="clickable-row" data-href="view-asset-details.php?category_id=<?php echo $item['category_id']; ?>&asset_name=<?php echo urlencode($item['asset_name']); ?>">
-                      <td class="px-6 py-4 whitespace-nowrap font-semibold text-gray-900"><?php echo htmlspecialchars($item['asset_name']); ?></td>
-                      <td class="px-6 py-4 whitespace-nowrap font-mono text-xs text-gray-600"><?php echo htmlspecialchars($item['asset_no'] ?: 'N/A'); ?></td>
-                      <td class="px-6 py-4 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($categories[$item['category_id']] ?? 'Unknown'); ?></td>
-                      <td class="px-6 py-4 whitespace-nowrap text-gray-800 font-medium"><?php echo htmlspecialchars($item['assigned_to']); ?></td>
-                      <td class="px-6 py-4 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($item['location'] ?: 'N/A'); ?></td>
-                      <td class="px-6 py-4 whitespace-nowrap text-gray-500 text-right"><?php echo date('M d, Y', strtotime($item['updated_at'])); ?></td>
-                    </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-              </tbody>
-            </table>
+          <!-- Assigned Assets Table -->
+          <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm min-w-[720px]">
+                <thead class="bg-gray-50">
+                  <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
+                    <th class="px-6 py-3 font-medium">Asset Name</th>
+                    <th class="px-6 py-3 font-medium">Asset ID</th>
+                    <th class="px-6 py-3 font-medium">Category</th>
+                    <th class="px-6 py-3 font-medium">Assigned To</th>
+                    <th class="px-6 py-3 font-medium">Location</th>
+                    <th class="px-6 py-3 font-medium text-right">Last Updated</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  <?php if (empty($items)): ?>
+                      <tr>
+                          <td colspan="6" class="text-center py-16 text-gray-500">
+                              <div class="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                                  <i data-lucide="user-check" class="w-7 h-7 text-gray-400"></i>
+                              </div>
+                              <h3 class="font-semibold text-gray-800">No Assets Assigned</h3>
+                              <p class="text-sm mt-1">There are no assets currently checked out.</p>
+                          </td>
+                      </tr>
+                  <?php else: ?>
+                      <?php foreach ($items as $item): ?>
+                      <tr class="clickable-row" data-href="view-asset-details.php?category_id=<?php echo $item['category_id']; ?>&asset_name=<?php echo urlencode($item['asset_name']); ?>">
+                        <td class="px-6 py-4 whitespace-nowrap font-semibold text-gray-900"><?php echo htmlspecialchars($item['asset_name']); ?></td>
+                        <td class="px-6 py-4 whitespace-nowrap font-mono text-xs text-gray-600"><?php echo htmlspecialchars($item['asset_no'] ?: 'N/A'); ?></td>
+                        <td class="px-6 py-4 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($categories[$item['category_id']] ?? 'Unknown'); ?></td>
+                        <td class="px-6 py-4 whitespace-nowrap text-gray-800 font-medium"><?php echo htmlspecialchars($item['assigned_to']); ?></td>
+                        <td class="px-6 py-4 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($item['location'] ?: 'N/A'); ?></td>
+                        <td class="px-6 py-4 whitespace-nowrap text-gray-500 text-right"><?php echo date('M d, Y', strtotime($item['updated_at'])); ?></td>
+                      </tr>
+                      <?php endforeach; ?>
+                  <?php endif; ?>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
-    </main>
+      </main>
+      <?php include 'footer.php'; ?>
+    </div>
   </div>
 </div>
 

@@ -371,7 +371,7 @@ $current_page = $pageView;
 
     <?php include 'sidebar.php'; ?>
 
-    <div id="mainContent" class="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300 ease-in-out">
+    <div id="mainContent" class="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300 ease-in-out h-screen overflow-hidden">
 
       <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6 gap-4 shrink-0">
         <div class="flex items-center gap-2 flex-1 min-w-0">
@@ -447,8 +447,8 @@ $current_page = $pageView;
         </div>
       </header>
 
-      <main class="flex-1 overflow-y-auto bg-gray-50 p-4 lg:p-6">
-
+      <div class="flex-1 overflow-y-auto flex flex-col">
+        <main class="flex-1 bg-gray-50 p-4 lg:p-6">
         <?php if ($showRegister): ?>
           <div id="registerView">
             <?php include 'register.php'; ?>
@@ -786,8 +786,9 @@ $current_page = $pageView;
             include 'add-asset.php'; ?>
           </div>
         <?php endif; ?>
-
-      </main>
+        </main>
+        <?php include 'footer.php'; ?>
+      </div>
     </div>
   </div>
 

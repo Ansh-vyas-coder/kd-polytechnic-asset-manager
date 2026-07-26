@@ -350,6 +350,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#1e3271] focus:border-[#1e3271] outline-none transition-all resize-none"><?php echo htmlspecialchars($asset['remarks']); ?></textarea>
             </div>
         </form>
+        <?php if (!$is_embedded) { include 'footer.php'; } ?>
     </div>
 
     <!-- Actions Section -->

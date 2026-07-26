@@ -108,7 +108,7 @@ $current_page = 'manage-users';
   <!-- Sidebar -->
   <?php include 'sidebar.php'; ?>
 
-  <div id="mainContent" class="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300 ease-in-out">
+  <div id="mainContent" class="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300 ease-in-out h-screen overflow-hidden">
     <!-- Header -->
     <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6 gap-4 shrink-0">
         <div class="flex items-center gap-2 flex-1 min-w-0">
@@ -146,85 +146,88 @@ $current_page = 'manage-users';
     </header>
 
     <!-- Main Content -->
-    <main class="flex-1 overflow-y-auto bg-slate-50 p-4 lg:p-6">
-      <div class="max-w-4xl mx-auto">
-        <h1 class="text-2xl font-bold text-gray-900 tracking-tight mb-6">Manage Users</h1>
+    <div class="flex-1 overflow-y-auto flex flex-col">
+      <main class="flex-1 bg-slate-50 p-4 lg:p-6">
+        <div class="max-w-4xl mx-auto">
+          <h1 class="text-2xl font-bold text-gray-900 tracking-tight mb-6">Manage Users</h1>
 
-        <!-- Add New User Form -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
-          <h2 class="text-lg font-semibold text-gray-900 mb-4">Add New User</h2>
-          <form action="manage-users.php" method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <input type="hidden" name="action" value="add_user">
-            <div>
-              <label for="full_name" class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-              <input type="text" name="full_name" id="full_name" required class="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition">
-            </div>
-            <div>
-              <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-              <input type="email" name="email" id="email" required class="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition">
-            </div>
-            <div>
-              <label for="role" class="block text-sm font-medium text-gray-700 mb-1">Access Level (Role)</label>
-              <select name="role" id="role" required class="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition">
-                <option value="staff">Normal User (Staff)</option>
-                <option value="admin">Admin</option>
-              </select>
-            </div>
-            <div class="md:col-span-2">
-                <p class="text-xs text-gray-500 -mt-3 mb-4">
-                    A secure, random password will be automatically generated for the new user.
-                </p>
-              <button type="submit" class="w-full sm:w-auto inline-flex justify-center items-center gap-2 px-6 py-2.5 border border-transparent text-sm font-bold rounded-lg text-white bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md shadow-blue-500/30 hover:shadow-lg hover:shadow-blue-500/40">
-                <i data-lucide="user-plus" style="width:16px;height:16px"></i>
-                Add User
-              </button>
-            </div>
-          </form>
-        </div>
+          <!-- Add New User Form -->
+          <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Add New User</h2>
+            <form action="manage-users.php" method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <input type="hidden" name="action" value="add_user">
+              <div>
+                <label for="full_name" class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                <input type="text" name="full_name" id="full_name" required class="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition">
+              </div>
+              <div>
+                <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                <input type="email" name="email" id="email" required class="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition">
+              </div>
+              <div>
+                <label for="role" class="block text-sm font-medium text-gray-700 mb-1">Access Level (Role)</label>
+                <select name="role" id="role" required class="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition">
+                  <option value="staff">Normal User (Staff)</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <div class="md:col-span-2">
+                  <p class="text-xs text-gray-500 -mt-3 mb-4">
+                      A secure, random password will be automatically generated for the new user.
+                  </p>
+                <button type="submit" class="w-full sm:w-auto inline-flex justify-center items-center gap-2 px-6 py-2.5 border border-transparent text-sm font-bold rounded-lg text-white bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-600 transition-all shadow-md shadow-blue-500/30 hover:shadow-lg hover:shadow-blue-500/40">
+                  <i data-lucide="user-plus" style="width:16px;height:16px"></i>
+                  Add User
+                </button>
+              </div>
+            </form>
+          </div>
 
-        <!-- Existing Users Table -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100">
-          <div class="p-5 lg:p-6 border-b border-gray-100">
-            <h2 class="text-lg font-semibold text-gray-900">Existing Users</h2>
-          </div>
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm min-w-[640px]">
-              <thead class="bg-gray-50">
-                <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
-                  <th class="px-6 py-3 font-medium">Name</th>
-                  <th class="px-6 py-3 font-medium">Email</th>
-                  <th class="px-6 py-3 font-medium">Role</th>
-                  <th class="px-6 py-3 font-medium">Date Added</th>
-                  <th class="px-6 py-3 font-medium text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-100">
-                <?php foreach ($users as $user): ?>
-                <tr>
-                  <td class="px-6 py-4 whitespace-nowrap font-semibold text-gray-900"><?php echo htmlspecialchars($user['full_name']); ?></td>
-                  <td class="px-6 py-4 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($user['email']); ?></td>
-                  <td class="px-6 py-4 whitespace-nowrap">
-                    <span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $user['role'] === 'admin' ? 'bg-rose-100 text-rose-700' : 'bg-sky-100 text-sky-700'; ?>">
-                      <?php echo ucfirst(htmlspecialchars($user['role'])); ?>
-                    </span>
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-gray-500"><?php echo date('M d, Y', strtotime($user['created_at'])); ?></td>
-                  <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <a href="edit_user.php?id=<?php echo $user['id']; ?>" class="text-indigo-600 hover:underline">Edit</a>
-                    <?php if ($user['id'] !== $_SESSION['user_id']): // Prevent showing delete for self ?>
-                      <a href="manage-users.php?action=delete_user&id=<?php echo $user['id']; ?>" 
-                         class="text-red-600 hover:text-red-900 ml-4"
-                         onclick="return confirm('Are you sure you want to permanently delete this user? This action cannot be undone.');">Delete</a>
-                    <?php endif; ?>
-                  </td>
-                </tr>
-                <?php endforeach; ?>
-              </tbody>
-            </table>
+          <!-- Existing Users Table -->
+          <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+            <div class="p-5 lg:p-6 border-b border-gray-100">
+              <h2 class="text-lg font-semibold text-gray-900">Existing Users</h2>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm min-w-[640px]">
+                <thead class="bg-gray-50">
+                  <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
+                    <th class="px-6 py-3 font-medium">Name</th>
+                    <th class="px-6 py-3 font-medium">Email</th>
+                    <th class="px-6 py-3 font-medium">Role</th>
+                    <th class="px-6 py-3 font-medium">Date Added</th>
+                    <th class="px-6 py-3 font-medium text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  <?php foreach ($users as $user): ?>
+                  <tr>
+                    <td class="px-6 py-4 whitespace-nowrap font-semibold text-gray-900"><?php echo htmlspecialchars($user['full_name']); ?></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($user['email']); ?></td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $user['role'] === 'admin' ? 'bg-rose-100 text-rose-700' : 'bg-sky-100 text-sky-700'; ?>">
+                        <?php echo ucfirst(htmlspecialchars($user['role'])); ?>
+                      </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-gray-500"><?php echo date('M d, Y', strtotime($user['created_at'])); ?></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <a href="edit_user.php?id=<?php echo $user['id']; ?>" class="text-indigo-600 hover:underline">Edit</a>
+                      <?php if ($user['id'] !== $_SESSION['user_id']): // Prevent showing delete for self ?>
+                        <a href="manage-users.php?action=delete_user&id=<?php echo $user['id']; ?>" 
+                           class="text-red-600 hover:text-red-900 ml-4"
+                           onclick="return confirm('Are you sure you want to permanently delete this user? This action cannot be undone.');">Delete</a>
+                      <?php endif; ?>
+                    </td>
+                  </tr>
+                  <?php endforeach; ?>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
-    </main>
+      </main>
+      <?php include 'footer.php'; ?>
+    </div>
   </div>
 </div>
 
