@@ -539,35 +539,6 @@ function getInitials($name)
         lucide.createIcons();
 
         const sidebar = document.getElementById('sidebar');
-        const overlay = document.getElementById('overlay');
-        const menuBtn = document.getElementById('menuBtn');
-        const userMenuBtn = document.getElementById('userMenuBtn');
-        const userMenuDropdown = document.getElementById('userMenuDropdown');
-
-        function openSidebar() {
-            sidebar.classList.remove('-translate-x-full');
-            overlay.classList.remove('hidden');
-        }
-
-        function closeSidebar() {
-            sidebar.classList.add('-translate-x-full');
-            overlay.classList.add('hidden');
-        }
-
-        menuBtn.addEventListener('click', openSidebar);
-        overlay.addEventListener('click', closeSidebar);
-
-        userMenuBtn.addEventListener('click', () => {
-            userMenuDropdown.classList.toggle('hidden');
-        });
-
-        document.addEventListener('click', (event) => {
-            if (!userMenuBtn.contains(event.target) && !userMenuDropdown.contains(event.target)) {
-                userMenuDropdown.classList.add('hidden');
-            }
-        });
-
-        const sidebar = document.getElementById('sidebar');
         const mainContent = document.getElementById('mainContent');
         const menuBtn = document.getElementById('menuBtn');
         const userMenuBtn = document.getElementById('userMenuBtn');

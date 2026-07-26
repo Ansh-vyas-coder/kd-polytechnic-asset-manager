@@ -390,22 +390,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             fetch('get-faculty.php')
                 .then(response => response.json())
-                .then(data => {
+                .then(allNames => {
                     assignedToSelect.innerHTML = '<option value="">Select faculty</option>';
-                    data.forEach(user => {
-                        const option = document.createElement('option');
-                        option.value = user.full_name;
-                        option.textContent = user.full_name;
 
-                        if (user.full_name === currentAssignedTo) {
+                    allNames.forEach(name => {
+                        const option = document.createElement('option');
+                        option.value = name;
+                        option.textContent = name;
+                        if (name === currentAssignedTo) {
                             option.selected = true;
                         }
-
                         assignedToSelect.appendChild(option);
                     });
                 })
                 .catch(() => {
-                    assignedToSelect.innerHTML = '<option value="">No faculty available</option>';
+                    assignedToSelect.innerHTML = '<option value="">Could not load faculty list</option>';
                 });
             
             const form = document.getElementById('editAssetForm');

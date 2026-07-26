@@ -1,7 +1,7 @@
 # kd-polytechnic-asset-manager
 ## Team Contributions
 
-**A.K.**
+**Ansh Vyas**
 *   **4 search bars**
 *   **4-widget structure:** Expendable, Consumable, deadstock, Furniture
 *   **View assets:** `view assets.php` (for name list)
@@ -9,8 +9,14 @@
 *   **Manage users feature:** Add, delete, Edit (`Edit user.php`, `manage users.php`)
 *   **Logout & Change password:** `Change password.php`
 * **Project Architecture & Reporting:** Built the initial working model, project structure, and core logic for the generate report feature.
-*   
-**Ansh T.**
+
+* **Global Footer Component:** `footer.php` (unified footer layout).
+* **Assigned Assets Feature:** `assigned-assets.php` (for tracking checked-out items).
+* **Under Maintenance Widget:** Dashboard tracker for assets undergoing repair.
+* **Not Working Widget:** Dashboard tracker flagging damaged or non-functional assets.
+
+
+**Ansh Thakkar**
 *   **Add items feature:** `add items.php`, `add items.html`
 *   **Visual register feature:** Four categories inside it (Expendable, Consumable, dead stock, furniture) and `register.php`
 *   **Login page:** `login.html`, `login.php`

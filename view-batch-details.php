@@ -744,13 +744,13 @@ if (!function_exists('getInitials')) {
             
             let optionsHTML = '<option value="">Select faculty</option>';
             
-            facultyData.forEach(user => {
-                optionsHTML += `<option value="${user.full_name}">${user.full_name}</option>`;
+            facultyData.forEach(name => {
+                optionsHTML += `<option value="${name}">${name}</option>`;
             });
             
             selectElement.innerHTML = optionsHTML;
             
-            if (currentValue && facultyData.some(user => user.full_name === currentValue)) {
+            if (currentValue && facultyData.includes(currentValue)) {
                 selectElement.value = currentValue;
             } else {
                 selectElement.value = "";
@@ -759,19 +759,11 @@ if (!function_exists('getInitials')) {
 
         fetch('get-faculty.php')
             .then(response => response.json())
-            .then(data => {
-                facultyData = data;
-                const assignedToSelect = document.getElementById('item_assigned_to');
-                if (assignedToSelect && itemEditModal.classList.contains('hidden') === false) {
-                    const currentValue = assignedToSelect.value;
-                    populateFacultyOptions(assignedToSelect, currentValue);
-                }
+            .then(allNames => {
+                facultyData = allNames;
             })
             .catch(() => {
-                const select = document.getElementById('item_assigned_to');
-                if (select) {
-                    select.innerHTML = '<option value="">No faculty available</option>';
-                }
+                facultyData = [];
             });
 
         // --- Location Dropdown Logic for Item Edit Modal ---
