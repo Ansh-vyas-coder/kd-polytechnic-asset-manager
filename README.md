@@ -23,6 +23,11 @@
 * **Generate Report:** Enhanced and expanded reporting features.
 * **Virtual Register:** Implemented detailed remarks tracking.
 * **Staff Dashboard:** Developed the dedicated "My Assigned Assets" view.
+* **Virtual Register Search:** Added search page functionality to the Virtual Register.
+* **Assigned Assets Page:** Updated and refined the assigned assets view.
+* **Write-Off Module:** Implemented a fully working module for writing off assets.
+* **Add Asset Form:** Improved and edited the asset entry form.
+* **Staff Issue Reporting:** Built a system allowing staff to mark issues in their assigned assets, making flags visible to admins.
 
 **Kush**
 *   **Record details:** `view batch-details.php`
