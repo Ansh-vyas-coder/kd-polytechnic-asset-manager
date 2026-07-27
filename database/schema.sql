@@ -69,3 +69,34 @@ CREATE TABLE IF NOT EXISTS notifications (
 ALTER TABLE assets 
 ADD COLUMN status varchar(50) DEFAULT 'active' AFTER cost,
 ADD COLUMN retire_at timestamp NULL DEFAULT NULL AFTER location;
+
+ALTER TABLE assets
+    ADD COLUMN IF NOT EXISTS status_marked_by VARCHAR(100) NULL AFTER status,
+    ADD COLUMN IF NOT EXISTS status_marked_role ENUM('admin', 'staff') NULL AFTER status_marked_by,
+    ADD COLUMN IF NOT EXISTS status_marked_at TIMESTAMP NULL DEFAULT NULL AFTER status_marked_role,
+    ADD COLUMN IF NOT EXISTS status_marked_note TEXT NULL AFTER status_marked_at;
+
+-- 5. ASSET STATUS REPORTS TABLE (Standalone staff issue reporting flow)
+CREATE TABLE IF NOT EXISTS asset_status_reports (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    asset_id INT NOT NULL,
+    category_id INT NOT NULL,
+    asset_name VARCHAR(255) NOT NULL,
+    batch_id VARCHAR(255) NOT NULL,
+    reported_by_user_id INT NOT NULL,
+    reported_by_name VARCHAR(100) NOT NULL,
+    reported_by_role ENUM('admin', 'staff') NOT NULL,
+    reported_status ENUM('Not Working', 'Missing', 'Under Maintenance') NOT NULL,
+    note TEXT NULL,
+    reported_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    reviewed_by_user_id INT NULL,
+    reviewed_at TIMESTAMP NULL DEFAULT NULL,
+    review_status ENUM('pending', 'reviewed', 'resolved') NOT NULL DEFAULT 'pending',
+    review_note TEXT NULL,
+    INDEX asset_id_idx (asset_id),
+    INDEX batch_id_idx (batch_id),
+    INDEX review_status_idx (review_status),
+    FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE,
+    FOREIGN KEY (reported_by_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (reviewed_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+);

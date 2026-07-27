@@ -79,8 +79,8 @@ if ($isStaff) {
     $maintenance_params[] = $staffName;
 }
 
-// Fetch Not Working items (limited to 4)
-$not_working_sql_limited = "SELECT asset_no, asset_name, location, category_id, status FROM assets WHERE status = 'Not Working' AND retire_at IS NULL";
+// Fetch Not Working / Missing items (limited to 4)
+$not_working_sql_limited = "SELECT asset_no, asset_name, location, category_id, status FROM assets WHERE status IN ('Not Working', 'Missing') AND retire_at IS NULL";
 if ($isStaff) {
     $not_working_sql_limited .= " AND assigned_to = ?";
 }
@@ -104,8 +104,8 @@ if ($not_working_result) {
     }
 }
 
-// Fetch total count for Not Working items
-$not_working_count_sql = "SELECT COUNT(*) as total_count FROM assets WHERE status = 'Not Working' AND retire_at IS NULL";
+// Fetch total count for Not Working / Missing items
+$not_working_count_sql = "SELECT COUNT(*) as total_count FROM assets WHERE status IN ('Not Working', 'Missing') AND retire_at IS NULL";
 if ($isStaff) {
     $not_working_count_sql .= " AND assigned_to = ?";
 }
@@ -121,8 +121,8 @@ if (!empty($maintenance_params)) {
     $total_not_working_count = $not_working_count_result['total_count'];
 }
 
-// Fetch ALL Not Working items for modal
-$not_working_sql_all = "SELECT asset_no, asset_name, location, category_id, status FROM assets WHERE status = 'Not Working' AND retire_at IS NULL";
+// Fetch ALL Not Working / Missing items for modal
+$not_working_sql_all = "SELECT asset_no, asset_name, location, category_id, status FROM assets WHERE status IN ('Not Working', 'Missing') AND retire_at IS NULL";
 if ($isStaff) {
     $not_working_sql_all .= " AND assigned_to = ?";
 }
@@ -701,7 +701,7 @@ $current_page = $pageView;
                   <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:p-6">
                       <div class="flex items-start justify-between mb-4">
                           <div>
-                              <h2 class="font-semibold text-gray-900">Not Working Items</h2>
+                              <h2 class="font-semibold text-gray-900">Not Working / Missing Items</h2>
                               <p class="text-xs text-gray-400 mt-1">Assets reported as not functional.</p>
                           </div>
                           <div class="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
@@ -711,7 +711,7 @@ $current_page = $pageView;
                       <div>
                           <?php if (empty($items_not_working)): ?>
                               <div class="text-center py-6 border-t border-gray-100">
-                                  <p class="text-sm text-gray-500 mt-4">No items are reported as 'Not Working'.</p>
+                                  <p class="text-sm text-gray-500 mt-4">No items are reported as 'Not Working' or 'Missing'.</p>
                               </div>
                           <?php else: ?>
                               <ul class="divide-y divide-gray-100 -mx-5 lg:-mx-6">
@@ -908,7 +908,7 @@ $current_page = $pageView;
   <div id="notWorkingModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
       <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col transform transition-all">
           <div class="p-5 border-b border-gray-200 flex items-center justify-between">
-              <h3 class="text-lg font-bold text-gray-900">All 'Not Working' Items</h3>
+              <h3 class="text-lg font-bold text-gray-900">All 'Not Working / Missing' Items</h3>
               <button type="button" id="closeNotWorkingModalBtn" class="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600">
                   <i data-lucide="x" style="width:20px;height:20px"></i>
               </button>
@@ -937,7 +937,7 @@ $current_page = $pageView;
                           </tr>
                       <?php endforeach; ?>
                       <?php if (empty($all_items_not_working)): ?>
-                          <tr><td colspan="4" class="py-10 text-center text-gray-500">No items are reported as 'Not Working'.</td></tr>
+                          <tr><td colspan="4" class="py-10 text-center text-gray-500">No items are reported as 'Not Working' or 'Missing'.</td></tr>
                       <?php endif; ?>
                   </tbody>
               </table>

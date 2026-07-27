@@ -35,6 +35,8 @@ if ($category_id === 0 || !array_key_exists($category_id, $categories) || empty(
 
 $category_name = $categories[$category_id];
 $is_admin = isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
+$is_staff = isset($_SESSION['role']) && $_SESSION['role'] === 'staff';
+$show_actions_column = $is_admin || $is_staff;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'retire_batch') {
     if (!$is_admin) {
@@ -359,7 +361,7 @@ if (!function_exists('getInitials')) {
                                         <th class="px-6 py-3 font-medium">Location</th>
                                         <th class="px-6 py-3 font-medium">Status</th>
                                         <th class="px-6 py-3 font-medium">Remarks</th>
-                                        <?php if ($is_admin): ?>
+                                        <?php if ($show_actions_column): ?>
                                         <th class="px-6 py-3 font-medium">Actions</th>
                                         <?php endif; ?>
                                     </tr>
@@ -367,7 +369,7 @@ if (!function_exists('getInitials')) {
                                 <tbody class="divide-y divide-gray-100">
                                     <?php if (empty($items)): ?>
                                         <tr>
-                                            <td colspan="<?php echo $is_admin ? 7 : 6; ?>" class="text-center py-16 text-gray-500">
+                                            <td colspan="<?php echo $show_actions_column ? 7 : 6; ?>" class="text-center py-16 text-gray-500">
                                                 <div class="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-3">
                                                     <i data-lucide="search-slash" class="w-7 h-7 text-gray-400"></i>
                                                 </div>
@@ -377,30 +379,70 @@ if (!function_exists('getInitials')) {
                                         </tr>
                                     <?php else: ?>
                                         <?php foreach ($items as $item): ?>
+                                            <?php
+                                                $status_value = trim($item['status'] ?: 'N/A');
+                                                $is_staff_report = ($item['status_marked_role'] ?? '') === 'staff' && in_array($status_value, ['Not Working', 'Missing'], true);
+                                            ?>
                                             <tr class="text-gray-600">
                                                 <td class="px-6 py-4 font-mono text-xs"><?php echo htmlspecialchars($item['item_no']); ?></td>
                                                 <td class="px-6 py-4 font-mono text-xs"><?php echo htmlspecialchars($item['asset_no']); ?></td>
                                                 <td class="px-6 py-4"><?php echo htmlspecialchars($item['assigned_to'] ?: 'N/A'); ?></td>
                                                 <td class="px-6 py-4"><?php echo htmlspecialchars($item['location'] ?: 'N/A'); ?></td>
-                                                <td class="px-6 py-4"><span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-emerald-100 text-emerald-800"><?php echo htmlspecialchars($item['status'] ?: 'N/A'); ?></span></td>
+                                                <td class="px-6 py-4">
+                                                    <span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $status_value === 'Missing' ? 'bg-red-100 text-red-800' : ($status_value === 'Not Working' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'); ?>">
+                                                        <?php echo htmlspecialchars($status_value); ?>
+                                                    </span>
+                                                    <?php if ($is_staff_report): ?>
+                                                        <div class="mt-1">
+                                                            <span class="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+                                                                Staff reported
+                                                            </span>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                </td>
                                                 <td class="px-6 py-4 text-xs"><?php echo htmlspecialchars($item['remarks'] ?: 'None'); ?></td>
-                                                <?php if ($is_admin): ?>
+                                                <?php if ($show_actions_column): ?>
                                                 <td class="px-6 py-4 text-sm whitespace-nowrap">
-                                                    <button type="button"
-                                                        class="edit-item-btn text-blue-600 hover:text-blue-800 font-medium mr-2"
-                                                        data-id="<?php echo htmlspecialchars($item['id']); ?>"
-                                                        data-assigned-to="<?php echo htmlspecialchars($item['assigned_to']); ?>"
-                                                        data-location="<?php echo htmlspecialchars($item['location']); ?>"
-                                                        data-status="<?php echo htmlspecialchars($item['status']); ?>"
-                                                        data-remarks="<?php echo htmlspecialchars($item['remarks']); ?>">
-                                                        Edit
-                                                    </button>
-                                                    <button type="button"
-                                                        class="retire-item-btn text-red-600 hover:text-red-800 font-medium"
-                                                        data-id="<?php echo htmlspecialchars($item['id']); ?>"
-                                                        data-asset-no="<?php echo htmlspecialchars($item['asset_no']); ?>">
-                                                        Retire Asset
-                                                    </button>
+                                                    <?php if ($is_admin): ?>
+                                                        <button type="button"
+                                                            class="edit-item-btn text-blue-600 hover:text-blue-800 font-medium mr-2"
+                                                            data-id="<?php echo htmlspecialchars($item['id']); ?>"
+                                                            data-assigned-to="<?php echo htmlspecialchars($item['assigned_to']); ?>"
+                                                            data-location="<?php echo htmlspecialchars($item['location']); ?>"
+                                                            data-status="<?php echo htmlspecialchars($item['status']); ?>"
+                                                            data-remarks="<?php echo htmlspecialchars($item['remarks']); ?>">
+                                                            Edit
+                                                        </button>
+                                                        <button type="button"
+                                                            class="retire-item-btn text-red-600 hover:text-red-800 font-medium"
+                                                            data-id="<?php echo htmlspecialchars($item['id']); ?>"
+                                                            data-asset-no="<?php echo htmlspecialchars($item['asset_no']); ?>">
+                                                            Retire Asset
+                                                        </button>
+                                                    <?php else: ?>
+                                                        <div class="flex flex-wrap gap-2">
+                                                            <form method="POST" action="report-item-status.php" class="inline">
+                                                                <input type="hidden" name="id" value="<?php echo htmlspecialchars($item['id']); ?>">
+                                                                <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
+                                                                <input type="hidden" name="asset_name" value="<?php echo htmlspecialchars($asset_name_raw); ?>">
+                                                                <input type="hidden" name="batch_id" value="<?php echo htmlspecialchars($batch_id); ?>">
+                                                                <input type="hidden" name="status" value="Not Working">
+                                                                <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition">
+                                                                    Not Working
+                                                                </button>
+                                                            </form>
+                                                            <form method="POST" action="report-item-status.php" class="inline">
+                                                                <input type="hidden" name="id" value="<?php echo htmlspecialchars($item['id']); ?>">
+                                                                <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
+                                                                <input type="hidden" name="asset_name" value="<?php echo htmlspecialchars($asset_name_raw); ?>">
+                                                                <input type="hidden" name="batch_id" value="<?php echo htmlspecialchars($batch_id); ?>">
+                                                                <input type="hidden" name="status" value="Missing">
+                                                                <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 transition">
+                                                                    Missing
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    <?php endif; ?>
                                                 </td>
                                                 <?php endif; ?>
                                             </tr>

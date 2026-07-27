@@ -39,7 +39,7 @@ if ($_SESSION['role'] === 'staff') {
 }
 
 $items = [];
-$sql = "SELECT id, asset_no, asset_name, category_id, location, assigned_to, status, updated_at FROM assets WHERE " . implode(" AND ", $sql_where_clauses) . " ORDER BY assigned_to ASC, updated_at DESC";
+$sql = "SELECT id, asset_no, asset_name, category_id, location, assigned_to, status, status_marked_by, status_marked_role, status_marked_at, updated_at FROM assets WHERE " . implode(" AND ", $sql_where_clauses) . " ORDER BY assigned_to ASC, updated_at DESC";
 
 if (!empty($sql_params)) {
     $stmt = $conn->prepare($sql);
@@ -257,7 +257,21 @@ $categories = [
                         <td class="px-6 py-4 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($categories[$item['category_id']] ?? 'Unknown'); ?></td>
                         <td class="px-6 py-4 whitespace-nowrap text-gray-800 font-medium"><?php echo htmlspecialchars($item['assigned_to']); ?></td>
                         <td class="px-6 py-4 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($item['location'] ?: 'N/A'); ?></td>
-                        <td class="px-6 py-4 whitespace-nowrap text-gray-500 text-right"><?php echo date('M d, Y', strtotime($item['updated_at'])); ?></td>
+                        <td class="px-6 py-4 whitespace-nowrap text-gray-500 text-right">
+                          <?php echo date('M d, Y', strtotime($item['updated_at'])); ?>
+                          <?php if (($item['status_marked_role'] ?? '') === 'staff' && in_array($item['status'], ['Not Working', 'Missing'], true)): ?>
+                            <div class="mt-1">
+                              <span class="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 border border-amber-100">
+                                Staff reported
+                              </span>
+                              <?php if (!empty($item['status_marked_by'])): ?>
+                                <div class="mt-1 text-[11px] text-gray-400 text-right">
+                                  by <?php echo htmlspecialchars($item['status_marked_by']); ?>
+                                </div>
+                              <?php endif; ?>
+                            </div>
+                          <?php endif; ?>
+                        </td>
                       </tr>
                       <?php endforeach; ?>
                   <?php endif; ?>
