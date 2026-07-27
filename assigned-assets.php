@@ -13,6 +13,11 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+if ($_SESSION['role'] === 'staff') {
+    header("Location: dashboard.php?view=my-assets");
+    exit();
+}
+
 $current_page = 'assigned-assets';
 
 // Fetch assigned assets

@@ -687,6 +687,7 @@ $current_page = $pageView;
                 </div>
             </div>
 
+            <?php if (!$isStaff): ?>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-6">
                 <!-- Not Working Items Widget -->
                   <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 lg:p-6">
@@ -779,6 +780,7 @@ $current_page = $pageView;
                       </div>
                   </div>
             </div>
+            <?php endif; ?>
 
         <?php else: ?>
           <div id="assetView" class="w-full">
@@ -893,6 +895,7 @@ $current_page = $pageView;
     </div>
   </div>
 
+  <?php if (!$isStaff): ?>
   <!-- View All Not Working Modal -->
   <div id="notWorkingModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
       <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col transform transition-all">
@@ -974,6 +977,7 @@ $current_page = $pageView;
           </div>
       </div>
   </div>
+  <?php endif; ?>
 
   <script>
     lucide.createIcons();

@@ -11,6 +11,33 @@ if (!defined('IS_EMBEDDED')) { // If accessed directly, establish a context.
 
 require_once 'notification_utils.php';
 
+$suggested_page_nos = [];
+for ($category_id = 1; $category_id <= 4; $category_id++) {
+    $suggested_page_nos[$category_id] = 1;
+
+    $page_stmt = $conn->prepare("
+        SELECT page_no
+        FROM assets
+        WHERE category_id = ?
+          AND TRIM(COALESCE(page_no, '')) <> ''
+          AND page_no REGEXP '^[0-9]+$'
+        ORDER BY CAST(page_no AS UNSIGNED) DESC
+        LIMIT 1
+    ");
+
+    if ($page_stmt) {
+        $page_stmt->bind_param("i", $category_id);
+        $page_stmt->execute();
+        $page_stmt->bind_result($latest_page_no);
+
+        if ($page_stmt->fetch() && is_numeric($latest_page_no)) {
+            $suggested_page_nos[$category_id] = (int)$latest_page_no + 1;
+        }
+
+        $page_stmt->close();
+    }
+}
+
 $suggested_item_no = 1;
 $latest_item_stmt = $conn->prepare("SELECT item_no FROM assets ORDER BY id DESC LIMIT 20");
 if ($latest_item_stmt) {
@@ -51,6 +78,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
     $pr_page_no = !empty($_POST['pr_page_no']) ? trim($_POST['pr_page_no']) : null;
     $gpr_item_no = !empty($_POST['gpr_item_no']) ? trim($_POST['gpr_item_no']) : null;
     $gem_invoice_no = !empty($_POST['gem_invoice_no']) ? trim($_POST['gem_invoice_no']) : null;
+
+    if ($page_no === null || $page_no === '') {
+        header("Location: dashboard.php?view=add-asset&status=error&message=" . urlencode('Page No is required.'));
+        exit();
+    }
 
     // Generate a unique batch ID for this entire submission
     $batch_id = uniqid('batch_', true);
@@ -198,7 +230,8 @@ if (!$embedMode) {
                         <div class="grid gap-5 md:grid-cols-2">
                             <div>
                                 <label for="page_no" class="mb-2 block text-sm font-semibold text-slate-700">Page No.</label>
-                                <input type="text" id="page_no" name="page_no" placeholder="Enter page no." class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200">
+                                <input type="text" id="page_no" name="page_no" placeholder="Enter page no." class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
+                                <p class="mt-2 text-xs text-slate-500">Auto-suggests the next page for selected category. You can edit it.</p>
                             </div>
 
                             <div>
@@ -324,6 +357,7 @@ if (!$embedMode) {
     const addLocationButton = document.getElementById('add_location_btn');
     const assignedToSelect = document.getElementById('assigned_to');
     const locationStorageKey = 'kd_polytechnic_saved_locations';
+    const suggestedPageNos = <?php echo json_encode($suggested_page_nos); ?>;
 
     function getCategoryCode(value) {
         const categoryMap = {
@@ -354,6 +388,19 @@ if (!$embedMode) {
         } else {
             assetNoInput.value = '';
         }
+    }
+
+    function updateSuggestedPageNo() {
+        const categoryValue = categoryInput.value;
+        const suggestedPageNo = suggestedPageNos[categoryValue];
+
+        if (suggestedPageNo) {
+            document.getElementById('page_no').value = suggestedPageNo;
+        } else {
+            document.getElementById('page_no').value = '';
+        }
+
+        updateAssetNo();
     }
 
     function isValidAssetNumber(value) {
@@ -478,7 +525,7 @@ if (!$embedMode) {
     });
 
     document.getElementById('page_no').addEventListener('input', updateAssetNo);
-    categoryInput.addEventListener('change', updateAssetNo);
+    categoryInput.addEventListener('change', updateSuggestedPageNo);
 
     locationSelect.addEventListener('change', toggleCustomLocationInput);
     addLocationButton.addEventListener('click', addCustomLocation);
@@ -509,6 +556,7 @@ if (!$embedMode) {
         const requiredFields = [
             document.getElementById('asset_name'),
             categoryInput,
+            document.getElementById('page_no'),
             quantityInput,
             itemNoInput,
             assetNoInput,
