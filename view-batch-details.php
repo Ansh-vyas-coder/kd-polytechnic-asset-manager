@@ -34,8 +34,16 @@ if ($category_id === 0 || !array_key_exists($category_id, $categories) || empty(
 }
 
 $category_name = $categories[$category_id];
+$is_admin = isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
+$is_staff = isset($_SESSION['role']) && $_SESSION['role'] === 'staff';
+$show_actions_column = $is_admin || $is_staff;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'retire_batch') {
+    if (!$is_admin) {
+        header("Location: view-batch-details.php?category_id=" . $category_id . "&asset_name=" . urlencode($asset_name_raw) . "&batch_id=" . urlencode($batch_id) . "&status=error&message=" . urlencode("Only admins can retire records."));
+        exit();
+    }
+
     $post_category_id = isset($_POST['category_id']) ? (int)$_POST['category_id'] : 0;
     $post_asset_name = isset($_POST['asset_name']) ? trim($_POST['asset_name']) : '';
     $post_batch_id = isset($_POST['batch_id']) ? trim($_POST['batch_id']) : '';
@@ -72,6 +80,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'retir
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'retire_item') {
+    if (!$is_admin) {
+        header("Location: view-batch-details.php?category_id=" . $category_id . "&asset_name=" . urlencode($asset_name_raw) . "&batch_id=" . urlencode($batch_id) . "&status=error&message=" . urlencode("Only admins can retire assets."));
+        exit();
+    }
+
     $post_category_id = isset($_POST['category_id']) ? (int)$_POST['category_id'] : 0;
     $post_asset_name = isset($_POST['asset_name']) ? trim($_POST['asset_name']) : '';
     $post_batch_id = isset($_POST['batch_id']) ? trim($_POST['batch_id']) : '';
@@ -324,6 +337,7 @@ if (!function_exists('getInitials')) {
                             </div>
                         </div>
                         <!-- Action buttons -->
+                        <?php if ($is_admin): ?>
                         <div class="flex justify-end mt-6 space-x-3">
                             <button id="openEditModalBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                 Edit
@@ -332,6 +346,7 @@ if (!function_exists('getInitials')) {
                                 Retire
                             </button>
                         </div>
+                        <?php endif; ?>
                     </div>
 
                     <!-- Items Table -->
@@ -346,13 +361,15 @@ if (!function_exists('getInitials')) {
                                         <th class="px-6 py-3 font-medium">Location</th>
                                         <th class="px-6 py-3 font-medium">Status</th>
                                         <th class="px-6 py-3 font-medium">Remarks</th>
+                                        <?php if ($show_actions_column): ?>
                                         <th class="px-6 py-3 font-medium">Actions</th>
+                                        <?php endif; ?>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100">
                                     <?php if (empty($items)): ?>
                                         <tr>
-                                            <td colspan="5" class="text-center py-16 text-gray-500">
+                                            <td colspan="<?php echo $show_actions_column ? 7 : 6; ?>" class="text-center py-16 text-gray-500">
                                                 <div class="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-3">
                                                     <i data-lucide="search-slash" class="w-7 h-7 text-gray-400"></i>
                                                 </div>
@@ -362,30 +379,72 @@ if (!function_exists('getInitials')) {
                                         </tr>
                                     <?php else: ?>
                                         <?php foreach ($items as $item): ?>
+                                            <?php
+                                                $status_value = trim($item['status'] ?: 'N/A');
+                                                $is_staff_report = ($item['status_marked_role'] ?? '') === 'staff' && in_array($status_value, ['Not Working', 'Missing'], true);
+                                            ?>
                                             <tr class="text-gray-600">
                                                 <td class="px-6 py-4 font-mono text-xs"><?php echo htmlspecialchars($item['item_no']); ?></td>
                                                 <td class="px-6 py-4 font-mono text-xs"><?php echo htmlspecialchars($item['asset_no']); ?></td>
                                                 <td class="px-6 py-4"><?php echo htmlspecialchars($item['assigned_to'] ?: 'N/A'); ?></td>
                                                 <td class="px-6 py-4"><?php echo htmlspecialchars($item['location'] ?: 'N/A'); ?></td>
-                                                <td class="px-6 py-4"><span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-emerald-100 text-emerald-800"><?php echo htmlspecialchars($item['status'] ?: 'N/A'); ?></span></td>
-                                                <td class="px-6 py-4 text-xs"><?php echo htmlspecialchars($item['remarks'] ?: 'None'); ?></td>
-                                                <td class="px-6 py-4 text-sm whitespace-nowrap">
-                                                    <button type="button"
-                                                        class="edit-item-btn text-blue-600 hover:text-blue-800 font-medium mr-2"
-                                                        data-id="<?php echo htmlspecialchars($item['id']); ?>"
-                                                        data-assigned-to="<?php echo htmlspecialchars($item['assigned_to']); ?>"
-                                                        data-location="<?php echo htmlspecialchars($item['location']); ?>"
-                                                        data-status="<?php echo htmlspecialchars($item['status']); ?>"
-                                                        data-remarks="<?php echo htmlspecialchars($item['remarks']); ?>">
-                                                        Edit
-                                                    </button>
-                                                    <button type="button"
-                                                        class="retire-item-btn text-red-600 hover:text-red-800 font-medium"
-                                                        data-id="<?php echo htmlspecialchars($item['id']); ?>"
-                                                        data-asset-no="<?php echo htmlspecialchars($item['asset_no']); ?>">
-                                                        Retire Asset
-                                                    </button>
+                                                <td class="px-6 py-4">
+                                                    <span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $status_value === 'Missing' ? 'bg-red-100 text-red-800' : ($status_value === 'Not Working' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'); ?>">
+                                                        <?php echo htmlspecialchars($status_value); ?>
+                                                    </span>
+                                                    <?php if ($is_staff_report): ?>
+                                                        <div class="mt-1">
+                                                            <span class="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+                                                                Staff reported
+                                                            </span>
+                                                        </div>
+                                                    <?php endif; ?>
                                                 </td>
+                                                <td class="px-6 py-4 text-xs"><?php echo htmlspecialchars($item['remarks'] ?: 'None'); ?></td>
+                                                <?php if ($show_actions_column): ?>
+                                                <td class="px-6 py-4 text-sm whitespace-nowrap">
+                                                    <?php if ($is_admin): ?>
+                                                        <button type="button"
+                                                            class="edit-item-btn text-blue-600 hover:text-blue-800 font-medium mr-2"
+                                                            data-id="<?php echo htmlspecialchars($item['id']); ?>"
+                                                            data-assigned-to="<?php echo htmlspecialchars($item['assigned_to']); ?>"
+                                                            data-location="<?php echo htmlspecialchars($item['location']); ?>"
+                                                            data-status="<?php echo htmlspecialchars($item['status']); ?>"
+                                                            data-remarks="<?php echo htmlspecialchars($item['remarks']); ?>">
+                                                            Edit
+                                                        </button>
+                                                        <button type="button"
+                                                            class="retire-item-btn text-red-600 hover:text-red-800 font-medium"
+                                                            data-id="<?php echo htmlspecialchars($item['id']); ?>"
+                                                            data-asset-no="<?php echo htmlspecialchars($item['asset_no']); ?>">
+                                                            Retire Asset
+                                                        </button>
+                                                    <?php else: ?>
+                                                        <div class="flex flex-wrap gap-2">
+                                                            <form method="POST" action="report-item-status.php" class="inline">
+                                                                <input type="hidden" name="id" value="<?php echo htmlspecialchars($item['id']); ?>">
+                                                                <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
+                                                                <input type="hidden" name="asset_name" value="<?php echo htmlspecialchars($asset_name_raw); ?>">
+                                                                <input type="hidden" name="batch_id" value="<?php echo htmlspecialchars($batch_id); ?>">
+                                                                <input type="hidden" name="status" value="Not Working">
+                                                                <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition">
+                                                                    Not Working
+                                                                </button>
+                                                            </form>
+                                                            <form method="POST" action="report-item-status.php" class="inline">
+                                                                <input type="hidden" name="id" value="<?php echo htmlspecialchars($item['id']); ?>">
+                                                                <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
+                                                                <input type="hidden" name="asset_name" value="<?php echo htmlspecialchars($asset_name_raw); ?>">
+                                                                <input type="hidden" name="batch_id" value="<?php echo htmlspecialchars($batch_id); ?>">
+                                                                <input type="hidden" name="status" value="Missing">
+                                                                <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 transition">
+                                                                    Missing
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <?php endif; ?>
                                             </tr>
                                         <?php endforeach; ?>
                                     <?php endif; ?>
@@ -399,6 +458,7 @@ if (!function_exists('getInitials')) {
         </div>
     </div>
 
+    <?php if ($is_admin): ?>
     <!-- Retire Asset Confirmation Modal -->
     <div id="retireItemModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
         <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
@@ -546,11 +606,13 @@ if (!function_exists('getInitials')) {
             </form>
         </div>
     </div>
+    <?php endif; ?>
 
 
     <script>
         lucide.createIcons();
 
+        <?php if ($is_admin): ?>
         // Batch Edit Modal handling
         const editModal = document.getElementById('editModal');
         const openEditModalBtn = document.getElementById('openEditModalBtn');
@@ -833,6 +895,7 @@ if (!function_exists('getInitials')) {
                 locationSelect.value = ""; // Default to "Select location" if not found
             }
         }
+        <?php endif; ?>
     </script>
 
     <script src="loader/loader.js"></script>

@@ -90,6 +90,20 @@ if (empty($groups)) {
 
 $total_pages = count($groups);
 $page_index  = isset($_GET['page_index']) ? (int)$_GET['page_index'] : 0;
+$requested_page_no = isset($_GET['page_no']) ? trim((string)$_GET['page_no']) : '';
+$page_jump_not_found = false;
+
+if ($requested_page_no !== '') {
+    $page_jump_not_found = true;
+    foreach ($groups as $index => $group) {
+        if (strcasecmp(trim((string)$group['label']), $requested_page_no) === 0) {
+            $page_index = $index;
+            $page_jump_not_found = false;
+            break;
+        }
+    }
+}
+
 if ($page_index < 0) $page_index = 0;
 if ($page_index >= $total_pages) $page_index = max(0, $total_pages - 1);
 
@@ -132,6 +146,8 @@ $register_title = $category_register_titles[$selectedCategory];
         display: flex;
         align-items: center;
         justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 8px;
         background: #2c2c2c;
         color: #fff;
         padding: 8px 16px;
@@ -150,6 +166,59 @@ $register_title = $category_register_titles[$selectedCategory];
     }
     .reg-pagination a:hover { background: #666; }
     .reg-pagination a.disabled { opacity: 0.35; pointer-events: none; }
+    .reg-pagination .reg-status {
+        text-align: center;
+        flex: 1 1 280px;
+    }
+    .reg-page-jump {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex: 0 1 300px;
+        justify-content: flex-end;
+    }
+    .reg-page-jump label {
+        font-size: 0.72rem;
+        letter-spacing: 0;
+        color: #e5e7eb;
+        white-space: nowrap;
+    }
+    .reg-page-jump input {
+        width: 86px;
+        border: 1px solid #555;
+        border-radius: 4px;
+        background: #fff;
+        color: #111;
+        padding: 4px 8px;
+        font: inherit;
+        letter-spacing: 0;
+        outline: none;
+    }
+    .reg-page-jump input:focus {
+        border-color: #93c5fd;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
+    }
+    .reg-page-jump button {
+        color: #fff;
+        background: #2563eb;
+        border: 0;
+        border-radius: 4px;
+        padding: 4px 12px;
+        font: inherit;
+        cursor: pointer;
+    }
+    .reg-page-jump button:hover { background: #1d4ed8; }
+    .reg-page-jump-error {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #b91c1c;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.8rem;
+        font-weight: 600;
+        padding: 8px 12px;
+        margin: 6px 0;
+        border-radius: 6px;
+    }
 
     /* The physical register sheet */
     .reg-sheet {
@@ -299,15 +368,35 @@ $register_title = $category_register_titles[$selectedCategory];
            class="<?php echo $page_index == 0 ? 'disabled' : ''; ?>">
             ← Previous Page
         </a>
-        <span>
+        <span class="reg-status">
             Register Page <?php echo $page_index + 1; ?> of <?php echo max(1, $total_pages); ?>
             &nbsp;|&nbsp; Physical Page No: <strong><?php echo htmlspecialchars($current_group['label']); ?></strong>
         </span>
+        <form class="reg-page-jump" method="GET" action="dashboard.php">
+            <input type="hidden" name="view" value="register">
+            <input type="hidden" name="category" value="<?php echo $selectedCategory; ?>">
+            <label for="registerPageJump">Go to Page No</label>
+            <input id="registerPageJump" name="page_no" list="registerPageOptions" inputmode="numeric" placeholder="Page no" required>
+            <datalist id="registerPageOptions">
+                <?php foreach ($groups as $group): ?>
+                    <?php if ($group['label'] !== '-'): ?>
+                        <option value="<?php echo htmlspecialchars($group['label']); ?>"></option>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+            </datalist>
+            <button type="submit">Go</button>
+        </form>
         <a href="dashboard.php?view=register&category=<?php echo $selectedCategory; ?>&page_index=<?php echo min($total_pages - 1, $page_index + 1); ?>"
            class="<?php echo $page_index == $total_pages - 1 ? 'disabled' : ''; ?>">
             Next Page →
         </a>
     </div>
+
+    <?php if ($page_jump_not_found): ?>
+        <div class="reg-page-jump-error no-print">
+            Page No. <?php echo htmlspecialchars($requested_page_no); ?> is not available in <?php echo htmlspecialchars($category_names[$selectedCategory]); ?> register.
+        </div>
+    <?php endif; ?>
 
     <!-- The Register Sheet -->
     <div class="reg-sheet">

@@ -33,6 +33,10 @@ $current_page = $current_page ?? '';
                 <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i>
                 Generate Report
             </a>
+            <a href="dashboard.php?view=write-off-assets" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors <?php echo ($current_page === 'write-off-assets') ? 'bg-slate-700 text-white font-semibold' : 'text-slate-300 hover:bg-slate-700 hover:text-white'; ?>">
+                <i data-lucide="scan-search" style="width:18px;height:18px"></i>
+                Write-off Assets
+            </a>
             <a href="manage-users.php" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors <?php echo ($current_page === 'manage-users') ? 'bg-slate-700 text-white font-semibold' : 'text-slate-300 hover:bg-slate-700 hover:text-white'; ?>">
                 <i data-lucide="users" style="width:18px;height:18px"></i>
                 Manage Users
@@ -44,7 +48,7 @@ $current_page = $current_page ?? '';
         <?php endif; ?>
 
         <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'staff'): ?>
-            <a href="assigned-assets.php" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors <?php echo ($current_page === 'assigned-assets') ? 'bg-slate-700 text-white font-semibold' : 'text-slate-300 hover:bg-slate-700 hover:text-white'; ?>">
+            <a href="dashboard.php?view=my-assets" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors <?php echo ($current_page === 'my-assets') ? 'bg-slate-700 text-white font-semibold' : 'text-slate-300 hover:bg-slate-700 hover:text-white'; ?>">
                 <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i>
                 My Assigned Assets
             </a>

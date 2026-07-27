@@ -13,7 +13,14 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+if ($_SESSION['role'] === 'staff') {
+    header("Location: dashboard.php?view=my-assets");
+    exit();
+}
+
 $current_page = 'assigned-assets';
+
+$selected_faculty = isset($_GET['faculty']) ? trim($_GET['faculty']) : '';
 
 // Fetch assigned assets
 $sql_where_clauses = ["assigned_to IS NOT NULL", "assigned_to != ''", "retire_at IS NULL"];
@@ -24,10 +31,15 @@ if ($_SESSION['role'] === 'staff') {
     $sql_where_clauses[] = "assigned_to = ?";
     $sql_types .= "s";
     $sql_params[] = $_SESSION['user_name'];
+    $selected_faculty = $_SESSION['user_name'];
+} elseif ($selected_faculty !== '') {
+    $sql_where_clauses[] = "assigned_to = ?";
+    $sql_types .= "s";
+    $sql_params[] = $selected_faculty;
 }
 
 $items = [];
-$sql = "SELECT id, asset_no, asset_name, category_id, location, assigned_to, status, updated_at FROM assets WHERE " . implode(" AND ", $sql_where_clauses) . " ORDER BY assigned_to ASC, updated_at DESC";
+$sql = "SELECT id, asset_no, asset_name, category_id, location, assigned_to, status, status_marked_by, status_marked_role, status_marked_at, updated_at FROM assets WHERE " . implode(" AND ", $sql_where_clauses) . " ORDER BY assigned_to ASC, updated_at DESC";
 
 if (!empty($sql_params)) {
     $stmt = $conn->prepare($sql);
@@ -42,6 +54,24 @@ if ($result) {
     $items = $result->fetch_all(MYSQLI_ASSOC);
 }
 $stmt->close();
+
+// Faculty summary for admin filters
+$faculty_summary = [];
+$summary_sql = "
+    SELECT assigned_to, COUNT(*) AS total_assets
+    FROM assets
+    WHERE assigned_to IS NOT NULL
+      AND assigned_to != ''
+      AND retire_at IS NULL
+    GROUP BY assigned_to
+    ORDER BY assigned_to ASC
+";
+$summary_result = $conn->query($summary_sql);
+if ($summary_result) {
+    while ($row = $summary_result->fetch_assoc()) {
+        $faculty_summary[] = $row;
+    }
+}
 
 // Helper function to generate initials
 if (!function_exists('getInitials')) {
@@ -79,6 +109,13 @@ $categories = [
 <style>
   html, body { font-family: 'Inter', sans-serif; }
   .clickable-row:hover { background-color: #f9fafb; cursor: pointer; }
+  .faculty-card {
+    transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease, background-color 150ms ease;
+  }
+  .faculty-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  }
 </style>
 <link rel="stylesheet" href="loader/loader.css" />
 </head>
@@ -102,7 +139,7 @@ $categories = [
         <div class="flex items-center gap-3 sm:gap-4 shrink-0">
             <div class="relative">
                 <button id="userMenuBtn" class="flex items-center gap-2.5 group">
-                    <div class="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center text-white text-sm font-semibold shrink-0"><?php echo getInitials($_SESSION['user_name']); ?></div>
+                    <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-sm font-semibold shrink-0"><?php echo getInitials($_SESSION['user_name']); ?></div>
                     <div class="hidden sm:block text-left leading-tight">
                         <p class="text-sm font-semibold text-gray-900"><?php echo htmlspecialchars($_SESSION['user_name']); ?></p>
                         <p class="text-xs text-gray-400"><?php echo htmlspecialchars(ucfirst($_SESSION['role'])); ?> - Computer Dept.</p>
@@ -115,7 +152,10 @@ $categories = [
                         <p class="text-xs text-gray-500 truncate mt-0.5"><?php echo htmlspecialchars($_SESSION['user_email']); ?></p>
                     </div>
                     <div class="p-1.5">
-                        <a href="logout.php" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
+                        <a href="#" id="changePasswordBtn" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
+                            <i data-lucide="key" style="width:16px;height:16px"></i> Change Password
+                        </a>
+                        <a href="logout.php" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors mt-1">
                             <i data-lucide="log-out" style="width:16px;height:16px"></i> Logout
                         </a>
                     </div>
@@ -133,7 +173,54 @@ $categories = [
                   <h1 class="text-2xl font-bold text-gray-900 tracking-tight">
                       <?php echo $_SESSION['role'] === 'staff' ? 'My Assigned Assets' : 'All Assigned Assets'; ?>
                   </h1>
-                  <p class="text-sm text-gray-500 mt-1">List of all assets currently checked out to staff.</p>
+                  <p class="text-sm text-gray-500 mt-1">Choose a faculty box to view the assets assigned to that person.</p>
+              </div>
+          </div>
+
+          <?php if ($_SESSION['role'] === 'admin'): ?>
+            <div class="mb-6">
+              <div class="flex items-center justify-between mb-3">
+                <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500">Faculty Boxes</h2>
+                <?php if (!empty($selected_faculty)): ?>
+                  <a href="assigned-assets.php" class="px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Clear Filter</a>
+                <?php endif; ?>
+              </div>
+              <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <a href="assigned-assets.php"
+                   class="faculty-card flex items-center justify-between gap-4 rounded-xl border px-4 py-4 text-left <?php echo $selected_faculty === '' ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-100' : 'border-gray-200 bg-white hover:border-blue-200'; ?>">
+                  <div>
+                    <p class="text-sm font-semibold text-gray-900">All Faculties</p>
+                    <p class="mt-1 text-xs text-gray-500">Show every assigned asset</p>
+                  </div>
+                  <span class="inline-flex items-center justify-center rounded-full bg-white px-3 py-1 text-sm font-bold text-gray-700 border border-gray-200"><?php echo number_format(count($items)); ?></span>
+                </a>
+                <?php foreach ($faculty_summary as $faculty): ?>
+                  <?php $is_active = $selected_faculty !== '' && strcasecmp($selected_faculty, $faculty['assigned_to']) === 0; ?>
+                  <a href="assigned-assets.php?faculty=<?php echo urlencode($faculty['assigned_to']); ?>"
+                     class="faculty-card flex items-center justify-between gap-4 rounded-xl border px-4 py-4 text-left <?php echo $is_active ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-100' : 'border-gray-200 bg-white hover:border-blue-200'; ?>">
+                    <div class="min-w-0">
+                      <p class="text-sm font-semibold text-gray-900 truncate"><?php echo htmlspecialchars($faculty['assigned_to']); ?></p>
+                      <p class="mt-1 text-xs text-gray-500">Click to open assets</p>
+                    </div>
+                    <span class="inline-flex items-center justify-center rounded-full bg-white px-3 py-1 text-sm font-bold text-blue-700 border border-blue-100"><?php echo number_format((int)$faculty['total_assets']); ?></span>
+                  </a>
+                <?php endforeach; ?>
+              </div>
+            </div>
+          <?php endif; ?>
+
+          <div class="mb-4 flex items-center justify-between flex-wrap gap-3">
+              <div>
+                  <p class="text-sm text-gray-500">
+                    <?php if (!empty($selected_faculty)): ?>
+                      Showing assets assigned to <span class="font-semibold text-gray-900"><?php echo htmlspecialchars($selected_faculty); ?></span>
+                    <?php else: ?>
+                      Showing all assigned assets
+                    <?php endif; ?>
+                  </p>
+              </div>
+              <div class="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-700">
+                <?php echo number_format(count($items)); ?> records
               </div>
           </div>
 
@@ -163,14 +250,28 @@ $categories = [
                           </td>
                       </tr>
                   <?php else: ?>
-                      <?php foreach ($items as $item): ?>
+                  <?php foreach ($items as $item): ?>
                       <tr class="clickable-row" data-href="view-asset-details.php?category_id=<?php echo $item['category_id']; ?>&asset_name=<?php echo urlencode($item['asset_name']); ?>">
                         <td class="px-6 py-4 whitespace-nowrap font-semibold text-gray-900"><?php echo htmlspecialchars($item['asset_name']); ?></td>
                         <td class="px-6 py-4 whitespace-nowrap font-mono text-xs text-gray-600"><?php echo htmlspecialchars($item['asset_no'] ?: 'N/A'); ?></td>
                         <td class="px-6 py-4 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($categories[$item['category_id']] ?? 'Unknown'); ?></td>
                         <td class="px-6 py-4 whitespace-nowrap text-gray-800 font-medium"><?php echo htmlspecialchars($item['assigned_to']); ?></td>
                         <td class="px-6 py-4 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($item['location'] ?: 'N/A'); ?></td>
-                        <td class="px-6 py-4 whitespace-nowrap text-gray-500 text-right"><?php echo date('M d, Y', strtotime($item['updated_at'])); ?></td>
+                        <td class="px-6 py-4 whitespace-nowrap text-gray-500 text-right">
+                          <?php echo date('M d, Y', strtotime($item['updated_at'])); ?>
+                          <?php if (($item['status_marked_role'] ?? '') === 'staff' && in_array($item['status'], ['Not Working', 'Missing'], true)): ?>
+                            <div class="mt-1">
+                              <span class="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 border border-amber-100">
+                                Staff reported
+                              </span>
+                              <?php if (!empty($item['status_marked_by'])): ?>
+                                <div class="mt-1 text-[11px] text-gray-400 text-right">
+                                  by <?php echo htmlspecialchars($item['status_marked_by']); ?>
+                                </div>
+                              <?php endif; ?>
+                            </div>
+                          <?php endif; ?>
+                        </td>
                       </tr>
                       <?php endforeach; ?>
                   <?php endif; ?>
@@ -182,6 +283,49 @@ $categories = [
       </main>
       <?php include 'footer.php'; ?>
     </div>
+  </div>
+</div>
+
+<!-- Change Password Modal -->
+<div id="passwordModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+  <div class="bg-white rounded-xl shadow-2xl w-full max-w-md transform transition-all" id="passwordModalContent">
+    <form id="changePasswordForm" method="POST" action="change-password.php">
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-bold text-gray-900">Change Your Password</h3>
+          <button type="button" id="closeModalBtn" class="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600">&times;</button>
+        </div>
+
+        <div id="modal-notification" class="hidden text-sm mb-4"></div>
+
+        <div class="space-y-4">
+          <div>
+            <label for="current_password" class="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+            <input type="password" name="current_password" id="current_password" required class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+
+          <div>
+            <label for="new_password" class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+            <input type="password" name="new_password" id="new_password" required class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <p class="text-xs text-gray-500 mt-1">Must be at least 8 characters long.</p>
+          </div>
+
+          <div>
+            <label for="confirm_password" class="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+            <input type="password" name="confirm_password" id="confirm_password" required class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+      </div>
+      <div class="bg-gray-50 px-6 py-4 rounded-b-xl flex items-center justify-end gap-3">
+        <button type="button" id="cancelModalBtn" class="inline-flex justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50">
+          Cancel
+        </button>
+        <button type="submit" id="submitPasswordBtn" class="inline-flex justify-center items-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-blue-700/20 transition hover:bg-blue-800">
+          <span id="submitBtnText">Update Password</span>
+          <div id="submitSpinner" class="spinner hidden" style="border-top-color: #fff; border-right-color: transparent; width: 16px; height: 16px; margin-left: 8px;"></div>
+        </button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -220,6 +364,82 @@ $categories = [
           });
       });
   });
+
+  // --- Change Password Modal Logic ---
+  const changePasswordBtn = document.getElementById('changePasswordBtn');
+  const passwordModal = document.getElementById('passwordModal');
+  const closeModalBtn = document.getElementById('closeModalBtn');
+  const cancelModalBtn = document.getElementById('cancelModalBtn');
+  const changePasswordForm = document.getElementById('changePasswordForm');
+
+  function showPasswordModal() {
+    passwordModal.classList.remove('hidden');
+    changePasswordForm.reset();
+    document.getElementById('modal-notification').classList.add('hidden');
+  }
+
+  function hidePasswordModal() {
+    passwordModal.classList.add('hidden');
+  }
+
+  if (changePasswordBtn) {
+      changePasswordBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        userMenuDropdown.classList.add('hidden'); // Close dropdown first
+        showPasswordModal();
+      });
+  }
+
+  if (closeModalBtn) closeModalBtn.addEventListener('click', hidePasswordModal);
+  if (cancelModalBtn) cancelModalBtn.addEventListener('click', hidePasswordModal);
+  if (passwordModal) {
+      passwordModal.addEventListener('click', (e) => {
+        if (e.target === passwordModal) {
+          hidePasswordModal();
+        }
+      });
+  }
+
+  if (changePasswordForm) {
+      changePasswordForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+
+        const submitBtn = document.getElementById('submitPasswordBtn');
+        const btnText = document.getElementById('submitBtnText');
+        const spinner = document.getElementById('submitSpinner');
+        const modalNotification = document.getElementById('modal-notification');
+
+        submitBtn.disabled = true;
+        btnText.textContent = 'Updating...';
+        spinner.classList.remove('hidden');
+        modalNotification.classList.add('hidden');
+
+        const formData = new FormData(changePasswordForm);
+
+        fetch('change-password.php', {
+            method: 'POST',
+            body: formData
+          })
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              modalNotification.className = 'bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg text-sm';
+              modalNotification.textContent = data.message;
+              modalNotification.classList.remove('hidden');
+              setTimeout(hidePasswordModal, 2000);
+            } else {
+              modalNotification.className = 'bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm';
+              modalNotification.textContent = data.message || 'An error occurred.';
+              modalNotification.classList.remove('hidden');
+            }
+          })
+          .finally(() => {
+            submitBtn.disabled = false;
+            btnText.textContent = 'Update Password';
+            spinner.classList.add('hidden');
+          });
+      });
+  }
 </script>
 <script src="loader/loader.js"></script>
 </body>

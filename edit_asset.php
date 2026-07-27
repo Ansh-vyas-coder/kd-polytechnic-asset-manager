@@ -3,6 +3,11 @@ session_start();
 require 'db.php';
 require_once 'notification_utils.php';
 
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
+    header("Location: login.html");
+    exit();
+}
+
 // Extract and validate asset ID
 $asset_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 

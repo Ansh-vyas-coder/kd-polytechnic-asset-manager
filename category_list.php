@@ -13,6 +13,10 @@ if (!isset($_SESSION['user_id'])) {
 
 // --- START: Retire asset handling (merged from retire_asset.php) ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
+        header("Location: dashboard.php?status=error&message=" . urlencode("Only admins can retire assets."));
+        exit();
+    }
 
     $retireId = isset($_POST['id']) ? (int)$_POST['id'] : 0;
 
@@ -381,20 +385,21 @@ function getInitials($name)
                                 </div>
                             </div>
 
-                            <div class="mt-8"></div>
+                            <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
+                                <div class="mt-8"></div>
 
-                            <div class="space-y-3">
-                                <button onclick="openEditModal(<?php echo (int)$asset['id']; ?>)"
-                                    class="w-full bg-[#20347a] hover:bg-[#18275c] text-white font-medium py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                                        stroke="currentColor" stroke-width="2">
-                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                                    </svg>
-                                    Edit Asset
-                                </button>
+                                <div class="space-y-3">
+                                    <button onclick="openEditModal(<?php echo (int)$asset['id']; ?>)"
+                                        class="w-full bg-[#20347a] hover:bg-[#18275c] text-white font-medium py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2">
+                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                        </svg>
+                                        Edit Asset
+                                    </button>
 
-                                <form id="retireForm" action="category_list.php" method="POST">
+                                    <form id="retireForm" action="category_list.php" method="POST">
 
                                     <input
                                         type="hidden"
@@ -426,8 +431,9 @@ function getInitials($name)
 
                                     </button>
 
-                                </form>
-                            </div>
+                                    </form>
+                                </div>
+                            <?php endif; ?>
                         </div>
 
                     </div>
@@ -469,6 +475,7 @@ function getInitials($name)
         </div>
     </div>
 
+    <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
     <div id="editAssetModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 hidden">
         <div id="editAssetModalContent" class="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
             <!-- Content will be loaded here from edit_asset.php -->
@@ -534,6 +541,7 @@ function getInitials($name)
         </div>
 
     </div>
+    <?php endif; ?>
 
     <script>
         lucide.createIcons();
@@ -558,6 +566,7 @@ function getInitials($name)
         userMenuBtn.addEventListener('click', () => userMenuDropdown.classList.toggle('hidden'));
         document.addEventListener('click', (event) => { if (!userMenuBtn.contains(event.target) && !userMenuDropdown.contains(event.target)) { userMenuDropdown.classList.add('hidden'); } });
 
+        <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
         function openEditModal(assetId) {
             const modal = document.getElementById('editAssetModal');
             const content = document.getElementById('editAssetModalContent');
@@ -600,6 +609,7 @@ function getInitials($name)
         function confirmRetire() {
             document.getElementById("retireForm").submit();
         }
+        <?php endif; ?>
     </script>
   <script src="loader/loader.js"></script>
 

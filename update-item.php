@@ -10,6 +10,11 @@ if (!isset($_SESSION['user_id']) || $_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit();
 }
 
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
+    echo json_encode(['status' => 'error', 'message' => 'Only admins can edit items.']);
+    exit();
+}
+
 // Get POST data
 $id = isset($_POST['id']) ? (int)$_POST['id'] : 0;
 $assigned_to = isset($_POST['assigned_to']) ? trim($_POST['assigned_to']) : null;
