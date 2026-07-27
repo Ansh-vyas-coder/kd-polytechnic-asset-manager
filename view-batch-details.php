@@ -34,8 +34,14 @@ if ($category_id === 0 || !array_key_exists($category_id, $categories) || empty(
 }
 
 $category_name = $categories[$category_id];
+$is_admin = isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'retire_batch') {
+    if (!$is_admin) {
+        header("Location: view-batch-details.php?category_id=" . $category_id . "&asset_name=" . urlencode($asset_name_raw) . "&batch_id=" . urlencode($batch_id) . "&status=error&message=" . urlencode("Only admins can retire records."));
+        exit();
+    }
+
     $post_category_id = isset($_POST['category_id']) ? (int)$_POST['category_id'] : 0;
     $post_asset_name = isset($_POST['asset_name']) ? trim($_POST['asset_name']) : '';
     $post_batch_id = isset($_POST['batch_id']) ? trim($_POST['batch_id']) : '';
@@ -72,6 +78,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'retir
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'retire_item') {
+    if (!$is_admin) {
+        header("Location: view-batch-details.php?category_id=" . $category_id . "&asset_name=" . urlencode($asset_name_raw) . "&batch_id=" . urlencode($batch_id) . "&status=error&message=" . urlencode("Only admins can retire assets."));
+        exit();
+    }
+
     $post_category_id = isset($_POST['category_id']) ? (int)$_POST['category_id'] : 0;
     $post_asset_name = isset($_POST['asset_name']) ? trim($_POST['asset_name']) : '';
     $post_batch_id = isset($_POST['batch_id']) ? trim($_POST['batch_id']) : '';
@@ -324,6 +335,7 @@ if (!function_exists('getInitials')) {
                             </div>
                         </div>
                         <!-- Action buttons -->
+                        <?php if ($is_admin): ?>
                         <div class="flex justify-end mt-6 space-x-3">
                             <button id="openEditModalBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                 Edit
@@ -332,6 +344,7 @@ if (!function_exists('getInitials')) {
                                 Retire
                             </button>
                         </div>
+                        <?php endif; ?>
                     </div>
 
                     <!-- Items Table -->
@@ -346,13 +359,15 @@ if (!function_exists('getInitials')) {
                                         <th class="px-6 py-3 font-medium">Location</th>
                                         <th class="px-6 py-3 font-medium">Status</th>
                                         <th class="px-6 py-3 font-medium">Remarks</th>
+                                        <?php if ($is_admin): ?>
                                         <th class="px-6 py-3 font-medium">Actions</th>
+                                        <?php endif; ?>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100">
                                     <?php if (empty($items)): ?>
                                         <tr>
-                                            <td colspan="5" class="text-center py-16 text-gray-500">
+                                            <td colspan="<?php echo $is_admin ? 7 : 6; ?>" class="text-center py-16 text-gray-500">
                                                 <div class="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-3">
                                                     <i data-lucide="search-slash" class="w-7 h-7 text-gray-400"></i>
                                                 </div>
@@ -369,6 +384,7 @@ if (!function_exists('getInitials')) {
                                                 <td class="px-6 py-4"><?php echo htmlspecialchars($item['location'] ?: 'N/A'); ?></td>
                                                 <td class="px-6 py-4"><span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-emerald-100 text-emerald-800"><?php echo htmlspecialchars($item['status'] ?: 'N/A'); ?></span></td>
                                                 <td class="px-6 py-4 text-xs"><?php echo htmlspecialchars($item['remarks'] ?: 'None'); ?></td>
+                                                <?php if ($is_admin): ?>
                                                 <td class="px-6 py-4 text-sm whitespace-nowrap">
                                                     <button type="button"
                                                         class="edit-item-btn text-blue-600 hover:text-blue-800 font-medium mr-2"
@@ -386,6 +402,7 @@ if (!function_exists('getInitials')) {
                                                         Retire Asset
                                                     </button>
                                                 </td>
+                                                <?php endif; ?>
                                             </tr>
                                         <?php endforeach; ?>
                                     <?php endif; ?>
@@ -399,6 +416,7 @@ if (!function_exists('getInitials')) {
         </div>
     </div>
 
+    <?php if ($is_admin): ?>
     <!-- Retire Asset Confirmation Modal -->
     <div id="retireItemModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
         <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
@@ -546,11 +564,13 @@ if (!function_exists('getInitials')) {
             </form>
         </div>
     </div>
+    <?php endif; ?>
 
 
     <script>
         lucide.createIcons();
 
+        <?php if ($is_admin): ?>
         // Batch Edit Modal handling
         const editModal = document.getElementById('editModal');
         const openEditModalBtn = document.getElementById('openEditModalBtn');
@@ -833,6 +853,7 @@ if (!function_exists('getInitials')) {
                 locationSelect.value = ""; // Default to "Select location" if not found
             }
         }
+        <?php endif; ?>
     </script>
 
     <script src="loader/loader.js"></script>

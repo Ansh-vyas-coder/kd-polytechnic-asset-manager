@@ -24,6 +24,7 @@ $showAddAsset = $pageView === 'add-asset';
 $showRegister = $pageView === 'register';
 $showGenerateReport = $pageView === 'generate-report';
 $showMyAssets = $pageView === 'my-assets';
+$showWriteOffAssets = $pageView === 'write-off-assets';
 
 // --- START: Fetch asset counts for dashboard widgets ---
 $thisMonth = date('Y-m');
@@ -457,6 +458,13 @@ $current_page = $pageView;
           <?php define('IS_EMBEDDED', true);
           include 'generate-report.php';
           ?>
+        <?php elseif ($showWriteOffAssets): ?>
+          <?php
+          if (!defined('IS_EMBEDDED')) {
+            define('IS_EMBEDDED', true);
+          }
+          include 'write-off-assets.php';
+          ?>
         <?php elseif ($showMyAssets): ?>
           <?php
           if (!defined('IS_EMBEDDED')) {
@@ -464,7 +472,7 @@ $current_page = $pageView;
           }
           include 'generate-report.php';
           ?>
-        <?php elseif (!$showAddAsset && !$showGenerateReport && !$showMyAssets): ?>
+        <?php elseif (!$showAddAsset && !$showGenerateReport && !$showMyAssets && !$showWriteOffAssets): ?>
           <div id="dashboardView">
             <div class="flex items-start sm:items-center justify-between flex-wrap gap-3">
               <div>

@@ -10,6 +10,11 @@ if (!isset($_SESSION['user_id']) || $_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit();
 }
 
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
+    echo json_encode(['status' => 'error', 'message' => 'Only admins can edit records.']);
+    exit();
+}
+
 // Get POST data
 $batch_id = isset($_POST['batch_id']) ? trim($_POST['batch_id']) : '';
 $location = isset($_POST['location']) ? trim($_POST['location']) : null;
