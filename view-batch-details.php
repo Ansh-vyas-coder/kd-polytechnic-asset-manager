@@ -421,7 +421,7 @@ if (!function_exists('getInitials')) {
                                                         </button>
                                                     <?php else: ?>
                                                         <div class="flex flex-wrap gap-2">
-                                                            <form method="POST" action="report-item-status.php" class="inline">
+                                                            <form method="POST" action="report-item-status.php" class="inline staff-report-form">
                                                                 <input type="hidden" name="id" value="<?php echo htmlspecialchars($item['id']); ?>">
                                                                 <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
                                                                 <input type="hidden" name="asset_name" value="<?php echo htmlspecialchars($asset_name_raw); ?>">
@@ -431,7 +431,7 @@ if (!function_exists('getInitials')) {
                                                                     Not Working
                                                                 </button>
                                                             </form>
-                                                            <form method="POST" action="report-item-status.php" class="inline">
+                                                            <form method="POST" action="report-item-status.php" class="inline staff-report-form">
                                                                 <input type="hidden" name="id" value="<?php echo htmlspecialchars($item['id']); ?>">
                                                                 <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
                                                                 <input type="hidden" name="asset_name" value="<?php echo htmlspecialchars($asset_name_raw); ?>">
@@ -604,6 +604,29 @@ if (!function_exists('getInitials')) {
                     <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Update</button>
                 </div>
             </form>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($is_staff): ?>
+    <!-- Staff Status Confirmation Modal -->
+    <div id="staffStatusModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+            <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">Confirm status update</h3>
+                    <p id="staffStatusModalText" class="mt-2 text-sm text-gray-600">
+                        Are you sure you want to continue?
+                    </p>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-3">
+                <button type="button" id="cancelStaffStatusBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
+                <button type="button" id="confirmStaffStatusBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">OK</button>
+            </div>
         </div>
     </div>
     <?php endif; ?>
@@ -895,6 +918,59 @@ if (!function_exists('getInitials')) {
                 locationSelect.value = ""; // Default to "Select location" if not found
             }
         }
+        <?php endif; ?>
+
+        <?php if ($is_staff): ?>
+        const staffStatusModal = document.getElementById('staffStatusModal');
+        const staffStatusModalText = document.getElementById('staffStatusModalText');
+        const cancelStaffStatusBtn = document.getElementById('cancelStaffStatusBtn');
+        const confirmStaffStatusBtn = document.getElementById('confirmStaffStatusBtn');
+        let pendingStaffForm = null;
+
+        function hideStaffStatusModal() {
+            if (staffStatusModal) {
+                staffStatusModal.classList.add('hidden');
+            }
+            pendingStaffForm = null;
+        }
+
+        document.querySelectorAll('.staff-report-form').forEach(form => {
+            form.addEventListener('submit', function(event) {
+                event.preventDefault();
+                pendingStaffForm = this;
+
+                const statusInput = this.querySelector('input[name="status"]');
+                const statusValue = statusInput ? statusInput.value : 'this asset';
+
+                if (staffStatusModalText) {
+                    staffStatusModalText.textContent = `Are you sure you want to mark this asset as "${statusValue}"? Click OK to continue.`;
+                }
+
+                if (staffStatusModal) {
+                    staffStatusModal.classList.remove('hidden');
+                    lucide.createIcons();
+                }
+            });
+        });
+
+        if (cancelStaffStatusBtn) {
+            cancelStaffStatusBtn.addEventListener('click', hideStaffStatusModal);
+        }
+
+        if (confirmStaffStatusBtn) {
+            confirmStaffStatusBtn.addEventListener('click', () => {
+                if (pendingStaffForm) {
+                    pendingStaffForm.submit();
+                }
+                hideStaffStatusModal();
+            });
+        }
+
+        window.addEventListener('click', (event) => {
+            if (event.target === staffStatusModal) {
+                hideStaffStatusModal();
+            }
+        });
         <?php endif; ?>
     </script>
 

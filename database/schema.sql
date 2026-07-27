@@ -40,8 +40,7 @@ CREATE TABLE IF NOT EXISTS assets (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
-
--- added 5 
+--4
 -- Run these once if you already have an older assets table.
 ALTER TABLE assets
     ADD COLUMN IF NOT EXISTS asset_no VARCHAR(255) NULL AFTER item_no;
@@ -70,13 +69,14 @@ ALTER TABLE assets
 ADD COLUMN status varchar(50) DEFAULT 'active' AFTER cost,
 ADD COLUMN retire_at timestamp NULL DEFAULT NULL AFTER location;
 
+-- 5. ASSET STATUS REPORTS TABLE (Standalone staff issue reporting flow)
 ALTER TABLE assets
     ADD COLUMN IF NOT EXISTS status_marked_by VARCHAR(100) NULL AFTER status,
     ADD COLUMN IF NOT EXISTS status_marked_role ENUM('admin', 'staff') NULL AFTER status_marked_by,
     ADD COLUMN IF NOT EXISTS status_marked_at TIMESTAMP NULL DEFAULT NULL AFTER status_marked_role,
     ADD COLUMN IF NOT EXISTS status_marked_note TEXT NULL AFTER status_marked_at;
 
--- 5. ASSET STATUS REPORTS TABLE (Standalone staff issue reporting flow)
+
 CREATE TABLE IF NOT EXISTS asset_status_reports (
     id INT AUTO_INCREMENT PRIMARY KEY,
     asset_id INT NOT NULL,
@@ -86,6 +86,7 @@ CREATE TABLE IF NOT EXISTS asset_status_reports (
     reported_by_user_id INT NOT NULL,
     reported_by_name VARCHAR(100) NOT NULL,
     reported_by_role ENUM('admin', 'staff') NOT NULL,
+    reported_assigned_to VARCHAR(100) NULL,
     reported_status ENUM('Not Working', 'Missing', 'Under Maintenance') NOT NULL,
     note TEXT NULL,
     reported_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -4,6 +4,24 @@
 $current_page = $current_page ?? '';
 
 // Also expects session_start() to have been called.
+
+$assigned_assets_alert_count = 0;
+if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin' && isset($conn)) {
+    $alert_stmt = $conn->prepare("
+        SELECT COUNT(*) AS total_pending
+        FROM asset_status_reports
+        WHERE review_status = 'pending'
+          AND reported_by_role = 'staff'
+    ");
+    if ($alert_stmt) {
+        $alert_stmt->execute();
+        $alert_result = $alert_stmt->get_result();
+        if ($alert_result) {
+            $assigned_assets_alert_count = (int)($alert_result->fetch_assoc()['total_pending'] ?? 0);
+        }
+        $alert_stmt->close();
+    }
+}
 ?>
 <aside id="sidebar" class="w-64 flex flex-col fixed inset-y-0 left-0 z-40 transition-transform duration-300 ease-in-out border-r border-slate-700 rounded-tr-3xl rounded-br-3xl" style="background-color: #1e293b;">
 
@@ -41,9 +59,16 @@ $current_page = $current_page ?? '';
                 <i data-lucide="users" style="width:18px;height:18px"></i>
                 Manage Users
             </a>
-            <a href="assigned-assets.php" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors <?php echo ($current_page === 'assigned-assets') ? 'bg-slate-700 text-white font-semibold' : 'text-slate-300 hover:bg-slate-700 hover:text-white'; ?>">
+            <a href="assigned-assets.php" class="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors <?php echo ($current_page === 'assigned-assets') ? 'bg-slate-700 text-white font-semibold' : 'text-slate-300 hover:bg-slate-700 hover:text-white'; ?>">
+                <span class="flex items-center gap-3 min-w-0">
                 <i data-lucide="user-check" style="width:18px;height:18px"></i>
                 Assigned Assets
+                </span>
+                <?php if ($assigned_assets_alert_count > 0): ?>
+                    <span class="inline-flex items-center justify-center min-w-5 h-5 rounded-full bg-red-500 text-white text-[11px] font-bold px-1.5">
+                        <?php echo $assigned_assets_alert_count > 9 ? '9+' : $assigned_assets_alert_count; ?>
+                    </span>
+                <?php endif; ?>
             </a>
         <?php endif; ?>
 

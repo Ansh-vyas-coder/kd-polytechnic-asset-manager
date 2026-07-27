@@ -21,6 +21,29 @@ if ($_SESSION['role'] === 'staff') {
 $current_page = 'assigned-assets';
 
 $selected_faculty = isset($_GET['faculty']) ? trim($_GET['faculty']) : '';
+$mark_seen = isset($_GET['mark_seen']) && $_GET['mark_seen'] === '1';
+
+if ($_SESSION['role'] === 'admin' && $selected_faculty !== '' && $mark_seen) {
+    $review_stmt = $conn->prepare("
+        UPDATE asset_status_reports
+        SET review_status = 'reviewed',
+            reviewed_by_user_id = ?,
+            reviewed_at = CURRENT_TIMESTAMP
+        WHERE review_status = 'pending'
+          AND reported_by_role = 'staff'
+          AND reported_assigned_to = ?
+    ");
+    if ($review_stmt) {
+        $reviewer_id = (int)$_SESSION['user_id'];
+        $review_stmt->bind_param("is", $reviewer_id, $selected_faculty);
+        $review_stmt->execute();
+        $review_stmt->close();
+    }
+
+    $redirect_params = ['faculty' => $selected_faculty];
+    header("Location: assigned-assets.php?" . http_build_query($redirect_params));
+    exit();
+}
 
 // Fetch assigned assets
 $sql_where_clauses = ["assigned_to IS NOT NULL", "assigned_to != ''", "retire_at IS NULL"];
@@ -73,6 +96,27 @@ if ($summary_result) {
     }
 }
 
+// Pending staff status reports by faculty snapshot
+$pending_reports_by_faculty = [];
+$pending_reports_total = 0;
+
+$pending_sql = "
+    SELECT reported_assigned_to, COUNT(*) AS total_pending
+    FROM asset_status_reports
+    WHERE review_status = 'pending'
+      AND reported_by_role = 'staff'
+      AND reported_assigned_to IS NOT NULL
+      AND reported_assigned_to != ''
+    GROUP BY reported_assigned_to
+";
+$pending_result = $conn->query($pending_sql);
+if ($pending_result) {
+    while ($row = $pending_result->fetch_assoc()) {
+        $pending_reports_by_faculty[$row['reported_assigned_to']] = (int)$row['total_pending'];
+        $pending_reports_total += (int)$row['total_pending'];
+    }
+}
+
 // Helper function to generate initials
 if (!function_exists('getInitials')) {
     function getInitials($name)
@@ -115,6 +159,26 @@ $categories = [
   .faculty-card:hover {
     transform: translateY(-1px);
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  }
+  .faculty-card-active {
+    position: relative;
+  }
+  .faculty-dot {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    width: 10px;
+    height: 10px;
+    border-radius: 9999px;
+    background: #ef4444;
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.16);
+  }
+  .status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 9999px;
+    background: #ef4444;
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.16);
   }
 </style>
 <link rel="stylesheet" href="loader/loader.css" />
@@ -187,22 +251,29 @@ $categories = [
               </div>
               <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 <a href="assigned-assets.php"
-                   class="faculty-card flex items-center justify-between gap-4 rounded-xl border px-4 py-4 text-left <?php echo $selected_faculty === '' ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-100' : 'border-gray-200 bg-white hover:border-blue-200'; ?>">
+                   class="faculty-card faculty-card-active flex items-center justify-between gap-4 rounded-xl border px-4 py-4 text-left <?php echo $selected_faculty === '' ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-100' : 'border-gray-200 bg-white hover:border-blue-200'; ?>">
                   <div>
                     <p class="text-sm font-semibold text-gray-900">All Faculties</p>
                     <p class="mt-1 text-xs text-gray-500">Show every assigned asset</p>
                   </div>
-                  <span class="inline-flex items-center justify-center rounded-full bg-white px-3 py-1 text-sm font-bold text-gray-700 border border-gray-200"><?php echo number_format(count($items)); ?></span>
+                  <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center justify-center rounded-full bg-white px-3 py-1 text-sm font-bold text-gray-700 border border-gray-200"><?php echo number_format(count($items)); ?></span>
+                  </div>
                 </a>
                 <?php foreach ($faculty_summary as $faculty): ?>
                   <?php $is_active = $selected_faculty !== '' && strcasecmp($selected_faculty, $faculty['assigned_to']) === 0; ?>
-                  <a href="assigned-assets.php?faculty=<?php echo urlencode($faculty['assigned_to']); ?>"
-                     class="faculty-card flex items-center justify-between gap-4 rounded-xl border px-4 py-4 text-left <?php echo $is_active ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-100' : 'border-gray-200 bg-white hover:border-blue-200'; ?>">
+                  <a href="assigned-assets.php?faculty=<?php echo urlencode($faculty['assigned_to']); ?>&mark_seen=1"
+                     class="faculty-card faculty-card-active flex items-center justify-between gap-4 rounded-xl border px-4 py-4 text-left <?php echo $is_active ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-100' : 'border-gray-200 bg-white hover:border-blue-200'; ?>">
                     <div class="min-w-0">
                       <p class="text-sm font-semibold text-gray-900 truncate"><?php echo htmlspecialchars($faculty['assigned_to']); ?></p>
                       <p class="mt-1 text-xs text-gray-500">Click to open assets</p>
                     </div>
-                    <span class="inline-flex items-center justify-center rounded-full bg-white px-3 py-1 text-sm font-bold text-blue-700 border border-blue-100"><?php echo number_format((int)$faculty['total_assets']); ?></span>
+                    <?php if (!empty($pending_reports_by_faculty[$faculty['assigned_to']])): ?>
+                      <span class="faculty-dot" aria-hidden="true"></span>
+                    <?php endif; ?>
+                    <div class="flex items-center gap-2">
+                      <span class="inline-flex items-center justify-center rounded-full bg-white px-3 py-1 text-sm font-bold text-blue-700 border border-blue-100"><?php echo number_format((int)$faculty['total_assets']); ?></span>
+                    </div>
                   </a>
                 <?php endforeach; ?>
               </div>
