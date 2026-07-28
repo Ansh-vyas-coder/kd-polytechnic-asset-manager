@@ -18,6 +18,11 @@ $category_id = isset($_GET['category_id']) ? (int)$_GET['category_id'] : 0;
 $asset_name_raw = isset($_GET['asset_name']) ? trim($_GET['asset_name']) : '';
 $batch_id = isset($_GET['batch_id']) ? trim($_GET['batch_id']) : '';
 $search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
+$filter_status = isset($_GET['filter_status']) ? $_GET['filter_status'] : 'all';
+$valid_filters = ['all', 'active', 'under maintenance', 'not working', 'retired'];
+if (!in_array($filter_status, $valid_filters, true)) {
+    $filter_status = 'all';
+}
 
 // Define categories to get the name from the ID
 $categories = [
@@ -147,15 +152,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'retir
     exit();
 }
 
-// Fetch asset details for the specified batch
+// Fetch batch details (one item) for the record summary
+$batch_details = null;
+if (strpos($batch_id, 'batch_uncategorized_') === 0) {
+    $uncategorized_id = (int)substr($batch_id, strlen('batch_uncategorized_'));
+    $batch_sql = "SELECT * FROM assets WHERE id = ? AND category_id = ? AND asset_name = ? LIMIT 1";
+    $batch_params = ["iis", $uncategorized_id, $category_id, $asset_name_raw];
+} else {
+    $batch_sql = "SELECT * FROM assets WHERE batch_id = ? AND category_id = ? AND asset_name = ? LIMIT 1";
+    $batch_params = ["sis", $batch_id, $category_id, $asset_name_raw];
+}
+
+$batch_stmt = $conn->prepare($batch_sql);
+$batch_stmt->bind_param(...$batch_params);
+$batch_stmt->execute();
+$batch_result = $batch_stmt->get_result();
+if ($batch_result) {
+    $batch_details = $batch_result->fetch_assoc();
+}
+$batch_stmt->close();
+
+if (!$batch_details) {
+    header("Location: view-asset-details.php?category_id=" . $category_id . "&asset_name=" . urlencode($asset_name_raw) . "&status=error&message=" . urlencode("No items found for this record."));
+    exit();
+}
+
+// Fetch filtered items for the table
 $items = [];
 if (strpos($batch_id, 'batch_uncategorized_') === 0) {
     $uncategorized_id = (int)substr($batch_id, strlen('batch_uncategorized_'));
-    $sql = "SELECT * FROM assets WHERE id = ? AND category_id = ? AND asset_name = ? AND retire_at IS NULL";
+    $sql = "SELECT * FROM assets WHERE id = ? AND category_id = ? AND asset_name = ?";
     $params = ["iis", $uncategorized_id, $category_id, $asset_name_raw];
 } else {
-    $sql = "SELECT * FROM assets WHERE batch_id = ? AND category_id = ? AND asset_name = ? AND retire_at IS NULL";
+    $sql = "SELECT * FROM assets WHERE batch_id = ? AND category_id = ? AND asset_name = ?";
     $params = ["sis", $batch_id, $category_id, $asset_name_raw];
+}
+
+if ($filter_status === 'retired') {
+    $sql .= " AND retire_at IS NOT NULL";
+} else {
+    $sql .= " AND retire_at IS NULL";
+}
+
+if ($filter_status !== 'all' && $filter_status !== 'retired') {
+    $sql .= " AND LOWER(status) = ?";
+    $params[0] .= "s";
+    $params[] = $filter_status;
 }
 
 // Staff can only view rows assigned to themselves
@@ -186,12 +228,6 @@ if ($result) {
 }
 $stmt->close();
 
-if (empty($items)) {
-    header("Location: view-asset-details.php?category_id=" . $category_id . "&asset_name=" . urlencode($asset_name_raw) . "&status=error&message=No items found for this record.");
-    exit();
-}
-
-$batch_details = $items[0]; // Use the first item for common details like date
 $total_quantity_in_batch = count($items);
 $total_cost_of_batch = $total_quantity_in_batch * (float)$batch_details['cost'];
 
@@ -337,7 +373,7 @@ if (!function_exists('getInitials')) {
                             </div>
                         </div>
                         <!-- Action buttons -->
-                        <?php if ($is_admin): ?>
+                        <?php if ($is_admin && $filter_status !== 'retired'): ?>
                             <div class="flex justify-end mt-6 space-x-3">
                                 <button id="openEditModalBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                     Edit
@@ -349,7 +385,37 @@ if (!function_exists('getInitials')) {
                         <?php endif; ?>
                     </div>
 
-                    <div class="flex justify-end mt-6 mb-6 space-x-3 ">
+                    <div class="flex justify-end mt-6 mb-6 space-x-3 relative">
+                        <div class="relative">
+                            <button type="button" id="filterBtn" class="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                                Filter
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-0.5"><path d="m6 9 6 6 6-6"/></svg>
+                            </button>
+                            <div id="filterDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-50 overflow-hidden">
+                                <?php
+                                $filter_options = [
+                                    'all' => 'All',
+                                    'active' => 'Active',
+                                    'under maintenance' => 'Under Maintenance',
+                                    'not working' => 'Not Working',
+                                    'retired' => 'Retired'
+                                ];
+                                $base_params = $_GET;
+                                foreach ($filter_options as $value => $label):
+                                    $base_params['filter_status'] = $value;
+                                    $filter_url = 'view-batch-details.php?' . http_build_query($base_params);
+                                    $active_class = ($filter_status === $value) ? 'bg-gray-100 text-gray-900 font-medium' : 'text-gray-700 hover:bg-gray-50';
+                                ?>
+                                    <a href="<?php echo htmlspecialchars($filter_url); ?>" class="block px-4 py-2 text-sm <?php echo $active_class; ?>">
+                                        <?php echo htmlspecialchars($label); ?>
+                                        <?php if ($filter_status === $value): ?>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="inline ml-1"><polyline points="20 6 9 17 4 12"/></svg>
+                                        <?php endif; ?>
+                                    </a>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
                         <?php if ($is_admin): ?>
                             <button type="button" id="openBulkEditBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
                                 Bulk Edit
@@ -372,7 +438,7 @@ if (!function_exists('getInitials')) {
                                         <th class="px-6 py-3 font-medium">Location</th>
                                         <th class="px-6 py-3 font-medium">Status</th>
                                         <th class="px-6 py-3 font-medium">Remarks</th>
-                                        <?php if ($show_actions_column): ?>
+                                        <?php if ($show_actions_column && $filter_status !== 'retired'): ?>
                                             <th class="px-6 py-3 font-medium">Actions</th>
                                         <?php endif; ?>
                                     </tr>
@@ -415,7 +481,7 @@ if (!function_exists('getInitials')) {
                                                     <?php endif; ?>
                                                 </td>
                                                 <td class="px-6 py-4 text-xs"><?php echo htmlspecialchars($item['remarks'] ?: 'None'); ?></td>
-                                                <?php if ($show_actions_column): ?>
+                                                <?php if ($show_actions_column && $filter_status !== 'retired'): ?>
                                                     <td class="px-6 py-4 text-sm whitespace-nowrap">
                                                         <?php if ($is_admin): ?>
                                                             <button type="button"
@@ -661,6 +727,22 @@ if (!function_exists('getInitials')) {
 
     <script>
         lucide.createIcons();
+
+        const filterBtn = document.getElementById('filterBtn');
+        const filterDropdown = document.getElementById('filterDropdown');
+
+        if (filterBtn && filterDropdown) {
+            filterBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                filterDropdown.classList.toggle('hidden');
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!filterDropdown.contains(e.target) && e.target !== filterBtn) {
+                    filterDropdown.classList.add('hidden');
+                }
+            });
+        }
 
         <?php if ($is_admin): ?>
             // Batch Edit Modal handling
