@@ -338,14 +338,22 @@ if (!function_exists('getInitials')) {
                         </div>
                         <!-- Action buttons -->
                         <?php if ($is_admin): ?>
-                        <div class="flex justify-end mt-6 space-x-3">
-                            <button id="openEditModalBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                Edit
+                            <div class="flex justify-end mt-6 space-x-3">
+                                <button id="openEditModalBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                    Edit
+                                </button>
+                                <button type="button" id="openRetireModalBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                    Retire
+                                </button>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="flex justify-end mt-6 mb-6 space-x-3 ">
+                        <?php if ($is_admin): ?>
+                            <button type="button" id="openBulkEditBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                                Bulk Edit
                             </button>
-                            <button type="button" id="openRetireModalBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
-                                Retire
-                            </button>
-                        </div>
                         <?php endif; ?>
                     </div>
 
@@ -355,6 +363,9 @@ if (!function_exists('getInitials')) {
                             <table class="w-full text-sm">
                                 <thead class="bg-gray-50">
                                     <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
+                                        <th class="px-6 py-3 font-medium bulk-edit-checkbox-col hidden">
+                                            <input type="checkbox" id="selectAllBulk" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                                        </th>
                                         <th class="px-6 py-3 font-medium">Item No</th>
                                         <th class="px-6 py-3 font-medium">Asset No</th>
                                         <th class="px-6 py-3 font-medium">Assigned To</th>
@@ -362,14 +373,14 @@ if (!function_exists('getInitials')) {
                                         <th class="px-6 py-3 font-medium">Status</th>
                                         <th class="px-6 py-3 font-medium">Remarks</th>
                                         <?php if ($show_actions_column): ?>
-                                        <th class="px-6 py-3 font-medium">Actions</th>
+                                            <th class="px-6 py-3 font-medium">Actions</th>
                                         <?php endif; ?>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-100">
                                     <?php if (empty($items)): ?>
                                         <tr>
-                                            <td colspan="<?php echo $show_actions_column ? 7 : 6; ?>" class="text-center py-16 text-gray-500">
+                                            <td colspan="10" class="text-center py-16 text-gray-500">
                                                 <div class="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-3">
                                                     <i data-lucide="search-slash" class="w-7 h-7 text-gray-400"></i>
                                                 </div>
@@ -380,10 +391,13 @@ if (!function_exists('getInitials')) {
                                     <?php else: ?>
                                         <?php foreach ($items as $item): ?>
                                             <?php
-                                                $status_value = trim($item['status'] ?: 'N/A');
-                                                $is_staff_report = ($item['status_marked_role'] ?? '') === 'staff' && in_array($status_value, ['Not Working', 'Missing'], true);
+                                            $status_value = trim($item['status'] ?: 'N/A');
+                                            $is_staff_report = ($item['status_marked_role'] ?? '') === 'staff' && in_array($status_value, ['Not Working', 'Missing'], true);
                                             ?>
                                             <tr class="text-gray-600">
+                                                <td class="px-6 py-4 bulk-edit-checkbox-col hidden">
+                                                    <input type="checkbox" class="bulk-edit-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" data-item-id="<?php echo htmlspecialchars($item['id']); ?>" data-assigned-to="<?php echo htmlspecialchars($item['assigned_to']); ?>" data-location="<?php echo htmlspecialchars($item['location']); ?>" data-status="<?php echo htmlspecialchars($item['status']); ?>" data-remarks="<?php echo htmlspecialchars($item['remarks']); ?>">
+                                                </td>
                                                 <td class="px-6 py-4 font-mono text-xs"><?php echo htmlspecialchars($item['item_no']); ?></td>
                                                 <td class="px-6 py-4 font-mono text-xs"><?php echo htmlspecialchars($item['asset_no']); ?></td>
                                                 <td class="px-6 py-4"><?php echo htmlspecialchars($item['assigned_to'] ?: 'N/A'); ?></td>
@@ -402,54 +416,67 @@ if (!function_exists('getInitials')) {
                                                 </td>
                                                 <td class="px-6 py-4 text-xs"><?php echo htmlspecialchars($item['remarks'] ?: 'None'); ?></td>
                                                 <?php if ($show_actions_column): ?>
-                                                <td class="px-6 py-4 text-sm whitespace-nowrap">
-                                                    <?php if ($is_admin): ?>
-                                                        <button type="button"
-                                                            class="edit-item-btn text-blue-600 hover:text-blue-800 font-medium mr-2"
-                                                            data-id="<?php echo htmlspecialchars($item['id']); ?>"
-                                                            data-assigned-to="<?php echo htmlspecialchars($item['assigned_to']); ?>"
-                                                            data-location="<?php echo htmlspecialchars($item['location']); ?>"
-                                                            data-status="<?php echo htmlspecialchars($item['status']); ?>"
-                                                            data-remarks="<?php echo htmlspecialchars($item['remarks']); ?>">
-                                                            Edit
-                                                        </button>
-                                                        <button type="button"
-                                                            class="retire-item-btn text-red-600 hover:text-red-800 font-medium"
-                                                            data-id="<?php echo htmlspecialchars($item['id']); ?>"
-                                                            data-asset-no="<?php echo htmlspecialchars($item['asset_no']); ?>">
-                                                            Retire Asset
-                                                        </button>
-                                                    <?php else: ?>
-                                                        <div class="flex flex-wrap gap-2">
-                                                            <form method="POST" action="report-item-status.php" class="inline staff-report-form">
-                                                                <input type="hidden" name="id" value="<?php echo htmlspecialchars($item['id']); ?>">
-                                                                <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
-                                                                <input type="hidden" name="asset_name" value="<?php echo htmlspecialchars($asset_name_raw); ?>">
-                                                                <input type="hidden" name="batch_id" value="<?php echo htmlspecialchars($batch_id); ?>">
-                                                                <input type="hidden" name="status" value="Not Working">
-                                                                <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition">
-                                                                    Not Working
-                                                                </button>
-                                                            </form>
-                                                            <form method="POST" action="report-item-status.php" class="inline staff-report-form">
-                                                                <input type="hidden" name="id" value="<?php echo htmlspecialchars($item['id']); ?>">
-                                                                <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
-                                                                <input type="hidden" name="asset_name" value="<?php echo htmlspecialchars($asset_name_raw); ?>">
-                                                                <input type="hidden" name="batch_id" value="<?php echo htmlspecialchars($batch_id); ?>">
-                                                                <input type="hidden" name="status" value="Missing">
-                                                                <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 transition">
-                                                                    Missing
-                                                                </button>
-                                                            </form>
-                                                        </div>
-                                                    <?php endif; ?>
-                                                </td>
+                                                    <td class="px-6 py-4 text-sm whitespace-nowrap">
+                                                        <?php if ($is_admin): ?>
+                                                            <button type="button"
+                                                                class="edit-item-btn text-blue-600 hover:text-blue-800 font-medium mr-2"
+                                                                data-id="<?php echo htmlspecialchars($item['id']); ?>"
+                                                                data-assigned-to="<?php echo htmlspecialchars($item['assigned_to']); ?>"
+                                                                data-location="<?php echo htmlspecialchars($item['location']); ?>"
+                                                                data-status="<?php echo htmlspecialchars($item['status']); ?>"
+                                                                data-remarks="<?php echo htmlspecialchars($item['remarks']); ?>">
+                                                                Edit
+                                                            </button>
+                                                            <button type="button"
+                                                                class="retire-item-btn text-red-600 hover:text-red-800 font-medium"
+                                                                data-id="<?php echo htmlspecialchars($item['id']); ?>"
+                                                                data-asset-no="<?php echo htmlspecialchars($item['asset_no']); ?>">
+                                                                Retire Asset
+                                                            </button>
+                                                        <?php else: ?>
+                                                            <div class="flex flex-wrap gap-2">
+                                                                <form method="POST" action="report-item-status.php" class="inline staff-report-form">
+                                                                    <input type="hidden" name="id" value="<?php echo htmlspecialchars($item['id']); ?>">
+                                                                    <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
+                                                                    <input type="hidden" name="asset_name" value="<?php echo htmlspecialchars($asset_name_raw); ?>">
+                                                                    <input type="hidden" name="batch_id" value="<?php echo htmlspecialchars($batch_id); ?>">
+                                                                    <input type="hidden" name="status" value="Not Working">
+                                                                    <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition">
+                                                                        Not Working
+                                                                    </button>
+                                                                </form>
+                                                                <form method="POST" action="report-item-status.php" class="inline staff-report-form">
+                                                                    <input type="hidden" name="id" value="<?php echo htmlspecialchars($item['id']); ?>">
+                                                                    <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
+                                                                    <input type="hidden" name="asset_name" value="<?php echo htmlspecialchars($asset_name_raw); ?>">
+                                                                    <input type="hidden" name="batch_id" value="<?php echo htmlspecialchars($batch_id); ?>">
+                                                                    <input type="hidden" name="status" value="Missing">
+                                                                    <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 transition">
+                                                                        Missing
+                                                                    </button>
+                                                                </form>
+                                                            </div>
+                                                        <?php endif; ?>
+                                                    </td>
                                                 <?php endif; ?>
                                             </tr>
                                         <?php endforeach; ?>
                                     <?php endif; ?>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+
+                    <!-- Bulk Edit Floating Action Bar -->
+                    <div id="bulkEditActionBar" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white border border-gray-200 shadow-lg rounded-xl px-6 py-3 flex items-center gap-4 z-50 hidden">
+                        <span id="bulkEditCount" class="text-sm font-medium text-gray-700">0 items selected</span>
+                        <div class="flex gap-3">
+                            <button type="button" id="bulkEditEditBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                Edit
+                            </button>
+                            <button type="button" id="bulkEditCancelBtn" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                                Cancel
+                            </button>
                         </div>
                     </div>
                 </main>
@@ -459,176 +486,176 @@ if (!function_exists('getInitials')) {
     </div>
 
     <?php if ($is_admin): ?>
-    <!-- Retire Asset Confirmation Modal -->
-    <div id="retireItemModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
-            <div class="flex items-start gap-3">
-                <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
-                    <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600"></i>
+        <!-- Retire Asset Confirmation Modal -->
+        <div id="retireItemModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                        <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">Retire this asset?</h3>
+                        <p class="mt-2 text-sm text-gray-600">This asset will be removed from the website view. It will not be deleted from the database, and the retire time will be saved.</p>
+                        <p id="retireItemAssetNo" class="mt-2 text-xs font-mono text-gray-500 break-all"></p>
+                    </div>
                 </div>
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-900">Retire this asset?</h3>
-                    <p class="mt-2 text-sm text-gray-600">This asset will be removed from the website view. It will not be deleted from the database, and the retire time will be saved.</p>
-                    <p id="retireItemAssetNo" class="mt-2 text-xs font-mono text-gray-500 break-all"></p>
-                </div>
+                <form method="POST" action="view-batch-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset_name_raw); ?>&batch_id=<?php echo urlencode($batch_id); ?>" class="mt-6 flex justify-end space-x-3">
+                    <input type="hidden" name="action" value="retire_item">
+                    <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
+                    <input type="hidden" name="asset_name" value="<?php echo htmlspecialchars($asset_name_raw); ?>">
+                    <input type="hidden" name="batch_id" value="<?php echo htmlspecialchars($batch_id); ?>">
+                    <input type="hidden" name="item_id" id="retireItemId">
+                    <button type="button" id="cancelRetireItemBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Confirm</button>
+                </form>
             </div>
-            <form method="POST" action="view-batch-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset_name_raw); ?>&batch_id=<?php echo urlencode($batch_id); ?>" class="mt-6 flex justify-end space-x-3">
-                <input type="hidden" name="action" value="retire_item">
-                <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
-                <input type="hidden" name="asset_name" value="<?php echo htmlspecialchars($asset_name_raw); ?>">
-                <input type="hidden" name="batch_id" value="<?php echo htmlspecialchars($batch_id); ?>">
-                <input type="hidden" name="item_id" id="retireItemId">
-                <button type="button" id="cancelRetireItemBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
-                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Confirm</button>
-            </form>
         </div>
-    </div>
 
-    <!-- Retire Confirmation Modal -->
-    <div id="retireModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
-            <div class="flex items-start gap-3">
-                <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
-                    <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600"></i>
+        <!-- Retire Confirmation Modal -->
+        <div id="retireModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                        <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">Retire this record?</h3>
+                        <p class="mt-2 text-sm text-gray-600">This record will be removed from the website view. It will not be deleted from the database, and the retire time will be saved.</p>
+                    </div>
                 </div>
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-900">Retire this record?</h3>
-                    <p class="mt-2 text-sm text-gray-600">This record will be removed from the website view. It will not be deleted from the database, and the retire time will be saved.</p>
-                </div>
+                <form method="POST" action="view-batch-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset_name_raw); ?>&batch_id=<?php echo urlencode($batch_id); ?>" class="mt-6 flex justify-end space-x-3">
+                    <input type="hidden" name="action" value="retire_batch">
+                    <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
+                    <input type="hidden" name="asset_name" value="<?php echo htmlspecialchars($asset_name_raw); ?>">
+                    <input type="hidden" name="batch_id" value="<?php echo htmlspecialchars($batch_id); ?>">
+                    <button type="button" id="cancelRetireBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Confirm</button>
+                </form>
             </div>
-            <form method="POST" action="view-batch-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset_name_raw); ?>&batch_id=<?php echo urlencode($batch_id); ?>" class="mt-6 flex justify-end space-x-3">
-                <input type="hidden" name="action" value="retire_batch">
-                <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
-                <input type="hidden" name="asset_name" value="<?php echo htmlspecialchars($asset_name_raw); ?>">
-                <input type="hidden" name="batch_id" value="<?php echo htmlspecialchars($batch_id); ?>">
-                <button type="button" id="cancelRetireBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
-                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Confirm</button>
-            </form>
         </div>
-    </div>
 
-    <!-- Edit Batch Modal -->
-    <div id="editModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-5 border w-full max-w-xl shadow-lg rounded-md bg-white">
-            <div class="flex justify-between items-center border-b pb-3 mb-5">
-                <h3 class="text-xl font-semibold text-gray-900">Edit Record Details</h3>
-                <button id="closeEditModalBtn" class="text-gray-400 hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
+        <!-- Edit Batch Modal -->
+        <div id="editModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-5 border w-full max-w-xl shadow-lg rounded-md bg-white">
+                <div class="flex justify-between items-center border-b pb-3 mb-5">
+                    <h3 class="text-xl font-semibold text-gray-900">Edit Record Details</h3>
+                    <button id="closeEditModalBtn" class="text-gray-400 hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <form id="editForm">
+                    <input type="hidden" name="batch_id" value="<?php echo htmlspecialchars($batch_id); ?>">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="location" class="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                            <select name="location" id="location" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                                <!-- Options will be populated by JavaScript -->
+                            </select>
+                        </div>
+                        <div>
+                            <label for="cost" class="block text-sm font-medium text-gray-700 mb-1">Cost per Item</label>
+                            <input type="number" step="0.01" name="cost" id="cost" value="<?php echo htmlspecialchars($batch_details['cost']); ?>" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                        </div>
+                        <div>
+                            <label for="page_no" class="block text-sm font-medium text-gray-700 mb-1">Page No.</label>
+                            <input type="text" name="page_no" id="page_no" value="<?php echo htmlspecialchars($batch_details['page_no']); ?>" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                        </div>
+                        <div>
+                            <label for="gem_order_no" class="block text-sm font-medium text-gray-700 mb-1">GeM Order No.</label>
+                            <input type="text" name="gem_order_no" id="gem_order_no" value="<?php echo htmlspecialchars($batch_details['gem_order_no']); ?>" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                        </div>
+                        <div>
+                            <label for="gem_invoice_no" class="block text-sm font-medium text-gray-700 mb-1">GeM Invoice No.</label>
+                            <input type="text" name="gem_invoice_no" id="gem_invoice_no" value="<?php echo htmlspecialchars($batch_details['gem_invoice_no']); ?>" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                        </div>
+                        <div>
+                            <label for="gpr_no" class="block text-sm font-medium text-gray-700 mb-1">GPR No.</label>
+                            <input type="text" name="gpr_no" id="gpr_no" value="<?php echo htmlspecialchars($batch_details['gpr_no']); ?>" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                        </div>
+                        <div>
+                            <label for="pr_page_no" class="block text-sm font-medium text-gray-700 mb-1">GPR Page No.</label>
+                            <input type="text" name="pr_page_no" id="pr_page_no" value="<?php echo htmlspecialchars($batch_details['pr_page_no']); ?>" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                        </div>
+                        <div>
+                            <label for="gpr_item_no" class="block text-sm font-medium text-gray-700 mb-1">GPR Item No.</label>
+                            <input type="text" name="gpr_item_no" id="gpr_item_no" value="<?php echo htmlspecialchars($batch_details['gpr_item_no']); ?>" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                        </div>
+                    </div>
+                    <div class="mt-6 flex justify-end space-x-3">
+                        <button type="button" id="cancelEditBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Update</button>
+                    </div>
+                </form>
             </div>
-            <form id="editForm">
-                <input type="hidden" name="batch_id" value="<?php echo htmlspecialchars($batch_id); ?>">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label for="location" class="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                        <select name="location" id="location" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
-                            <!-- Options will be populated by JavaScript -->
-                        </select>
-                    </div>
-                    <div>
-                        <label for="cost" class="block text-sm font-medium text-gray-700 mb-1">Cost per Item</label>
-                        <input type="number" step="0.01" name="cost" id="cost" value="<?php echo htmlspecialchars($batch_details['cost']); ?>" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
-                    </div>
-                    <div>
-                        <label for="page_no" class="block text-sm font-medium text-gray-700 mb-1">Page No.</label>
-                        <input type="text" name="page_no" id="page_no" value="<?php echo htmlspecialchars($batch_details['page_no']); ?>" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
-                    </div>
-                    <div>
-                        <label for="gem_order_no" class="block text-sm font-medium text-gray-700 mb-1">GeM Order No.</label>
-                        <input type="text" name="gem_order_no" id="gem_order_no" value="<?php echo htmlspecialchars($batch_details['gem_order_no']); ?>" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
-                    </div>
-                    <div>
-                        <label for="gem_invoice_no" class="block text-sm font-medium text-gray-700 mb-1">GeM Invoice No.</label>
-                        <input type="text" name="gem_invoice_no" id="gem_invoice_no" value="<?php echo htmlspecialchars($batch_details['gem_invoice_no']); ?>" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
-                    </div>
-                    <div>
-                        <label for="gpr_no" class="block text-sm font-medium text-gray-700 mb-1">GPR No.</label>
-                        <input type="text" name="gpr_no" id="gpr_no" value="<?php echo htmlspecialchars($batch_details['gpr_no']); ?>" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
-                    </div>
-                    <div>
-                        <label for="pr_page_no" class="block text-sm font-medium text-gray-700 mb-1">GPR Page No.</label>
-                        <input type="text" name="pr_page_no" id="pr_page_no" value="<?php echo htmlspecialchars($batch_details['pr_page_no']); ?>" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
-                    </div>
-                    <div>
-                        <label for="gpr_item_no" class="block text-sm font-medium text-gray-700 mb-1">GPR Item No.</label>
-                        <input type="text" name="gpr_item_no" id="gpr_item_no" value="<?php echo htmlspecialchars($batch_details['gpr_item_no']); ?>" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
-                    </div>
-                </div>
-                <div class="mt-6 flex justify-end space-x-3">
-                    <button type="button" id="cancelEditBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Update</button>
-                </div>
-            </form>
         </div>
-    </div>
 
-    <!-- Edit Item Modal -->
-    <div id="itemEditModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-5 border w-full max-w-xl shadow-lg rounded-md bg-white">
-            <div class="flex justify-between items-center border-b pb-3 mb-5">
-                <h3 class="text-xl font-semibold text-gray-900">Edit Item Details</h3>
-                <button id="closeItemEditModalBtn" class="text-gray-400 hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
+        <!-- Edit Item Modal -->
+        <div id="itemEditModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-5 border w-full max-w-xl shadow-lg rounded-md bg-white">
+                <div class="flex justify-between items-center border-b pb-3 mb-5">
+                    <h3 class="text-xl font-semibold text-gray-900">Edit Item Details</h3>
+                    <button id="closeItemEditModalBtn" class="text-gray-400 hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <form id="itemEditForm">
+                    <input type="hidden" name="id" id="item_id">
+                    <div class="grid grid-cols-1 gap-6">
+                        <div>
+                            <label for="item_assigned_to" class="block text-sm font-medium text-gray-700 mb-1">Assigned To</label>
+                            <select name="assigned_to" id="item_assigned_to" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                                <option value="">Loading faculty...</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="item_location" class="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                            <select name="location" id="item_location" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                                <!-- Options will be populated by JavaScript -->
+                            </select>
+                        </div>
+                        <div>
+                            <label for="item_status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                            <select name="status" id="item_status" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                                <option value="Active">Active</option>
+                                <option value="Under Maintenance">Under Maintenance</option>
+                                <option value="Not Working">Not Working</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="item_remarks" class="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
+                            <textarea name="remarks" id="item_remarks" rows="3" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-6 flex justify-end space-x-3">
+                        <button type="button" id="cancelItemEditBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Update</button>
+                    </div>
+                </form>
             </div>
-            <form id="itemEditForm">
-                <input type="hidden" name="id" id="item_id">
-                <div class="grid grid-cols-1 gap-6">
-                    <div>
-                        <label for="item_assigned_to" class="block text-sm font-medium text-gray-700 mb-1">Assigned To</label>
-                        <select name="assigned_to" id="item_assigned_to" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
-                            <option value="">Loading faculty...</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="item_location" class="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                        <select name="location" id="item_location" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
-                            <!-- Options will be populated by JavaScript -->
-                        </select>
-                    </div>
-                    <div>
-                        <label for="item_status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                        <select name="status" id="item_status" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
-                            <option value="Active" >Active</option>
-                            <option value="Under Maintenance">Under Maintenance</option>
-                            <option value="Not Working">Not Working</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="item_remarks" class="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
-                        <textarea name="remarks" id="item_remarks" rows="3" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"></textarea>
-                    </div>
-                </div>
-                <div class="mt-6 flex justify-end space-x-3">
-                    <button type="button" id="cancelItemEditBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Update</button>
-                </div>
-            </form>
         </div>
-    </div>
     <?php endif; ?>
 
     <?php if ($is_staff): ?>
-    <!-- Staff Status Confirmation Modal -->
-    <div id="staffStatusModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
-            <div class="flex items-start gap-3">
-                <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-                    <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600"></i>
+        <!-- Staff Status Confirmation Modal -->
+        <div id="staffStatusModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                        <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">Confirm status update</h3>
+                        <p id="staffStatusModalText" class="mt-2 text-sm text-gray-600">
+                            Are you sure you want to continue?
+                        </p>
+                    </div>
                 </div>
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-900">Confirm status update</h3>
-                    <p id="staffStatusModalText" class="mt-2 text-sm text-gray-600">
-                        Are you sure you want to continue?
-                    </p>
+                <div class="mt-6 flex justify-end gap-3">
+                    <button type="button" id="cancelStaffStatusBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
+                    <button type="button" id="confirmStaffStatusBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">OK</button>
                 </div>
-            </div>
-            <div class="mt-6 flex justify-end gap-3">
-                <button type="button" id="cancelStaffStatusBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
-                <button type="button" id="confirmStaffStatusBtn" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">OK</button>
             </div>
         </div>
-    </div>
     <?php endif; ?>
 
 
@@ -636,238 +663,379 @@ if (!function_exists('getInitials')) {
         lucide.createIcons();
 
         <?php if ($is_admin): ?>
-        // Batch Edit Modal handling
-        const editModal = document.getElementById('editModal');
-        const openEditModalBtn = document.getElementById('openEditModalBtn');
-        const closeEditModalBtn = document.getElementById('closeEditModalBtn');
-        const cancelEditBtn = document.getElementById('cancelEditBtn');
-        const editForm = document.getElementById('editForm');
-        const retireModal = document.getElementById('retireModal');
-        const openRetireModalBtn = document.getElementById('openRetireModalBtn');
-        const cancelRetireBtn = document.getElementById('cancelRetireBtn');
-        const retireItemModal = document.getElementById('retireItemModal');
-        const retireItemId = document.getElementById('retireItemId');
-        const retireItemAssetNo = document.getElementById('retireItemAssetNo');
-        const cancelRetireItemBtn = document.getElementById('cancelRetireItemBtn');
+            // Batch Edit Modal handling
+            const editModal = document.getElementById('editModal');
+            const openEditModalBtn = document.getElementById('openEditModalBtn');
+            const closeEditModalBtn = document.getElementById('closeEditModalBtn');
+            const cancelEditBtn = document.getElementById('cancelEditBtn');
+            const editForm = document.getElementById('editForm');
+            const retireModal = document.getElementById('retireModal');
+            const openRetireModalBtn = document.getElementById('openRetireModalBtn');
+            const cancelRetireBtn = document.getElementById('cancelRetireBtn');
+            const retireItemModal = document.getElementById('retireItemModal');
+            const retireItemId = document.getElementById('retireItemId');
+            const retireItemAssetNo = document.getElementById('retireItemAssetNo');
+            const cancelRetireItemBtn = document.getElementById('cancelRetireItemBtn');
 
-        document.querySelectorAll('.retire-item-btn').forEach(button => {
-            button.addEventListener('click', function() {
-                retireItemId.value = this.dataset.id;
-                retireItemAssetNo.textContent = this.dataset.assetNo ? `Asset No: ${this.dataset.assetNo}` : '';
-                retireItemModal.classList.remove('hidden');
-                lucide.createIcons();
+            document.querySelectorAll('.retire-item-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    retireItemId.value = this.dataset.id;
+                    retireItemAssetNo.textContent = this.dataset.assetNo ? `Asset No: ${this.dataset.assetNo}` : '';
+                    retireItemModal.classList.remove('hidden');
+                    lucide.createIcons();
+                });
             });
-        });
 
-        if (cancelRetireItemBtn) {
-            cancelRetireItemBtn.addEventListener('click', () => {
-                retireItemModal.classList.add('hidden');
-            });
-        }
-
-        if (openRetireModalBtn) {
-            openRetireModalBtn.addEventListener('click', () => {
-                retireModal.classList.remove('hidden');
-                lucide.createIcons();
-            });
-        }
-
-        if (cancelRetireBtn) {
-            cancelRetireBtn.addEventListener('click', () => {
-                retireModal.classList.add('hidden');
-            });
-        }
-
-        if (openEditModalBtn) {
-            openEditModalBtn.addEventListener('click', () => {
-                const currentLocation = <?php echo json_encode($batch_details['location']); ?>;
-                populateLocationOptions('location', currentLocation);
-                editModal.classList.remove('hidden');
-                lucide.createIcons(); // Re-render icons if any in modal
-            });
-        }
-
-        if (closeEditModalBtn) {
-            closeEditModalBtn.addEventListener('click', () => {
-                editModal.classList.add('hidden');
-            });
-        }
-
-        if (cancelEditBtn) {
-            cancelEditBtn.addEventListener('click', () => {
-                editModal.classList.add('hidden');
-            });
-        }
-
-        window.addEventListener('click', (event) => {
-            if (event.target === editModal) {
-                editModal.classList.add('hidden');
+            if (cancelRetireItemBtn) {
+                cancelRetireItemBtn.addEventListener('click', () => {
+                    retireItemModal.classList.add('hidden');
+                });
             }
-            if (event.target === retireModal) {
-                retireModal.classList.add('hidden');
+
+            if (openRetireModalBtn) {
+                openRetireModalBtn.addEventListener('click', () => {
+                    retireModal.classList.remove('hidden');
+                    lucide.createIcons();
+                });
             }
-            if (event.target === retireItemModal) {
-                retireItemModal.classList.add('hidden');
+
+            if (cancelRetireBtn) {
+                cancelRetireBtn.addEventListener('click', () => {
+                    retireModal.classList.add('hidden');
+                });
             }
-        });
 
-        if (editForm) {
-            editForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                const formData = new FormData(this);
+            if (openEditModalBtn) {
+                openEditModalBtn.addEventListener('click', () => {
+                    const currentLocation = <?php echo json_encode($batch_details['location']); ?>;
+                    populateLocationOptions('location', currentLocation);
+                    editModal.classList.remove('hidden');
+                    lucide.createIcons(); // Re-render icons if any in modal
+                });
+            }
 
-                fetch('update-batch.php', {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        if (data.status === 'success') {
-                            alert('Record updated successfully!');
-                            window.location.reload();
-                        } else {
-                            alert('Error updating record: ' + data.message);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('An unexpected error occurred. Please check the console for details.');
-                    });
-            });
-        }
+            if (closeEditModalBtn) {
+                closeEditModalBtn.addEventListener('click', () => {
+                    editModal.classList.add('hidden');
+                });
+            }
 
-        // Item Edit Modal handling
-        const itemEditModal = document.getElementById('itemEditModal');
-        const closeItemEditModalBtn = document.getElementById('closeItemEditModalBtn');
-        const cancelItemEditBtn = document.getElementById('cancelItemEditBtn');
-        const itemEditForm = document.getElementById('itemEditForm');
+            if (cancelEditBtn) {
+                cancelEditBtn.addEventListener('click', () => {
+                    editModal.classList.add('hidden');
+                });
+            }
 
-        document.querySelectorAll('.edit-item-btn').forEach(button => {
-            button.addEventListener('click', function() {
-                const id = this.dataset.id;
-                const assignedTo = this.dataset.assignedTo;
-                const location = this.dataset.location;
-                const status = this.dataset.status;
-                const remarks = this.dataset.remarks;
-
-                document.getElementById('item_id').value = id;
-                
-                const assignedToSelect = document.getElementById('item_assigned_to');
-                if (typeof facultyData !== 'undefined' && facultyData.length > 0) {
-                    populateFacultyOptions(assignedToSelect, assignedTo);
-                } else {
-                    assignedToSelect.value = assignedTo || '';
+            window.addEventListener('click', (event) => {
+                if (event.target === editModal) {
+                    editModal.classList.add('hidden');
                 }
-                
-                populateLocationOptions('item_location', location);
-                document.getElementById('item_status').value = status;
-                document.getElementById('item_remarks').value = remarks;
-
-                itemEditModal.classList.remove('hidden');
-                lucide.createIcons();
+                if (event.target === retireModal) {
+                    retireModal.classList.add('hidden');
+                }
+                if (event.target === retireItemModal) {
+                    retireItemModal.classList.add('hidden');
+                }
             });
-        });
 
-        if (closeItemEditModalBtn) {
-            closeItemEditModalBtn.addEventListener('click', () => {
-                itemEditModal.classList.add('hidden');
-            });
-        }
+            // --- Bulk Edit Logic ---
+            let bulkEditMode = false;
+            let selectedItems = new Set();
 
-        if (cancelItemEditBtn) {
-            cancelItemEditBtn.addEventListener('click', () => {
-                itemEditModal.classList.add('hidden');
-            });
-        }
-
-        window.addEventListener('click', (event) => {
-            if (event.target === itemEditModal) {
-                itemEditModal.classList.add('hidden');
+            function exitBulkEditMode() {
+                bulkEditMode = false;
+                selectedItems.clear();
+                document.querySelectorAll('.bulk-edit-checkbox').forEach(cb => {
+                    cb.checked = false;
+                });
+                const selectAll = document.getElementById('selectAllBulk');
+                if (selectAll) {
+                    selectAll.checked = false;
+                    selectAll.indeterminate = false;
+                }
+                document.getElementById('bulkEditActionBar').classList.add('hidden');
+                document.querySelectorAll('.bulk-edit-checkbox-col').forEach(el => {
+                    el.classList.add('hidden');
+                });
             }
-        });
 
-        if (itemEditForm) {
-            itemEditForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                const formData = new FormData(this);
+            if (openBulkEditBtn) {
+                openBulkEditBtn.addEventListener('click', () => {
+                    bulkEditMode = !bulkEditMode;
+                    if (!bulkEditMode) {
+                        exitBulkEditMode();
+                    } else {
+                        document.querySelectorAll('.bulk-edit-checkbox-col').forEach(el => {
+                            el.classList.remove('hidden');
+                        });
+                    }
+                });
+            }
 
-                fetch('update-item.php', { // This will be created in the next step
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        if (data.status === 'success') {
-                            alert('Item updated successfully!');
-                            window.location.reload();
+            if (document.getElementById('selectAllBulk')) {
+                document.getElementById('selectAllBulk').addEventListener('change', function() {
+                    const checked = this.checked;
+                    document.querySelectorAll('.bulk-edit-checkbox').forEach(cb => {
+                        cb.checked = checked;
+                        const itemId = cb.dataset.itemId;
+                        if (checked) {
+                            selectedItems.add(itemId);
                         } else {
-                            alert('Error updating item: ' + data.message);
+                            selectedItems.delete(itemId);
                         }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('An unexpected error occurred. Please check the console for details.');
                     });
-            });
-        }
-
-        // --- Faculty Dropdown Logic for Item Edit Modal ---
-        let facultyData = [];
-
-        function populateFacultyOptions(selectElement, currentValue) {
-            if (!selectElement) return;
-            
-            let optionsHTML = '<option value="">Select faculty</option>';
-            
-            facultyData.forEach(name => {
-                optionsHTML += `<option value="${name}">${name}</option>`;
-            });
-            
-            selectElement.innerHTML = optionsHTML;
-            
-            if (currentValue && facultyData.includes(currentValue)) {
-                selectElement.value = currentValue;
-            } else {
-                selectElement.value = "";
+                    updateBulkEditActionBar();
+                });
             }
-        }
 
-        fetch('get-faculty.php')
-            .then(response => response.json())
-            .then(allNames => {
-                facultyData = allNames;
-            })
-            .catch(() => {
-                facultyData = [];
+            document.addEventListener('change', function(e) {
+                if (e.target.classList.contains('bulk-edit-checkbox')) {
+                    const itemId = e.target.dataset.itemId;
+                    if (e.target.checked) {
+                        selectedItems.add(itemId);
+                    } else {
+                        selectedItems.delete(itemId);
+                    }
+                    updateBulkEditActionBar();
+                    const allCheckboxes = document.querySelectorAll('.bulk-edit-checkbox');
+                    const selectAll = document.getElementById('selectAllBulk');
+                    if (selectAll) {
+                        selectAll.checked = selectedItems.size === allCheckboxes.length;
+                        selectAll.indeterminate = selectedItems.size > 0 && selectedItems.size < allCheckboxes.length;
+                    }
+                }
             });
 
-        // --- Location Dropdown Logic for Item Edit Modal ---
-        const locationStorageKey = 'kd_polytechnic_saved_locations';
-
-        function getSavedLocations() {
-            try {
-                return JSON.parse(localStorage.getItem(locationStorageKey)) || [];
-            } catch (error) {
-                return [];
+            function updateBulkEditActionBar() {
+                const actionBar = document.getElementById('bulkEditActionBar');
+                const count = document.getElementById('bulkEditCount');
+                if (selectedItems.size > 0) {
+                    actionBar.classList.remove('hidden');
+                    count.textContent = selectedItems.size + ' item' + (selectedItems.size > 1 ? 's' : '') + ' selected';
+                } else {
+                    actionBar.classList.add('hidden');
+                }
             }
-        }
 
-        function populateLocationOptions(elementId, currentValue) {
-            const locationSelect = document.getElementById(elementId);
-            if (!locationSelect) return;
-            const savedLocations = getSavedLocations();
+            if (document.getElementById('bulkEditCancelBtn')) {
+                document.getElementById('bulkEditCancelBtn').addEventListener('click', () => {
+                    exitBulkEditMode();
+                });
+            }
 
-            let optionsHTML = `
+            if (document.getElementById('bulkEditEditBtn')) {
+                document.getElementById('bulkEditEditBtn').addEventListener('click', () => {
+                    if (selectedItems.size === 0) return;
+                    const firstItem = document.querySelector('.bulk-edit-checkbox:checked');
+                    if (firstItem) {
+                        const assignedToSelect = document.getElementById('item_assigned_to');
+                        const locationSelect = document.getElementById('item_location');
+                        const statusSelect = document.getElementById('item_status');
+                        const remarksTextarea = document.getElementById('item_remarks');
+
+                        if (typeof facultyData !== 'undefined' && facultyData.length > 0) {
+                            populateFacultyOptions(assignedToSelect, firstItem.dataset.assignedTo || '');
+                        } else {
+                            assignedToSelect.value = firstItem.dataset.assignedTo || '';
+                        }
+                        populateLocationOptions('item_location', firstItem.dataset.location || '');
+                        statusSelect.value = firstItem.dataset.status || 'Active';
+                        remarksTextarea.value = firstItem.dataset.remarks || '';
+
+                        itemEditModal.classList.remove('hidden');
+                        lucide.createIcons();
+                    }
+                });
+            }
+
+            if (editForm) {
+                editForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const formData = new FormData(this);
+
+                    fetch('update-batch.php', {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Network response was not ok');
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            if (data.status === 'success') {
+                                alert('Record updated successfully!');
+                                window.location.reload();
+                            } else {
+                                alert('Error updating record: ' + data.message);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('An unexpected error occurred. Please check the console for details.');
+                        });
+                });
+            }
+
+            // Item Edit Modal handling
+            const itemEditModal = document.getElementById('itemEditModal');
+            const closeItemEditModalBtn = document.getElementById('closeItemEditModalBtn');
+            const cancelItemEditBtn = document.getElementById('cancelItemEditBtn');
+            const itemEditForm = document.getElementById('itemEditForm');
+
+            document.querySelectorAll('.edit-item-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const id = this.dataset.id;
+                    const assignedTo = this.dataset.assignedTo;
+                    const location = this.dataset.location;
+                    const status = this.dataset.status;
+                    const remarks = this.dataset.remarks;
+
+                    document.getElementById('item_id').value = id;
+
+                    const assignedToSelect = document.getElementById('item_assigned_to');
+                    if (typeof facultyData !== 'undefined' && facultyData.length > 0) {
+                        populateFacultyOptions(assignedToSelect, assignedTo);
+                    } else {
+                        assignedToSelect.value = assignedTo || '';
+                    }
+
+                    populateLocationOptions('item_location', location);
+                    document.getElementById('item_status').value = status;
+                    document.getElementById('item_remarks').value = remarks;
+
+                    itemEditModal.classList.remove('hidden');
+                    lucide.createIcons();
+                });
+            });
+
+            if (closeItemEditModalBtn) {
+                closeItemEditModalBtn.addEventListener('click', () => {
+                    itemEditModal.classList.add('hidden');
+                });
+            }
+
+            if (cancelItemEditBtn) {
+                cancelItemEditBtn.addEventListener('click', () => {
+                    itemEditModal.classList.add('hidden');
+                });
+            }
+
+            window.addEventListener('click', (event) => {
+                if (event.target === itemEditModal) {
+                    itemEditModal.classList.add('hidden');
+                }
+            });
+
+            if (itemEditForm) {
+                itemEditForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const formData = new FormData(this);
+
+                    if (bulkEditMode && selectedItems.size > 0) {
+                        selectedItems.forEach(id => {
+                            formData.append('item_ids[]', id);
+                        });
+                        formData.append('bulk_edit', '1');
+
+                        fetch('update-bulk-items.php', {
+                                method: 'POST',
+                                body: formData
+                            })
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error('Network response was not ok');
+                                }
+                                return response.json();
+                            })
+                            .then(data => {
+                                if (data.status === 'success') {
+                                    alert('Items updated successfully!');
+                                    exitBulkEditMode();
+                                    window.location.reload();
+                                } else {
+                                    alert('Error updating items: ' + data.message);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                alert('An unexpected error occurred. Please check the console for details.');
+                            });
+                    } else {
+                        fetch('update-item.php', {
+                                method: 'POST',
+                                body: formData
+                            })
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error('Network response was not ok');
+                                }
+                                return response.json();
+                            })
+                            .then(data => {
+                                if (data.status === 'success') {
+                                    alert('Item updated successfully!');
+                                    window.location.reload();
+                                } else {
+                                    alert('Error updating item: ' + data.message);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                alert('An unexpected error occurred. Please check the console for details.');
+                            });
+                    }
+                });
+            }
+
+            // --- Faculty Dropdown Logic for Item Edit Modal ---
+            let facultyData = [];
+
+            function populateFacultyOptions(selectElement, currentValue) {
+                if (!selectElement) return;
+
+                let optionsHTML = '<option value="">Select faculty</option>';
+
+                facultyData.forEach(name => {
+                    optionsHTML += `<option value="${name}">${name}</option>`;
+                });
+
+                selectElement.innerHTML = optionsHTML;
+
+                if (currentValue && facultyData.includes(currentValue)) {
+                    selectElement.value = currentValue;
+                } else {
+                    selectElement.value = "";
+                }
+            }
+
+            fetch('get-faculty.php')
+                .then(response => response.json())
+                .then(allNames => {
+                    facultyData = allNames;
+                })
+                .catch(() => {
+                    facultyData = [];
+                });
+
+            // --- Location Dropdown Logic for Item Edit Modal ---
+            const locationStorageKey = 'kd_polytechnic_saved_locations';
+
+            function getSavedLocations() {
+                try {
+                    return JSON.parse(localStorage.getItem(locationStorageKey)) || [];
+                } catch (error) {
+                    return [];
+                }
+            }
+
+            function populateLocationOptions(elementId, currentValue) {
+                const locationSelect = document.getElementById(elementId);
+                if (!locationSelect) return;
+                const savedLocations = getSavedLocations();
+
+                let optionsHTML = `
             <option value="">Select location</option>
             
             <optgroup label="Ground Floor">
@@ -901,76 +1069,76 @@ if (!function_exists('getInitials')) {
             </optgroup>
         `;
 
-            if (savedLocations.length > 0) {
-                optionsHTML += `<optgroup label="Custom Locations">`;
-                savedLocations.forEach(location => {
-                    optionsHTML += `<option value="${location}">${location}</option>`;
-                });
-                optionsHTML += `</optgroup>`;
-            }
+                if (savedLocations.length > 0) {
+                    optionsHTML += `<optgroup label="Custom Locations">`;
+                    savedLocations.forEach(location => {
+                        optionsHTML += `<option value="${location}">${location}</option>`;
+                    });
+                    optionsHTML += `</optgroup>`;
+                }
 
-            locationSelect.innerHTML = optionsHTML;
+                locationSelect.innerHTML = optionsHTML;
 
-            // Set the selected value
-            if (currentValue && Array.from(locationSelect.options).some(option => option.value === currentValue)) {
-                locationSelect.value = currentValue;
-            } else {
-                locationSelect.value = ""; // Default to "Select location" if not found
+                // Set the selected value
+                if (currentValue && Array.from(locationSelect.options).some(option => option.value === currentValue)) {
+                    locationSelect.value = currentValue;
+                } else {
+                    locationSelect.value = ""; // Default to "Select location" if not found
+                }
             }
-        }
         <?php endif; ?>
 
         <?php if ($is_staff): ?>
-        const staffStatusModal = document.getElementById('staffStatusModal');
-        const staffStatusModalText = document.getElementById('staffStatusModalText');
-        const cancelStaffStatusBtn = document.getElementById('cancelStaffStatusBtn');
-        const confirmStaffStatusBtn = document.getElementById('confirmStaffStatusBtn');
-        let pendingStaffForm = null;
+            const staffStatusModal = document.getElementById('staffStatusModal');
+            const staffStatusModalText = document.getElementById('staffStatusModalText');
+            const cancelStaffStatusBtn = document.getElementById('cancelStaffStatusBtn');
+            const confirmStaffStatusBtn = document.getElementById('confirmStaffStatusBtn');
+            let pendingStaffForm = null;
 
-        function hideStaffStatusModal() {
-            if (staffStatusModal) {
-                staffStatusModal.classList.add('hidden');
-            }
-            pendingStaffForm = null;
-        }
-
-        document.querySelectorAll('.staff-report-form').forEach(form => {
-            form.addEventListener('submit', function(event) {
-                event.preventDefault();
-                pendingStaffForm = this;
-
-                const statusInput = this.querySelector('input[name="status"]');
-                const statusValue = statusInput ? statusInput.value : 'this asset';
-
-                if (staffStatusModalText) {
-                    staffStatusModalText.textContent = `Are you sure you want to mark this asset as "${statusValue}"? Click OK to continue.`;
-                }
-
+            function hideStaffStatusModal() {
                 if (staffStatusModal) {
-                    staffStatusModal.classList.remove('hidden');
-                    lucide.createIcons();
+                    staffStatusModal.classList.add('hidden');
                 }
-            });
-        });
-
-        if (cancelStaffStatusBtn) {
-            cancelStaffStatusBtn.addEventListener('click', hideStaffStatusModal);
-        }
-
-        if (confirmStaffStatusBtn) {
-            confirmStaffStatusBtn.addEventListener('click', () => {
-                if (pendingStaffForm) {
-                    pendingStaffForm.submit();
-                }
-                hideStaffStatusModal();
-            });
-        }
-
-        window.addEventListener('click', (event) => {
-            if (event.target === staffStatusModal) {
-                hideStaffStatusModal();
+                pendingStaffForm = null;
             }
-        });
+
+            document.querySelectorAll('.staff-report-form').forEach(form => {
+                form.addEventListener('submit', function(event) {
+                    event.preventDefault();
+                    pendingStaffForm = this;
+
+                    const statusInput = this.querySelector('input[name="status"]');
+                    const statusValue = statusInput ? statusInput.value : 'this asset';
+
+                    if (staffStatusModalText) {
+                        staffStatusModalText.textContent = `Are you sure you want to mark this asset as "${statusValue}"? Click OK to continue.`;
+                    }
+
+                    if (staffStatusModal) {
+                        staffStatusModal.classList.remove('hidden');
+                        lucide.createIcons();
+                    }
+                });
+            });
+
+            if (cancelStaffStatusBtn) {
+                cancelStaffStatusBtn.addEventListener('click', hideStaffStatusModal);
+            }
+
+            if (confirmStaffStatusBtn) {
+                confirmStaffStatusBtn.addEventListener('click', () => {
+                    if (pendingStaffForm) {
+                        pendingStaffForm.submit();
+                    }
+                    hideStaffStatusModal();
+                });
+            }
+
+            window.addEventListener('click', (event) => {
+                if (event.target === staffStatusModal) {
+                    hideStaffStatusModal();
+                }
+            });
         <?php endif; ?>
     </script>
 
