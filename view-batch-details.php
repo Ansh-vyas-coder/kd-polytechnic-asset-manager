@@ -152,6 +152,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'retir
     exit();
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_batch') {
+    if (!$is_admin) {
+        header("Location: view-batch-details.php?category_id=" . $category_id . "&asset_name=" . urlencode($asset_name_raw) . "&batch_id=" . urlencode($batch_id) . "&status=error&message=" . urlencode("Only admins can delete records."));
+        exit();
+    }
+
+    $post_category_id = isset($_POST['category_id']) ? (int)$_POST['category_id'] : 0;
+    $post_asset_name = isset($_POST['asset_name']) ? trim($_POST['asset_name']) : '';
+    $post_batch_id = isset($_POST['batch_id']) ? trim($_POST['batch_id']) : '';
+
+    if ($post_category_id !== $category_id || $post_asset_name !== $asset_name_raw || $post_batch_id !== $batch_id) {
+        header("Location: view-asset-details.php?category_id=" . $category_id . "&asset_name=" . urlencode($asset_name_raw) . "&status=error&message=" . urlencode("Invalid delete request."));
+        exit();
+    }
+
+    if (strpos($batch_id, 'batch_uncategorized_') === 0) {
+        $delete_id = (int)substr($batch_id, strlen('batch_uncategorized_'));
+        $stmt = $conn->prepare("DELETE FROM assets WHERE id = ? AND category_id = ? AND asset_name = ?");
+        if ($stmt) {
+            $stmt->bind_param("iis", $delete_id, $category_id, $asset_name_raw);
+        }
+    } else {
+        $stmt = $conn->prepare("DELETE FROM assets WHERE batch_id = ? AND category_id = ? AND asset_name = ?");
+        if ($stmt) {
+            $stmt->bind_param("sis", $batch_id, $category_id, $asset_name_raw);
+        }
+    }
+
+    if ($stmt && $stmt->execute()) {
+        $stmt->close();
+
+        $remaining_count = 0;
+        $remaining_stmt = $conn->prepare("SELECT COUNT(*) AS total FROM assets WHERE category_id = ? AND asset_name = ? AND retire_at IS NULL");
+        if ($remaining_stmt) {
+            $remaining_stmt->bind_param("is", $category_id, $asset_name_raw);
+            $remaining_stmt->execute();
+            $remaining_result = $remaining_stmt->get_result();
+            if ($remaining_result) {
+                $remaining_count = (int)($remaining_result->fetch_assoc()['total'] ?? 0);
+            }
+            $remaining_stmt->close();
+        }
+
+        if ($remaining_count > 0) {
+            header("Location: view-asset-details.php?category_id=" . $category_id . "&asset_name=" . urlencode($asset_name_raw) . "&status=deleted");
+        } else {
+            header("Location: view-assets.php?category_id=" . $category_id . "&status=deleted");
+        }
+        exit();
+    }
+
+    if ($stmt) {
+        $stmt->close();
+    }
+    header("Location: view-batch-details.php?category_id=" . $category_id . "&asset_name=" . urlencode($asset_name_raw) . "&batch_id=" . urlencode($batch_id) . "&status=error&message=" . urlencode("Unable to delete record."));
+    exit();
+}
+
 // Fetch batch details (one item) for the record summary
 $batch_details = null;
 if (strpos($batch_id, 'batch_uncategorized_') === 0) {
@@ -329,7 +387,15 @@ if (!function_exists('getInitials')) {
 
                     <!-- Record Summary -->
                     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Record Summary</h2>
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-lg font-semibold text-gray-900">Record Summary</h2>
+                            <?php if ($is_admin && $filter_status !== 'retired'): ?>
+                                <button type="button" id="openDeleteModalBtn" class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                    Delete
+                                </button>
+                            <?php endif; ?>
+                        </div>
                         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-5 text-sm">
                             <div>
                                 <p class="text-gray-500">Location</p>
@@ -600,6 +666,29 @@ if (!function_exists('getInitials')) {
             </div>
         </div>
 
+        <!-- Delete Confirmation Modal -->
+        <div id="deleteModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                        <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">Delete this record?</h3>
+                        <p class="mt-2 text-sm text-gray-600">Are you sure you want to delete this record? This action cannot be undone.</p>
+                    </div>
+                </div>
+                <form method="POST" action="view-batch-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset_name_raw); ?>&batch_id=<?php echo urlencode($batch_id); ?>" class="mt-6 flex justify-end space-x-3">
+                    <input type="hidden" name="action" value="delete_batch">
+                    <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
+                    <input type="hidden" name="asset_name" value="<?php echo htmlspecialchars($asset_name_raw); ?>">
+                    <input type="hidden" name="batch_id" value="<?php echo htmlspecialchars($batch_id); ?>">
+                    <button type="button" id="cancelDeleteBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Confirm</button>
+                </form>
+            </div>
+        </div>
+
         <!-- Edit Batch Modal -->
         <div id="editModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
             <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-5 border w-full max-w-xl shadow-lg rounded-md bg-white">
@@ -787,6 +876,23 @@ if (!function_exists('getInitials')) {
                 });
             }
 
+            const deleteModal = document.getElementById('deleteModal');
+            const openDeleteModalBtn = document.getElementById('openDeleteModalBtn');
+            const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+
+            if (openDeleteModalBtn) {
+                openDeleteModalBtn.addEventListener('click', () => {
+                    deleteModal.classList.remove('hidden');
+                    lucide.createIcons();
+                });
+            }
+
+            if (cancelDeleteBtn) {
+                cancelDeleteBtn.addEventListener('click', () => {
+                    deleteModal.classList.add('hidden');
+                });
+            }
+
             if (openEditModalBtn) {
                 openEditModalBtn.addEventListener('click', () => {
                     const currentLocation = <?php echo json_encode($batch_details['location']); ?>;
@@ -817,6 +923,9 @@ if (!function_exists('getInitials')) {
                 }
                 if (event.target === retireItemModal) {
                     retireItemModal.classList.add('hidden');
+                }
+                if (event.target === deleteModal) {
+                    deleteModal.classList.add('hidden');
                 }
             });
 

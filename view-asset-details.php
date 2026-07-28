@@ -134,11 +134,9 @@ if (!function_exists('getInitials')) {
   <link rel="stylesheet" href="loader/loader.css" />
 </head>
 
-<body class="h-screen bg-gray-50 text-gray-900 antialiased">
-  <?php include 'loader/loader.html'; ?>
-
-  <?php include 'loader/loader.html'; ?>
-  <div class="h-screen flex overflow-hidden">
+  <body class="h-screen bg-gray-50 text-gray-900 antialiased">
+    <?php include 'loader/loader.html'; ?>
+    <div class="h-screen flex overflow-hidden">
 
     <?php include 'sidebar.php'; ?>
 
@@ -259,14 +257,18 @@ if (!function_exists('getInitials')) {
         mainContent.classList.toggle('lg:ml-64');
     }
 
-    menuBtn.addEventListener('click', toggleSidebar);
+    if (menuBtn) {
+        menuBtn.addEventListener('click', toggleSidebar);
+    }
     if (window.innerWidth < 1024) {
         sidebar.classList.add('-translate-x-full');
         mainContent.classList.remove('lg:ml-64');
     }
 
-    userMenuBtn.addEventListener('click', () => userMenuDropdown.classList.toggle('hidden'));
-    document.addEventListener('click', (event) => { if (!userMenuBtn.contains(event.target) && !userMenuDropdown.contains(event.target)) { userMenuDropdown.classList.add('hidden'); } });
+    if (userMenuDropdown) {
+        userMenuBtn.addEventListener('click', () => userMenuDropdown.classList.toggle('hidden'));
+        document.addEventListener('click', (event) => { if (!userMenuBtn.contains(event.target) && !userMenuDropdown.contains(event.target)) { userMenuDropdown.classList.add('hidden'); } });
+    }
   </script>
 
   <script src="loader/loader.js"></script>
