@@ -535,7 +535,7 @@ if (!function_exists('getInitials')) {
                                                 <td class="px-6 py-4"><?php echo htmlspecialchars($item['assigned_to'] ?: 'N/A'); ?></td>
                                                 <td class="px-6 py-4"><?php echo htmlspecialchars($item['location'] ?: 'N/A'); ?></td>
                                                 <td class="px-6 py-4">
-                                                    <span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $status_value === 'Missing' ? 'bg-red-100 text-red-800' : ($status_value === 'Not Working' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'); ?>">
+                                                    <span class="px-2.5 py-1 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo strtolower($status_value) === 'active' ? 'bg-emerald-100 text-emerald-800' : (strtolower($status_value) === 'under maintenance' ? 'bg-amber-100 text-amber-800' : (strtolower($status_value) === 'not working' || strtolower($status_value) === 'missing' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800')); ?>">
                                                         <?php echo htmlspecialchars($status_value); ?>
                                                     </span>
                                                     <?php if ($is_staff_report): ?>
