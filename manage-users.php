@@ -47,6 +47,7 @@ if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_GET['action']) && $_GET['acti
 
     if ($user_id_to_delete === $_SESSION['user_id']) {
         header("Location: manage-users.php?status=error&message=" . urlencode("You cannot delete your own account."));
+        exit();
     } elseif ($user_id_to_delete > 0) {
         $stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
         $stmt->bind_param("i", $user_id_to_delete);
@@ -56,6 +57,9 @@ if ($_SERVER["REQUEST_METHOD"] == "GET" && isset($_GET['action']) && $_GET['acti
             header("Location: manage-users.php?status=error&message=" . urlencode($stmt->error));
         }
         $stmt->close();
+    } else {
+        header("Location: 404.php");
+        exit();
     }
     exit();
 }

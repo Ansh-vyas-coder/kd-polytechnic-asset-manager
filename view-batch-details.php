@@ -34,7 +34,7 @@ $categories = [
 
 // Check if the parameters are valid
 if ($category_id === 0 || !array_key_exists($category_id, $categories) || empty($asset_name_raw) || empty($batch_id)) {
-    header("Location: dashboard.php?status=error&message=" . urlencode("Invalid record specified."));
+    header("Location: 404.php");
     exit();
 }
 
@@ -173,7 +173,7 @@ if ($batch_result) {
 $batch_stmt->close();
 
 if (!$batch_details) {
-    header("Location: view-asset-details.php?category_id=" . $category_id . "&asset_name=" . urlencode($asset_name_raw) . "&status=error&message=" . urlencode("No items found for this record."));
+    header("Location: 404.php");
     exit();
 }
 

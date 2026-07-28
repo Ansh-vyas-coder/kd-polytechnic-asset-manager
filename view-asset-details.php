@@ -28,7 +28,7 @@ $categories = [
 
 // Check if the parameters are valid
 if ($category_id === 0 || !array_key_exists($category_id, $categories) || empty($asset_name_raw)) {
-  header("Location: dashboard.php?status=error&message=" . urlencode("Invalid asset specified."));
+  header("Location: 404.php");
   exit();
 }
 
@@ -80,6 +80,11 @@ if ($result) {
   }
 }
 $stmt->close();
+
+if (empty($asset_batches)) {
+  header("Location: 404.php");
+  exit();
+}
 
 // Helper function to generate initials
 if (!function_exists('getInitials')) {

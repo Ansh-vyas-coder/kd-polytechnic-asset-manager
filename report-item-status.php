@@ -28,7 +28,7 @@ $note = isset($_POST['note']) ? trim((string)$_POST['note']) : '';
 $allowed_statuses = ['Not Working', 'Missing', 'Under Maintenance'];
 
 if ($id <= 0 || $category_id <= 0 || $asset_name === '' || $batch_id === '' || !in_array($status, $allowed_statuses, true)) {
-    header("Location: view-batch-details.php?category_id=" . $category_id . "&asset_name=" . urlencode($asset_name) . "&batch_id=" . urlencode($batch_id) . "&status=error&message=" . urlencode("Invalid status update request."));
+    header("Location: 404.php");
     exit();
 }
 
@@ -45,7 +45,7 @@ $asset = $result ? $result->fetch_assoc() : null;
 $stmt->close();
 
 if (!$asset) {
-    header("Location: view-batch-details.php?category_id=" . $category_id . "&asset_name=" . urlencode($asset_name) . "&batch_id=" . urlencode($batch_id) . "&status=error&message=" . urlencode("Asset not found."));
+    header("Location: 404.php");
     exit();
 }
 
