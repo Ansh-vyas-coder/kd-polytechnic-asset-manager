@@ -36,3 +36,7 @@
 * **Recent Activity:** Implemented logging to track live user actions.
 * **Item Management:** Developed edit and retire features (handling both per-record and per-item functionality).
 * **Loading Feature:** Added asynchronous loading states for better UX.
+* **Filter Record:** Added functionality to filter and locate specific asset records.
+* **Bulk Edit:** Implemented the ability to update multiple records simultaneously.
+* **404 Page:** Created a custom 404 error page to handle broken or missing links.
+* **Delete Record:** Added the functionality to securely remove individual records from the database.
