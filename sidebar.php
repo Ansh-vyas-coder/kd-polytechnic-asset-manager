@@ -23,7 +23,7 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin' && isset($conn)) {
     }
 }
 ?>
-<aside id="sidebar" class="w-64 flex flex-col fixed inset-y-0 left-0 z-40 transition-transform duration-300 ease-in-out border-r border-slate-700 rounded-tr-3xl rounded-br-3xl" style="background-color: #1e293b;">
+<aside id="sidebar" class="w-64 flex flex-col fixed inset-y-0 left-0 z-40 transition-transform duration-300 ease-in-out border-r border-slate-700 rounded-tr-3xl rounded-br-3xl -translate-x-full lg:translate-x-0" style="background-color: #1e293b;">
 
     <!-- Branding -->
     <a href="dashboard.php" class="h-20 flex items-center gap-3 px-5 shrink-0">

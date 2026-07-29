@@ -194,7 +194,8 @@ function getInitials($name)
     <div class="h-screen flex overflow-hidden">
         <?php include 'sidebar.php'; ?>
 
-        <div id="overlay" class="fixed inset-0 bg-gray-900/30 z-30 hidden"></div>
+        <!-- <div id="overlay" class="fixed inset-0 bg-gray-900/30 z-30 hidden"></div> -->
+        <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden"></div>
 
         <div id="mainContent" class="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300 ease-in-out h-screen overflow-hidden">
             <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6 gap-4 shrink-0">
@@ -551,17 +552,24 @@ function getInitials($name)
         const menuBtn = document.getElementById('menuBtn');
         const userMenuBtn = document.getElementById('userMenuBtn');
         const userMenuDropdown = document.getElementById('userMenuDropdown');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
 
         function toggleSidebar() {
-            sidebar.classList.toggle('-translate-x-full');
-            mainContent.classList.toggle('lg:ml-64');
+            if (!sidebar) return;
+
+            if (window.innerWidth < 1024) {
+                // Mobile: Toggle the class that hides the sidebar and show/hide the overlay.
+                sidebar.classList.toggle('-translate-x-full');
+                if (sidebarOverlay) sidebarOverlay.classList.toggle('hidden');
+            } else {
+                // Desktop: Toggle the responsive class that shows the sidebar and adjust main content margin.
+                sidebar.classList.toggle('lg:translate-x-0');
+                if (mainContent) mainContent.classList.toggle('lg:ml-64');
+            }
         }
 
-        menuBtn.addEventListener('click', toggleSidebar);
-        if (window.innerWidth < 1024) {
-            sidebar.classList.add('-translate-x-full');
-            mainContent.classList.remove('lg:ml-64');
-        }
+        if (menuBtn) menuBtn.addEventListener('click', toggleSidebar);
+        if (sidebarOverlay) sidebarOverlay.addEventListener('click', toggleSidebar);
 
         userMenuBtn.addEventListener('click', () => userMenuDropdown.classList.toggle('hidden'));
         document.addEventListener('click', (event) => { if (!userMenuBtn.contains(event.target) && !userMenuDropdown.contains(event.target)) { userMenuDropdown.classList.add('hidden'); } });

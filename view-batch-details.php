@@ -339,10 +339,16 @@ if (!function_exists('getInitials')) {
 
         <?php include 'sidebar.php'; ?>
 
+        <!-- Overlay for mobile sidebar -->
+        <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden"></div>
+
         <div id="mainContent" class="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300 ease-in-out h-screen overflow-hidden">
             <!-- Header -->
-            <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-end px-4 lg:px-6">
-                <div class="flex items-center gap-3 sm:gap-4">
+            <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6">
+                <button id="menuBtn" class="p-2 -ml-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0">
+                    <i data-lucide="menu" style="width:20px;height:20px"></i>
+                </button>
+                <div class="flex items-center gap-3 sm:gap-4 shrink-0">
                     <div class="relative">
                         <button id="userMenuBtn" class="flex items-center gap-2.5 group">
                             <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-semibold shrink-0"><?php echo getInitials($_SESSION['user_name']); ?></div>
@@ -816,6 +822,29 @@ if (!function_exists('getInitials')) {
 
     <script>
         lucide.createIcons();
+
+        // --- Sidebar Toggle Logic ---
+        const sidebar = document.getElementById('sidebar');
+        const mainContent = document.getElementById('mainContent');
+        const menuBtn = document.getElementById('menuBtn');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+        function toggleSidebar() {
+            if (!sidebar) return;
+
+            if (window.innerWidth < 1024) {
+                // Mobile: Toggle the class that hides the sidebar and show/hide the overlay.
+                sidebar.classList.toggle('-translate-x-full');
+                if (sidebarOverlay) sidebarOverlay.classList.toggle('hidden');
+            } else {
+                // Desktop: Toggle the responsive class that shows the sidebar and adjust main content margin.
+                sidebar.classList.toggle('lg:translate-x-0');
+                if (mainContent) mainContent.classList.toggle('lg:ml-64');
+            }
+        }
+
+        if (menuBtn) menuBtn.addEventListener('click', toggleSidebar);
+        if (sidebarOverlay) sidebarOverlay.addEventListener('click', toggleSidebar);
 
         const filterBtn = document.getElementById('filterBtn');
         const filterDropdown = document.getElementById('filterDropdown');
