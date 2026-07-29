@@ -28,7 +28,7 @@ $categories = [
 
 // Check if the parameters are valid
 if ($category_id === 0 || !array_key_exists($category_id, $categories) || empty($asset_name_raw)) {
-  header("Location: dashboard.php?status=error&message=" . urlencode("Invalid asset specified."));
+  header("Location: 404.php");
   exit();
 }
 
@@ -81,6 +81,11 @@ if ($result) {
 }
 $stmt->close();
 
+if (empty($asset_batches)) {
+  header("Location: 404.php");
+  exit();
+}
+
 // Helper function to generate initials
 if (!function_exists('getInitials')) {
   function getInitials($name)
@@ -129,11 +134,9 @@ if (!function_exists('getInitials')) {
   <link rel="stylesheet" href="loader/loader.css" />
 </head>
 
-<body class="h-screen bg-gray-50 text-gray-900 antialiased">
-  <?php include 'loader/loader.html'; ?>
-
-  <?php include 'loader/loader.html'; ?>
-  <div class="h-screen flex overflow-hidden">
+  <body class="h-screen bg-gray-50 text-gray-900 antialiased">
+    <?php include 'loader/loader.html'; ?>
+    <div class="h-screen flex overflow-hidden">
 
     <?php include 'sidebar.php'; ?>
 
@@ -254,14 +257,18 @@ if (!function_exists('getInitials')) {
         mainContent.classList.toggle('lg:ml-64');
     }
 
-    menuBtn.addEventListener('click', toggleSidebar);
+    if (menuBtn) {
+        menuBtn.addEventListener('click', toggleSidebar);
+    }
     if (window.innerWidth < 1024) {
         sidebar.classList.add('-translate-x-full');
         mainContent.classList.remove('lg:ml-64');
     }
 
-    userMenuBtn.addEventListener('click', () => userMenuDropdown.classList.toggle('hidden'));
-    document.addEventListener('click', (event) => { if (!userMenuBtn.contains(event.target) && !userMenuDropdown.contains(event.target)) { userMenuDropdown.classList.add('hidden'); } });
+    if (userMenuDropdown) {
+        userMenuBtn.addEventListener('click', () => userMenuDropdown.classList.toggle('hidden'));
+        document.addEventListener('click', (event) => { if (!userMenuBtn.contains(event.target) && !userMenuDropdown.contains(event.target)) { userMenuDropdown.classList.add('hidden'); } });
+    }
   </script>
 
   <script src="loader/loader.js"></script>

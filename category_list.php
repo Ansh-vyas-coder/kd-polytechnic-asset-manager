@@ -78,9 +78,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Get asset ID from URL
 $asset_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
-// If no ID or invalid ID, redirect with error
+// If no ID or invalid ID, redirect to 404
 if ($asset_id <= 0) {
-    header("Location: dashboard.php?status=error&message=" . urlencode("Invalid asset ID"));
+    header("Location: 404.php");
     exit();
 }
 
@@ -98,7 +98,7 @@ $result = $stmt->get_result();
 // Check if asset exists
 if ($result->num_rows === 0) {
     $stmt->close();
-    header("Location: dashboard.php?status=error&message=" . urlencode("Asset not found"));
+    header("Location: 404.php");
     exit();
 }
 

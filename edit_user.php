@@ -34,7 +34,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
 $user_id_to_edit = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 if ($user_id_to_edit <= 0) {
-    header("Location: manage-users.php?status=error&message=Invalid User ID");
+    header("Location: 404.php");
     exit();
 }
 
@@ -47,7 +47,7 @@ $user = $result->fetch_assoc();
 $stmt->close();
 
 if (!$user) {
-    header("Location: manage-users.php?status=error&message=User not found");
+    header("Location: 404.php");
     exit();
 }
 

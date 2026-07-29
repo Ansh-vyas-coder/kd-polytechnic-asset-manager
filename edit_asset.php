@@ -12,7 +12,7 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role
 $asset_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 if ($asset_id <= 0) {
-    header("Location: dashboard.php?status=error&message=" . urlencode("Invalid asset ID"));
+    header("Location: 404.php");
     exit();
 }
 
@@ -33,7 +33,7 @@ $stmt->execute();
 $result = $stmt->get_result();
 
 if ($result->num_rows === 0) {
-    header("Location: category_list.php?status=error&message=" . urlencode("Asset not found"));
+    header("Location: 404.php");
     exit();
 }
 

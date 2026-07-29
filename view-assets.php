@@ -229,14 +229,20 @@ if (!function_exists('getInitials')) {
           mainContent.classList.toggle('lg:ml-64');
       }
 
-      menuBtn.addEventListener('click', toggleSidebar);
+      if (menuBtn) {
+          menuBtn.addEventListener('click', toggleSidebar);
+      }
       if (window.innerWidth < 1024) {
           sidebar.classList.add('-translate-x-full');
           mainContent.classList.remove('lg:ml-64');
       }
 
-      userMenuBtn.addEventListener('click', () => userMenuDropdown.classList.toggle('hidden'));
-      document.addEventListener('click', (event) => { if (!userMenuBtn.contains(event.target) && !userMenuDropdown.contains(event.target)) { userMenuDropdown.classList.add('hidden'); } });
+      if (userMenuDropdown) {
+          userMenuBtn.addEventListener('click', () => userMenuDropdown.classList.toggle('hidden'));
+      }
+      if (userMenuDropdown) {
+          document.addEventListener('click', (event) => { if (!userMenuBtn.contains(event.target) && !userMenuDropdown.contains(event.target)) { userMenuDropdown.classList.add('hidden'); } });
+      }
 
       const rows = document.querySelectorAll('.clickable-row');
       rows.forEach(row => {
