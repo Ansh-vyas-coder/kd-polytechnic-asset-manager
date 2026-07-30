@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'db.php';
+require_once 'remarks_utils.php';
 
 header('Content-Type: application/json');
 
@@ -69,7 +70,7 @@ $old_data = [];
 foreach ($item_ids as $id) {
     $id = (int)$id;
     if ($id <= 0) continue;
-    $fetch_stmt = $conn->prepare("SELECT asset_name, assigned_to, location, status, remarks, category_id, batch_id FROM assets WHERE id = ?");
+    $fetch_stmt = $conn->prepare("SELECT asset_name, asset_no, quantity, assigned_to, location, status, remarks, category_id, batch_id FROM assets WHERE id = ?");
     if ($fetch_stmt) {
         $fetch_stmt->bind_param("i", $id);
         $fetch_stmt->execute();
@@ -84,6 +85,28 @@ foreach ($item_ids as $id) {
 $updated_count = 0;
 $errors = [];
 
+$selected_items_for_note = [];
+$first_selected_id = 0;
+foreach ($item_ids as $selected_id) {
+    $selected_id = (int)$selected_id;
+    if ($selected_id <= 0 || !isset($old_data[$selected_id])) {
+        continue;
+    }
+    if ($first_selected_id === 0) {
+        $first_selected_id = $selected_id;
+    }
+    $selected_items_for_note[] = [
+        'id' => $selected_id,
+        'asset_no' => $old_data[$selected_id]['asset_no'] ?? '',
+        'quantity' => $old_data[$selected_id]['quantity'] ?? 1,
+    ];
+}
+
+$transfer_remarks = null;
+if (!empty($transfer_to) && $first_selected_id > 0) {
+    $transfer_remarks = remarks_build_transfer_body($selected_items_for_note, $transfer_to, 'transferred to');
+}
+
 foreach ($item_ids as $id) {
     $id = (int)$id;
     if ($id <= 0) {
@@ -97,12 +120,15 @@ foreach ($item_ids as $id) {
     }
 
     if (!empty($transfer_to)) {
+        $base_remarks = $remarks !== null ? $remarks : ($old_data[$id]['remarks'] ?? '');
+        $final_remarks = remarks_upsert_block($base_remarks, 'Transfer Note', $transfer_remarks ?? '');
         $sql = "UPDATE assets SET
                     assigned_to = NULL,
                     location = NULL,
                     transfer_to = ?,
                     transfer_date = NOW(),
                     transferred = 1,
+                    remarks = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?";
         $stmt = $conn->prepare($sql);
@@ -110,7 +136,7 @@ foreach ($item_ids as $id) {
             $errors[] = "Failed to prepare statement for item $id: " . $conn->error;
             continue;
         }
-        $stmt->bind_param("si", $transfer_to, $id);
+        $stmt->bind_param("ssi", $transfer_to, $final_remarks, $id);
 
         if ($stmt->execute()) {
             if ($stmt->affected_rows > 0) {
@@ -146,10 +172,18 @@ foreach ($item_ids as $id) {
         $types .= 's';
     }
 
-    if ($remarks !== null && $old_data[$id]['remarks'] !== $remarks) {
-        $set_clauses[] = "remarks = ?";
-        $params[] = $remarks;
-        $types .= 's';
+    $remarks_needs_lab_note = $location !== null && $old_data[$id]['location'] !== $location;
+    if ($remarks !== null || $remarks_needs_lab_note) {
+        $remarks_value = $remarks !== null ? $remarks : ($old_data[$id]['remarks'] ?? '');
+        if ($remarks_needs_lab_note) {
+            $lab_note = remarks_build_lab_change_body([$old_data[$id]], $location);
+            $remarks_value = remarks_upsert_block($remarks_value, 'Lab Reassign Note', $lab_note);
+        }
+        if ($old_data[$id]['remarks'] !== $remarks_value || $remarks_needs_lab_note) {
+            $set_clauses[] = "remarks = ?";
+            $params[] = $remarks_value;
+            $types .= 's';
+        }
     }
 
     if (empty($set_clauses)) {

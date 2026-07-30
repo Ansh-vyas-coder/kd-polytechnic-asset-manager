@@ -529,7 +529,7 @@ if (!function_exists('getInitials')) {
                                             ?>
                                             <tr class="text-gray-600">
                                                 <td class="px-6 py-4 bulk-edit-checkbox-col hidden">
-                                                    <input type="checkbox" class="bulk-edit-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" data-item-id="<?php echo htmlspecialchars($item['id']); ?>" data-assigned-to="<?php echo htmlspecialchars($item['assigned_to']); ?>" data-location="<?php echo htmlspecialchars($item['location']); ?>" data-status="<?php echo htmlspecialchars($item['status']); ?>" data-remarks="<?php echo htmlspecialchars($item['remarks']); ?>" data-transfer-to="<?php echo htmlspecialchars($item['transfer_to'] ?? ''); ?>">
+                                                    <input type="checkbox" class="bulk-edit-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" data-item-id="<?php echo htmlspecialchars($item['id']); ?>" data-asset-no="<?php echo htmlspecialchars($item['asset_no']); ?>" data-quantity="<?php echo htmlspecialchars($item['quantity']); ?>" data-assigned-to="<?php echo htmlspecialchars($item['assigned_to']); ?>" data-location="<?php echo htmlspecialchars($item['location']); ?>" data-status="<?php echo htmlspecialchars($item['status']); ?>" data-remarks="<?php echo htmlspecialchars($item['remarks']); ?>" data-transfer-to="<?php echo htmlspecialchars($item['transfer_to'] ?? ''); ?>">
                                                 </td>
                                                 <td class="px-6 py-4 font-mono text-xs"><?php echo htmlspecialchars($item['item_no']); ?></td>
                                                 <td class="px-6 py-4 font-mono text-xs"><?php echo htmlspecialchars($item['asset_no']); ?></td>
@@ -553,8 +553,10 @@ if (!function_exists('getInitials')) {
                                                         <?php if ($is_admin): ?>
 <button type="button"
 																 class="edit-item-btn text-blue-600 hover:text-blue-800 font-medium mr-2"
-																 data-id="<?php echo htmlspecialchars($item['id']); ?>"
-																 data-assigned-to="<?php echo htmlspecialchars($item['assigned_to']); ?>"
+                                                                data-id="<?php echo htmlspecialchars($item['id']); ?>"
+                                                                data-asset-no="<?php echo htmlspecialchars($item['asset_no']); ?>"
+                                                                data-quantity="<?php echo htmlspecialchars($item['quantity']); ?>"
+                                                                data-assigned-to="<?php echo htmlspecialchars($item['assigned_to']); ?>"
 																 data-location="<?php echo htmlspecialchars($item['location']); ?>"
 																 data-status="<?php echo htmlspecialchars($item['status']); ?>"
 																 data-remarks="<?php echo htmlspecialchars($item['remarks']); ?>"
@@ -992,6 +994,92 @@ if (!function_exists('getInitials')) {
             let bulkEditMode = false;
             let selectedItems = new Set();
 
+            function normalizeRemarkBlocks(text) {
+                return (text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+            }
+
+            function splitRemarkBlocks(text) {
+                const normalized = normalizeRemarkBlocks(text);
+                if (!normalized) return [];
+                return normalized.split(/\n{2,}/);
+            }
+
+            function upsertRemarkBlock(text, header, body) {
+                const blocks = splitRemarkBlocks(text);
+                const newBlock = `${header}\n${normalizeRemarkBlocks(body)}`;
+                const index = blocks.findIndex(block => block.split('\n')[0].trim() === header.trim());
+
+                if (index >= 0) {
+                    blocks[index] = newBlock;
+                } else {
+                    blocks.push(newBlock);
+                }
+
+                return blocks.join('\n\n').trim();
+            }
+
+            function getSelectedBulkItems() {
+                return Array.from(document.querySelectorAll('.bulk-edit-checkbox:checked')).map(cb => ({
+                    id: cb.dataset.itemId || '',
+                    assetNo: cb.dataset.assetNo || '',
+                    quantity: parseInt(cb.dataset.quantity || '1', 10) || 1
+                }));
+            }
+
+            function buildBulkActionNote(actionLabel, targetValue) {
+                const modal = document.getElementById('itemEditModal');
+                let items = getSelectedBulkItems();
+                if (!items.length && modal && modal.dataset.currentAssetNo) {
+                    items = [{
+                        id: modal.dataset.currentItemId || '',
+                        assetNo: modal.dataset.currentAssetNo || '',
+                        quantity: parseInt(modal.dataset.currentQuantity || '1', 10) || 1
+                    }];
+                }
+                if (!items.length || !targetValue) return '';
+
+                const totalQuantity = items.reduce((sum, item) => sum + (item.quantity > 0 ? item.quantity : 1), 0);
+                const summary = items.map(item => {
+                    const label = item.assetNo || `Item #${item.id}`;
+                    return `${label} (Qty: ${item.quantity > 0 ? item.quantity : 1})`;
+                }).join(', ');
+                const dateText = new Date().toLocaleDateString('en-GB');
+                const countText = items.length === 1 ? '1 selected asset' : `${items.length} selected assets`;
+                const verb = items.length === 1 ? 'was' : 'were';
+
+                return `On ${dateText}, ${countText} with total quantity ${totalQuantity} (${summary}) ${verb} ${actionLabel} ${targetValue}.`;
+            }
+
+            function syncBulkRemarksPreview() {
+                const remarksTextarea = document.getElementById('item_remarks');
+                const transferToInput = document.getElementById('item_transfer_to');
+                const locationSelect = document.getElementById('item_location');
+                if (!remarksTextarea || !transferToInput || !locationSelect) return;
+
+                let currentValue = remarksTextarea.value || '';
+                const originalLocation = remarksTextarea.dataset.originalLocation || '';
+                const transferTo = transferToInput.value.trim();
+                const currentLocation = locationSelect.value.trim();
+
+                if (transferTo) {
+                    currentValue = upsertRemarkBlock(
+                        currentValue,
+                        'Transfer Note',
+                        buildBulkActionNote('transferred to', transferTo)
+                    );
+                }
+
+                if (currentLocation && currentLocation !== originalLocation) {
+                    currentValue = upsertRemarkBlock(
+                        currentValue,
+                        'Lab Reassign Note',
+                        buildBulkActionNote('reassigned to', currentLocation)
+                    );
+                }
+
+                remarksTextarea.value = currentValue;
+            }
+
             function exitBulkEditMode() {
                 bulkEditMode = false;
                 selectedItems.clear();
@@ -1092,10 +1180,15 @@ if (!function_exists('getInitials')) {
                         populateLocationOptions('item_location', firstItem.dataset.location || '');
                         statusSelect.value = firstItem.dataset.status || 'Active';
                         remarksTextarea.value = firstItem.dataset.remarks || '';
+                        remarksTextarea.dataset.originalLocation = firstItem.dataset.location || '';
                         transferToInput.value = firstItem.dataset.transferTo || '';
+                        itemEditModal.dataset.currentItemId = firstItem.dataset.itemId || '';
+                        itemEditModal.dataset.currentAssetNo = firstItem.dataset.assetNo || '';
+                        itemEditModal.dataset.currentQuantity = firstItem.dataset.quantity || '1';
 
                         itemEditModal.classList.remove('hidden');
                         lucide.createIcons();
+                        syncBulkRemarksPreview();
                     }
                 });
             }
@@ -1211,10 +1304,15 @@ document.querySelectorAll('.edit-item-btn').forEach(button => {
                         populateLocationOptions('item_location', location);
                         document.getElementById('item_status').value = status;
                         document.getElementById('item_remarks').value = remarks;
+                        document.getElementById('item_remarks').dataset.originalLocation = location || '';
                         document.getElementById('item_transfer_to').value = transferTo || '';
+                        itemEditModal.dataset.currentItemId = id || '';
+                        itemEditModal.dataset.currentAssetNo = this.dataset.assetNo || '';
+                        itemEditModal.dataset.currentQuantity = this.dataset.quantity || '1';
 
                         itemEditModal.classList.remove('hidden');
                         lucide.createIcons();
+                        syncBulkRemarksPreview();
                     });
                 });
 
@@ -1296,6 +1394,18 @@ document.querySelectorAll('.edit-item-btn').forEach(button => {
                     }
                 });
             }
+
+            document.addEventListener('input', function(e) {
+                if (e.target && (e.target.id === 'item_remarks' || e.target.id === 'item_transfer_to')) {
+                    syncBulkRemarksPreview();
+                }
+            });
+
+            document.addEventListener('change', function(e) {
+                if (e.target && e.target.id === 'item_location') {
+                    syncBulkRemarksPreview();
+                }
+            });
 
             // --- Faculty Dropdown Logic for Item Edit Modal ---
             let facultyData = [];

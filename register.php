@@ -55,7 +55,7 @@ if ($result) {
                 location,
                 date_of_issue,
                 assigned_to,
-                remarks,
+                GROUP_CONCAT(DISTINCT NULLIF(TRIM(remarks), '') ORDER BY item_no ASC SEPARATOR '\n\n') as remarks,
                 batch_id,
                 page_no,
                 gem_order_no,

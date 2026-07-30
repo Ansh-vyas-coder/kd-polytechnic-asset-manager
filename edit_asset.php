@@ -2,6 +2,7 @@
 session_start();
 require 'db.php';
 require_once 'notification_utils.php';
+require_once 'remarks_utils.php';
 
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     header("Location: login.html");
@@ -60,11 +61,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $cost = isset($_POST['cost']) ? (float)$_POST['cost'] : 0;
     $assigned_to = isset($_POST['assigned_to']) ? trim($_POST['assigned_to']) : '';
     $remarks = isset($_POST['remarks']) ? trim($_POST['remarks']) : '';
+    $remarks_value = $remarks;
 
     // Validate required fields
     if (empty($asset_name)) {
         $error_message = "Asset name is required";
     } else {
+        if ($asset['location'] !== $location) {
+            $lab_note_body = remarks_build_lab_change_body([$asset], $location);
+            $remarks_value = remarks_upsert_block($remarks_value, 'Lab Reassign Note', $lab_note_body);
+        }
+
         // Update the asset in database with prepared statement
         $update_stmt = $conn->prepare(
             "UPDATE assets SET 
@@ -94,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $date_of_issue,
                 $cost,
                 $assigned_to,
-                $remarks,
+                $remarks_value,
                 $asset_id
             );
 
