@@ -107,6 +107,11 @@ if (!empty($transfer_to) && $first_selected_id > 0) {
     $transfer_remarks = remarks_build_transfer_body($selected_items_for_note, $transfer_to, 'transferred to');
 }
 
+$lab_reassign_remarks = null;
+if ($location !== null && !empty($selected_items_for_note)) {
+    $lab_reassign_remarks = remarks_build_lab_change_body($selected_items_for_note, $location);
+}
+
 foreach ($item_ids as $id) {
     $id = (int)$id;
     if ($id <= 0) {
@@ -176,8 +181,7 @@ foreach ($item_ids as $id) {
     if ($remarks !== null || $remarks_needs_lab_note) {
         $remarks_value = $remarks !== null ? $remarks : ($old_data[$id]['remarks'] ?? '');
         if ($remarks_needs_lab_note) {
-            $lab_note = remarks_build_lab_change_body([$old_data[$id]], $location);
-            $remarks_value = remarks_upsert_block($remarks_value, 'Lab Reassign Note', $lab_note);
+            $remarks_value = remarks_upsert_block($remarks_value, 'Lab Reassign Note', $lab_reassign_remarks ?? '');
         }
         if ($old_data[$id]['remarks'] !== $remarks_value || $remarks_needs_lab_note) {
             $set_clauses[] = "remarks = ?";
