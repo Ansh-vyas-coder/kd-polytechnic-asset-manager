@@ -25,10 +25,10 @@ if (isset($_GET['fetch_filters']) && $_GET['fetch_filters'] === 'true') {
     $response = ['asset_names' => [], 'locations' => []];
 
     if ($_SESSION['role'] === 'staff') {
-        $stmt_assets = $conn->prepare("SELECT DISTINCT asset_name FROM assets WHERE category_id = ? AND assigned_to = ? ORDER BY asset_name ASC");
+        $stmt_assets = $conn->prepare("SELECT DISTINCT asset_name FROM assets WHERE category_id = ? AND assigned_to = ? AND (transferred = 0 OR transferred IS NULL) ORDER BY asset_name ASC");
         $stmt_assets->bind_param("is", $category_id, $_SESSION['user_name']);
     } else {
-        $stmt_assets = $conn->prepare("SELECT DISTINCT asset_name FROM assets WHERE category_id = ? ORDER BY asset_name ASC");
+        $stmt_assets = $conn->prepare("SELECT DISTINCT asset_name FROM assets WHERE category_id = ? AND (transferred = 0 OR transferred IS NULL) ORDER BY asset_name ASC");
         $stmt_assets->bind_param("i", $category_id);
     }
     $stmt_assets->execute();
@@ -38,7 +38,7 @@ if (isset($_GET['fetch_filters']) && $_GET['fetch_filters'] === 'true') {
 
     // Staff do not need locations as it's mutually exclusive and hidden
     if ($_SESSION['role'] !== 'staff') {
-        $stmt_locations = $conn->prepare("SELECT DISTINCT location FROM assets WHERE category_id = ? AND location IS NOT NULL AND location != '' ORDER BY location ASC");
+        $stmt_locations = $conn->prepare("SELECT DISTINCT location FROM assets WHERE category_id = ? AND location IS NOT NULL AND location != '' AND (transferred = 0 OR transferred IS NULL) ORDER BY location ASC");
         $stmt_locations->bind_param("i", $category_id);
         $stmt_locations->execute();
         $result_locations = $stmt_locations->get_result();
@@ -77,7 +77,7 @@ if (isset($_GET['fetch_preview']) && $_GET['fetch_preview'] === 'true') {
     }
 
     $sql = "SELECT * FROM assets";
-    $where_clauses = [];
+    $where_clauses = ["(transferred = 0 OR transferred IS NULL)"];
     $params = [];
     $types  = '';
 

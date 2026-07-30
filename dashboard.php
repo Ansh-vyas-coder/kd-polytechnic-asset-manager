@@ -25,6 +25,7 @@ $showRegister = $pageView === 'register';
 $showGenerateReport = $pageView === 'generate-report';
 $showMyAssets = $pageView === 'my-assets';
 $showWriteOffAssets = $pageView === 'write-off-assets';
+$showTransferAssets = $pageView === 'transfer-assets';
 
 // --- START: Fetch asset counts for dashboard widgets ---
 $thisMonth = date('Y-m');
@@ -33,12 +34,12 @@ $staffName = $_SESSION['user_name'];
 
 $category_counts = [1 => 0, 2 => 0, 3 => 0, 4 => 0];
 if ($isStaff) {
-  $stmt = $conn->prepare("SELECT category_id, SUM(quantity) as total_quantity FROM assets WHERE assigned_to = ? AND retire_at IS NULL GROUP BY category_id");
+  $stmt = $conn->prepare("SELECT category_id, SUM(quantity) as total_quantity FROM assets WHERE assigned_to = ? AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL) GROUP BY category_id");
   $stmt->bind_param("s", $staffName);
   $stmt->execute();
   $result = $stmt->get_result();
 } else {
-  $result = $conn->query("SELECT category_id, SUM(quantity) as total_quantity FROM assets WHERE retire_at IS NULL GROUP BY category_id");
+  $result = $conn->query("SELECT category_id, SUM(quantity) as total_quantity FROM assets WHERE retire_at IS NULL AND (transferred = 0 OR transferred IS NULL) GROUP BY category_id");
 }
 if ($result) {
   while ($row = $result->fetch_assoc()) {
@@ -50,12 +51,12 @@ if ($result) {
 // This-month counts
 $month_counts = [1 => 0, 2 => 0, 3 => 0, 4 => 0];
 if ($isStaff) {
-  $stmt = $conn->prepare("SELECT category_id, SUM(quantity) as total_quantity FROM assets WHERE DATE_FORMAT(created_at, '%Y-%m') = ? AND assigned_to = ? AND retire_at IS NULL GROUP BY category_id");
+  $stmt = $conn->prepare("SELECT category_id, SUM(quantity) as total_quantity FROM assets WHERE DATE_FORMAT(created_at, '%Y-%m') = ? AND assigned_to = ? AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL) GROUP BY category_id");
   $stmt->bind_param("ss", $thisMonth, $staffName);
   $stmt->execute();
   $mResult = $stmt->get_result();
 } else {
-  $mResult = $conn->query("SELECT category_id, SUM(quantity) as total_quantity FROM assets WHERE DATE_FORMAT(created_at, '%Y-%m') = '$thisMonth' AND retire_at IS NULL GROUP BY category_id");
+  $mResult = $conn->query("SELECT category_id, SUM(quantity) as total_quantity FROM assets WHERE DATE_FORMAT(created_at, '%Y-%m') = '$thisMonth' AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL) GROUP BY category_id");
 }
 if ($mResult) {
   while ($row = $mResult->fetch_assoc()) {
@@ -80,7 +81,7 @@ if ($isStaff) {
 }
 
 // Fetch Not Working / Missing items (limited to 4)
-$not_working_sql_limited = "SELECT asset_no, asset_name, location, category_id, status FROM assets WHERE status IN ('Not Working', 'Missing') AND retire_at IS NULL";
+$not_working_sql_limited = "SELECT asset_no, asset_name, location, category_id, status FROM assets WHERE status IN ('Not Working', 'Missing') AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)";
 if ($isStaff) {
     $not_working_sql_limited .= " AND assigned_to = ?";
 }
@@ -105,7 +106,7 @@ if ($not_working_result) {
 }
 
 // Fetch total count for Not Working / Missing items
-$not_working_count_sql = "SELECT COUNT(*) as total_count FROM assets WHERE status IN ('Not Working', 'Missing') AND retire_at IS NULL";
+$not_working_count_sql = "SELECT COUNT(*) as total_count FROM assets WHERE status IN ('Not Working', 'Missing') AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)";
 if ($isStaff) {
     $not_working_count_sql .= " AND assigned_to = ?";
 }
@@ -122,7 +123,7 @@ if (!empty($maintenance_params)) {
 }
 
 // Fetch ALL Not Working / Missing items for modal
-$not_working_sql_all = "SELECT asset_no, asset_name, location, category_id, status FROM assets WHERE status IN ('Not Working', 'Missing') AND retire_at IS NULL";
+$not_working_sql_all = "SELECT asset_no, asset_name, location, category_id, status FROM assets WHERE status IN ('Not Working', 'Missing') AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)";
 if ($isStaff) {
     $not_working_sql_all .= " AND assigned_to = ?";
 }
@@ -143,7 +144,7 @@ if ($not_working_all_result) {
 }
 
 // Fetch Under Maintenance items (limited to 4)
-$under_maintenance_sql_limited = "SELECT asset_no, asset_name, location, category_id, status FROM assets WHERE status = 'Under Maintenance' AND retire_at IS NULL";
+$under_maintenance_sql_limited = "SELECT asset_no, asset_name, location, category_id, status FROM assets WHERE status = 'Under Maintenance' AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)";
 if ($isStaff) {
     $under_maintenance_sql_limited .= " AND assigned_to = ?";
 }
@@ -167,7 +168,7 @@ if ($under_maintenance_result) {
 }
 
 // Fetch total count for Under Maintenance items
-$under_maintenance_count_sql = "SELECT COUNT(*) as total_count FROM assets WHERE status = 'Under Maintenance' AND retire_at IS NULL";
+$under_maintenance_count_sql = "SELECT COUNT(*) as total_count FROM assets WHERE status = 'Under Maintenance' AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)";
 if ($isStaff) {
     $under_maintenance_count_sql .= " AND assigned_to = ?";
 }
@@ -184,7 +185,7 @@ if (!empty($maintenance_params)) {
 }
 
 // Fetch ALL Under Maintenance items for modal
-$under_maintenance_sql_all = "SELECT asset_no, asset_name, location, category_id, status FROM assets WHERE status = 'Under Maintenance' AND retire_at IS NULL";
+$under_maintenance_sql_all = "SELECT asset_no, asset_name, location, category_id, status FROM assets WHERE status = 'Under Maintenance' AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)";
 if ($isStaff) {
     $under_maintenance_sql_all .= " AND assigned_to = ?";
 }
@@ -218,7 +219,7 @@ function get_grouped_assets($conn, $period = 'all', $limit = null)
   $params = [];
   $types = "";
 
-  $where_clauses = ["retire_at IS NULL"];
+  $where_clauses = ["retire_at IS NULL", "(transferred = 0 OR transferred IS NULL)"];
   if ($period === 'month') {
     $where_clauses[] = "DATE_FORMAT(created_at, '%Y-%m') = ?";
     $types .= "s";
@@ -468,6 +469,13 @@ $current_page = $pageView;
           }
           include 'write-off-assets.php';
           ?>
+        <?php elseif ($showTransferAssets): ?>
+          <?php
+          if (!defined('IS_EMBEDDED')) {
+            define('IS_EMBEDDED', true);
+          }
+          include 'transfer-assets.php';
+          ?>
         <?php elseif ($showMyAssets): ?>
           <?php
           if (!defined('IS_EMBEDDED')) {
@@ -475,7 +483,7 @@ $current_page = $pageView;
           }
           include 'generate-report.php';
           ?>
-        <?php elseif (!$showAddAsset && !$showGenerateReport && !$showMyAssets && !$showWriteOffAssets): ?>
+        <?php elseif (!$showAddAsset && !$showGenerateReport && !$showMyAssets && !$showWriteOffAssets && !$showTransferAssets): ?>
           <div id="dashboardView">
             <div class="flex items-start sm:items-center justify-between flex-wrap gap-3">
               <div>

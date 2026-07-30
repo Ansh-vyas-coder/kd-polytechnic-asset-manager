@@ -118,12 +118,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'retir
 
         $remaining_items = 0;
         if (strpos($batch_id, 'batch_uncategorized_') === 0) {
-            $count_stmt = $conn->prepare("SELECT COUNT(*) AS total FROM assets WHERE id = ? AND category_id = ? AND asset_name = ? AND retire_at IS NULL");
+            $count_stmt = $conn->prepare("SELECT COUNT(*) AS total FROM assets WHERE id = ? AND category_id = ? AND asset_name = ? AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)");
             if ($count_stmt) {
                 $count_stmt->bind_param("iis", $retire_item_id, $category_id, $asset_name_raw);
             }
         } else {
-            $count_stmt = $conn->prepare("SELECT COUNT(*) AS total FROM assets WHERE batch_id = ? AND category_id = ? AND asset_name = ? AND retire_at IS NULL");
+            $count_stmt = $conn->prepare("SELECT COUNT(*) AS total FROM assets WHERE batch_id = ? AND category_id = ? AND asset_name = ? AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)");
             if ($count_stmt) {
                 $count_stmt->bind_param("sis", $batch_id, $category_id, $asset_name_raw);
             }
@@ -184,7 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
         $stmt->close();
 
         $remaining_count = 0;
-        $remaining_stmt = $conn->prepare("SELECT COUNT(*) AS total FROM assets WHERE category_id = ? AND asset_name = ? AND retire_at IS NULL");
+        $remaining_stmt = $conn->prepare("SELECT COUNT(*) AS total FROM assets WHERE category_id = ? AND asset_name = ? AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)");
         if ($remaining_stmt) {
             $remaining_stmt->bind_param("is", $category_id, $asset_name_raw);
             $remaining_stmt->execute();
@@ -247,10 +247,10 @@ if (strpos($batch_id, 'batch_uncategorized_') === 0) {
 }
 
 if ($filter_status === 'retired') {
-    $sql .= " AND retire_at IS NOT NULL";
-} else {
-    $sql .= " AND retire_at IS NULL";
-}
+     $sql .= " AND retire_at IS NOT NULL";
+ } else {
+     $sql .= " AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)";
+ }
 
 if ($filter_status !== 'all' && $filter_status !== 'retired') {
     $sql .= " AND LOWER(status) = ?";
@@ -395,12 +395,6 @@ if (!function_exists('getInitials')) {
                     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="text-lg font-semibold text-gray-900">Record Summary</h2>
-                            <?php if ($is_admin && $filter_status !== 'retired'): ?>
-                                <button type="button" id="openDeleteModalBtn" class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                                    Delete
-                                </button>
-                            <?php endif; ?>
                         </div>
                         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-5 text-sm">
                             <div>
@@ -450,8 +444,9 @@ if (!function_exists('getInitials')) {
                                 <button id="openEditModalBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                     Edit
                                 </button>
-                                <button type="button" id="openRetireModalBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
-                                    Retire
+                                <button type="button" id="openDeleteModalBtn" class="inline-flex items-center gap-1.5 px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                    Delete
                                 </button>
                             </div>
                         <?php endif; ?>
@@ -534,7 +529,7 @@ if (!function_exists('getInitials')) {
                                             ?>
                                             <tr class="text-gray-600">
                                                 <td class="px-6 py-4 bulk-edit-checkbox-col hidden">
-                                                    <input type="checkbox" class="bulk-edit-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" data-item-id="<?php echo htmlspecialchars($item['id']); ?>" data-assigned-to="<?php echo htmlspecialchars($item['assigned_to']); ?>" data-location="<?php echo htmlspecialchars($item['location']); ?>" data-status="<?php echo htmlspecialchars($item['status']); ?>" data-remarks="<?php echo htmlspecialchars($item['remarks']); ?>">
+                                                    <input type="checkbox" class="bulk-edit-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" data-item-id="<?php echo htmlspecialchars($item['id']); ?>" data-assigned-to="<?php echo htmlspecialchars($item['assigned_to']); ?>" data-location="<?php echo htmlspecialchars($item['location']); ?>" data-status="<?php echo htmlspecialchars($item['status']); ?>" data-remarks="<?php echo htmlspecialchars($item['remarks']); ?>" data-transfer-to="<?php echo htmlspecialchars($item['transfer_to'] ?? ''); ?>">
                                                 </td>
                                                 <td class="px-6 py-4 font-mono text-xs"><?php echo htmlspecialchars($item['item_no']); ?></td>
                                                 <td class="px-6 py-4 font-mono text-xs"><?php echo htmlspecialchars($item['asset_no']); ?></td>
@@ -556,20 +551,21 @@ if (!function_exists('getInitials')) {
                                                 <?php if ($show_actions_column && $filter_status !== 'retired'): ?>
                                                     <td class="px-6 py-4 text-sm whitespace-nowrap">
                                                         <?php if ($is_admin): ?>
-                                                            <button type="button"
-                                                                class="edit-item-btn text-blue-600 hover:text-blue-800 font-medium mr-2"
-                                                                data-id="<?php echo htmlspecialchars($item['id']); ?>"
-                                                                data-assigned-to="<?php echo htmlspecialchars($item['assigned_to']); ?>"
-                                                                data-location="<?php echo htmlspecialchars($item['location']); ?>"
-                                                                data-status="<?php echo htmlspecialchars($item['status']); ?>"
-                                                                data-remarks="<?php echo htmlspecialchars($item['remarks']); ?>">
-                                                                Edit
+<button type="button"
+																 class="edit-item-btn text-blue-600 hover:text-blue-800 font-medium mr-2"
+																 data-id="<?php echo htmlspecialchars($item['id']); ?>"
+																 data-assigned-to="<?php echo htmlspecialchars($item['assigned_to']); ?>"
+																 data-location="<?php echo htmlspecialchars($item['location']); ?>"
+																 data-status="<?php echo htmlspecialchars($item['status']); ?>"
+																 data-remarks="<?php echo htmlspecialchars($item['remarks']); ?>"
+																 data-transfer-to="<?php echo htmlspecialchars($item['transfer_to'] ?? ''); ?>">
+																 Edit
                                                             </button>
                                                             <button type="button"
                                                                 class="retire-item-btn text-red-600 hover:text-red-800 font-medium"
                                                                 data-id="<?php echo htmlspecialchars($item['id']); ?>"
                                                                 data-asset-no="<?php echo htmlspecialchars($item['asset_no']); ?>">
-                                                                Retire Asset
+                                                                Retire 
                                                             </button>
                                                         <?php else: ?>
                                                             <div class="flex flex-wrap gap-2">
@@ -612,6 +608,9 @@ if (!function_exists('getInitials')) {
                             <button type="button" id="bulkEditEditBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                 Edit
                             </button>
+                            <button type="button" id="bulkEditRetireBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                Retire
+                            </button>
                             <button type="button" id="bulkEditCancelBtn" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
                                 Cancel
                             </button>
@@ -624,6 +623,26 @@ if (!function_exists('getInitials')) {
     </div>
 
     <?php if ($is_admin): ?>
+        <!-- Bulk Retire Confirmation Modal -->
+        <div id="bulkRetireModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                        <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">Retire selected assets?</h3>
+                        <p class="mt-2 text-sm text-gray-600">Selected assets will be removed from the website view. They will not be deleted from the database, and the retire time will be saved.</p>
+                        <p id="bulkRetireCount" class="mt-2 text-xs font-medium text-gray-500"></p>
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" id="cancelBulkRetireBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancel</button>
+                    <button type="button" id="confirmBulkRetireBtn" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Confirm</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Retire Asset Confirmation Modal -->
         <div id="retireItemModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
             <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
@@ -783,6 +802,10 @@ if (!function_exists('getInitials')) {
                             </select>
                         </div>
                         <div>
+                            <label for="item_transfer_to" class="block text-sm font-medium text-gray-700 mb-1">Transfer To</label>
+                            <input type="text" name="transfer_to" id="item_transfer_to" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                        </div>
+                        <div>
                             <label for="item_remarks" class="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
                             <textarea name="remarks" id="item_remarks" rows="3" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50"></textarea>
                         </div>
@@ -876,6 +899,10 @@ if (!function_exists('getInitials')) {
             const retireItemId = document.getElementById('retireItemId');
             const retireItemAssetNo = document.getElementById('retireItemAssetNo');
             const cancelRetireItemBtn = document.getElementById('cancelRetireItemBtn');
+            const bulkRetireModal = document.getElementById('bulkRetireModal');
+            const bulkRetireCount = document.getElementById('bulkRetireCount');
+            const cancelBulkRetireBtn = document.getElementById('cancelBulkRetireBtn');
+            const confirmBulkRetireBtn = document.getElementById('confirmBulkRetireBtn');
 
             document.querySelectorAll('.retire-item-btn').forEach(button => {
                 button.addEventListener('click', function() {
@@ -952,6 +979,9 @@ if (!function_exists('getInitials')) {
                 }
                 if (event.target === retireItemModal) {
                     retireItemModal.classList.add('hidden');
+                }
+                if (event.target === bulkRetireModal) {
+                    bulkRetireModal.classList.add('hidden');
                 }
                 if (event.target === deleteModal) {
                     deleteModal.classList.add('hidden');
@@ -1052,6 +1082,7 @@ if (!function_exists('getInitials')) {
                         const locationSelect = document.getElementById('item_location');
                         const statusSelect = document.getElementById('item_status');
                         const remarksTextarea = document.getElementById('item_remarks');
+                        const transferToInput = document.getElementById('item_transfer_to');
 
                         if (typeof facultyData !== 'undefined' && facultyData.length > 0) {
                             populateFacultyOptions(assignedToSelect, firstItem.dataset.assignedTo || '');
@@ -1061,10 +1092,65 @@ if (!function_exists('getInitials')) {
                         populateLocationOptions('item_location', firstItem.dataset.location || '');
                         statusSelect.value = firstItem.dataset.status || 'Active';
                         remarksTextarea.value = firstItem.dataset.remarks || '';
+                        transferToInput.value = firstItem.dataset.transferTo || '';
 
                         itemEditModal.classList.remove('hidden');
                         lucide.createIcons();
                     }
+                });
+            }
+
+            if (document.getElementById('bulkEditRetireBtn')) {
+                document.getElementById('bulkEditRetireBtn').addEventListener('click', () => {
+                    if (selectedItems.size === 0) return;
+                    bulkRetireCount.textContent = selectedItems.size + ' item' + (selectedItems.size > 1 ? 's' : '') + ' selected';
+                    bulkRetireModal.classList.remove('hidden');
+                    lucide.createIcons();
+                });
+            }
+
+            if (cancelBulkRetireBtn) {
+                cancelBulkRetireBtn.addEventListener('click', () => {
+                    bulkRetireModal.classList.add('hidden');
+                });
+            }
+
+            if (confirmBulkRetireBtn) {
+                confirmBulkRetireBtn.addEventListener('click', () => {
+                    if (selectedItems.size === 0) return;
+
+                    const formData = new FormData();
+                    formData.append('action', 'retire_items');
+                    selectedItems.forEach(id => {
+                        formData.append('item_ids[]', id);
+                    });
+
+                    fetch('update-bulk-items.php', {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Network response was not ok');
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            if (data.status === 'success') {
+                                alert(data.message || 'Selected assets retired successfully!');
+                                exitBulkEditMode();
+                                window.location.reload();
+                            } else {
+                                alert('Error retiring assets: ' + data.message);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('An unexpected error occurred. Please check the console for details.');
+                        })
+                        .finally(() => {
+                            bulkRetireModal.classList.add('hidden');
+                        });
                 });
             }
 
@@ -1104,31 +1190,33 @@ if (!function_exists('getInitials')) {
             const cancelItemEditBtn = document.getElementById('cancelItemEditBtn');
             const itemEditForm = document.getElementById('itemEditForm');
 
-            document.querySelectorAll('.edit-item-btn').forEach(button => {
-                button.addEventListener('click', function() {
-                    const id = this.dataset.id;
-                    const assignedTo = this.dataset.assignedTo;
-                    const location = this.dataset.location;
-                    const status = this.dataset.status;
-                    const remarks = this.dataset.remarks;
+document.querySelectorAll('.edit-item-btn').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const id = this.dataset.id;
+                        const assignedTo = this.dataset.assignedTo;
+                        const location = this.dataset.location;
+                        const status = this.dataset.status;
+                        const remarks = this.dataset.remarks;
+                        const transferTo = this.dataset.transferTo;
 
-                    document.getElementById('item_id').value = id;
+                        document.getElementById('item_id').value = id;
 
-                    const assignedToSelect = document.getElementById('item_assigned_to');
-                    if (typeof facultyData !== 'undefined' && facultyData.length > 0) {
-                        populateFacultyOptions(assignedToSelect, assignedTo);
-                    } else {
-                        assignedToSelect.value = assignedTo || '';
-                    }
+                        const assignedToSelect = document.getElementById('item_assigned_to');
+                        if (typeof facultyData !== 'undefined' && facultyData.length > 0) {
+                            populateFacultyOptions(assignedToSelect, assignedTo);
+                        } else {
+                            assignedToSelect.value = assignedTo || '';
+                        }
 
-                    populateLocationOptions('item_location', location);
-                    document.getElementById('item_status').value = status;
-                    document.getElementById('item_remarks').value = remarks;
+                        populateLocationOptions('item_location', location);
+                        document.getElementById('item_status').value = status;
+                        document.getElementById('item_remarks').value = remarks;
+                        document.getElementById('item_transfer_to').value = transferTo || '';
 
-                    itemEditModal.classList.remove('hidden');
-                    lucide.createIcons();
+                        itemEditModal.classList.remove('hidden');
+                        lucide.createIcons();
+                    });
                 });
-            });
 
             if (closeItemEditModalBtn) {
                 closeItemEditModalBtn.addEventListener('click', () => {

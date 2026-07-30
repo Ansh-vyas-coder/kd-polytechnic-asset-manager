@@ -34,7 +34,7 @@ if ($category_id === 0 || !array_key_exists($category_id, $categories) || empty(
 
 $category_name = $categories[$category_id];
 
-$sql_where_clauses = ["category_id = ?", "asset_name = ?", "retire_at IS NULL"];
+$sql_where_clauses = ["category_id = ?", "asset_name = ?", "retire_at IS NULL", "(transferred = 0 OR transferred IS NULL)"];
 $sql_params = ["is", $category_id, $asset_name_raw];
 
 // Staff can only view rows assigned to themselves

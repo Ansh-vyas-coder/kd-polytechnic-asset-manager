@@ -31,7 +31,7 @@ $categories = [
     4 => 'Furniture'
 ];
 
-$sql_where_clauses = ["status = ?", "retire_at IS NULL"];
+$sql_where_clauses = ["status = ?", "retire_at IS NULL", "(transferred = 0 OR transferred IS NULL)"];
 $sql_params = ["s", $status_filter];
 
 // Staff can only view rows assigned to themselves

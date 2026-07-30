@@ -28,9 +28,9 @@ $groups = [];
 
 // Determine which pages to fetch
 if ($pageNo !== 'all') {
-    $pages_sql = "SELECT DISTINCT page_no AS group_value FROM assets WHERE category_id = " . (int)$selectedCategory . " AND page_no = '" . $conn->real_escape_string($pageNo) . "'";
+    $pages_sql = "SELECT DISTINCT page_no AS group_value FROM assets WHERE category_id = " . (int)$selectedCategory . " AND page_no = '" . $conn->real_escape_string($pageNo) . "' AND (transferred = 0 OR transferred IS NULL)";
 } else {
-    $pages_sql = "SELECT DISTINCT page_no AS group_value FROM assets WHERE category_id = " . (int)$selectedCategory . " AND TRIM(COALESCE(page_no, '')) <> '' ORDER BY CAST(page_no AS UNSIGNED) ASC, page_no ASC";
+    $pages_sql = "SELECT DISTINCT page_no AS group_value FROM assets WHERE category_id = " . (int)$selectedCategory . " AND TRIM(COALESCE(page_no, '')) <> '' AND (transferred = 0 OR transferred IS NULL) ORDER BY CAST(page_no AS UNSIGNED) ASC, page_no ASC";
 }
 
 $pages_result = $conn->query($pages_sql);
