@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'db.php';
+require_once 'remarks_utils.php';
 
 header('Content-Type: application/json');
 
@@ -31,7 +32,7 @@ if ($id <= 0) {
 
 // --- START NOTIFICATION PREP: Fetch current state ---
 $old_asset_data = null;
-$prep_stmt = $conn->prepare("SELECT asset_name, assigned_to, location, category_id, batch_id FROM assets WHERE id = ?");
+$prep_stmt = $conn->prepare("SELECT asset_name, asset_no, quantity, assigned_to, location, remarks, category_id, batch_id FROM assets WHERE id = ?");
 if ($prep_stmt) {
     $prep_stmt->bind_param("i", $id);
     $prep_stmt->execute();
@@ -44,12 +45,16 @@ if ($prep_stmt) {
 // --- END NOTIFICATION PREP ---
 
 if (!empty($transfer_to)) {
+    $transfer_note_body = remarks_build_transfer_body([$old_asset_data], $transfer_to, 'transferred to');
+    $base_remarks = $remarks !== null ? $remarks : ($old_asset_data['remarks'] ?? '');
+    $transfer_remarks = remarks_upsert_block($base_remarks, 'Transfer Note', $transfer_note_body);
     $sql = "UPDATE assets SET 
                 assigned_to = NULL,
                 location = NULL,
                 transfer_to = ?,
                 transfer_date = NOW(),
                 transferred = 1,
+                remarks = ?,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ?";
     $stmt = $conn->prepare($sql);
@@ -57,8 +62,14 @@ if (!empty($transfer_to)) {
         echo json_encode(['status' => 'error', 'message' => 'Failed to prepare statement: ' . $conn->error]);
         exit();
     }
-    $stmt->bind_param("si", $transfer_to, $id);
+    $stmt->bind_param("ssi", $transfer_to, $transfer_remarks, $id);
 } else {
+    $remarks_value = $remarks;
+    if ($location !== null && $old_asset_data['location'] !== $location) {
+        $lab_note_body = remarks_build_lab_change_body([$old_asset_data], $location);
+        $base_remarks = $remarks !== null ? $remarks : ($old_asset_data['remarks'] ?? '');
+        $remarks_value = remarks_upsert_block($base_remarks, 'Lab Reassign Note', $lab_note_body);
+    }
     $sql = "UPDATE assets SET 
                 assigned_to = ?, 
                 location = ?,
@@ -76,7 +87,7 @@ if (!empty($transfer_to)) {
         $assigned_to,
         $location,
         $status,
-        $remarks,
+        $remarks_value,
         $id
     );
 }
