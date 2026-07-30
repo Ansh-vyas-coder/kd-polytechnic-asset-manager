@@ -46,7 +46,7 @@ if ($_SESSION['role'] === 'admin' && $selected_faculty !== '' && $mark_seen) {
 }
 
 // Fetch assigned assets
-$sql_where_clauses = ["assigned_to IS NOT NULL", "assigned_to != ''", "retire_at IS NULL"];
+$sql_where_clauses = ["assigned_to IS NOT NULL", "assigned_to != ''", "retire_at IS NULL", "(transferred = 0 OR transferred IS NULL)"];
 $sql_params = [];
 $sql_types = "";
 
@@ -86,6 +86,7 @@ $summary_sql = "
     WHERE assigned_to IS NOT NULL
       AND assigned_to != ''
       AND retire_at IS NULL
+       AND (transferred = 0 OR transferred IS NULL)
     GROUP BY assigned_to
     ORDER BY assigned_to ASC
 ";

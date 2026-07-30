@@ -70,6 +70,7 @@ function fetch_write_off_assets(mysqli $conn, int $category_id, string $cutoff_d
         FROM assets
         WHERE category_id = ?
           AND retire_at IS NULL
+          AND (transferred = 0 OR transferred IS NULL)
           AND date_of_issue <= ?
     ";
 

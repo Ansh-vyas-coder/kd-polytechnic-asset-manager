@@ -34,7 +34,7 @@ if ($category_id === 0 || !array_key_exists($category_id, $categories)) {
 
 $category_name = $categories[$category_id];
 
-$sql_where_clauses = ["category_id = ?", "retire_at IS NULL"];
+$sql_where_clauses = ["category_id = ?", "retire_at IS NULL", "(transferred = 0 OR transferred IS NULL)"];
 $sql_params = ["i", $category_id];
 
 if (!empty($search_query)) {

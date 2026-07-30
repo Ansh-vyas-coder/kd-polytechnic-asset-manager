@@ -30,6 +30,7 @@ $stmt = $conn->prepare("
     SELECT asset_name, category_id, location, assigned_to
     FROM assets 
     WHERE retire_at IS NULL
+      AND (transferred = 0 OR transferred IS NULL)
       AND (asset_name LIKE ? OR location LIKE ? OR asset_no LIKE ? OR assigned_to LIKE ?)
     GROUP BY asset_name, category_id, location, assigned_to
     LIMIT 15

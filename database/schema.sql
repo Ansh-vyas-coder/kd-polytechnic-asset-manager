@@ -66,9 +66,14 @@ CREATE TABLE IF NOT EXISTS notifications (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 ALTER TABLE assets 
-ADD COLUMN status varchar(50) DEFAULT 'active' AFTER cost,
-ADD COLUMN retire_at timestamp NULL DEFAULT NULL AFTER location;
+    ADD COLUMN status varchar(50) DEFAULT 'active' AFTER cost,
+    ADD COLUMN retire_at timestamp NULL DEFAULT NULL AFTER location;
 
+ALTER TABLE assets
+    ADD COLUMN IF NOT EXISTS transfer_to VARCHAR(100) NULL AFTER assigned_to,
+    ADD COLUMN IF NOT EXISTS transferred BOOLEAN NOT NULL DEFAULT FALSE AFTER transfer_to,
+    ADD COLUMN IF NOT EXISTS transfer_date TIMESTAMP NULL DEFAULT NULL AFTER transferred;
+    
 -- 5. ASSET STATUS REPORTS TABLE (Standalone staff issue reporting flow)
 ALTER TABLE assets
     ADD COLUMN IF NOT EXISTS status_marked_by VARCHAR(100) NULL AFTER status,

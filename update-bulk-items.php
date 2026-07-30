@@ -15,13 +15,53 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
 }
 
 $item_ids = isset($_POST['item_ids']) ? $_POST['item_ids'] : [];
+$action = isset($_POST['action']) ? trim($_POST['action']) : '';
 $assigned_to = isset($_POST['assigned_to']) ? trim($_POST['assigned_to']) : null;
 $location = isset($_POST['location']) ? trim($_POST['location']) : null;
 $status = isset($_POST['status']) ? trim($_POST['status']) : null;
 $remarks = isset($_POST['remarks']) ? trim($_POST['remarks']) : null;
+$transfer_to = isset($_POST['transfer_to']) ? trim($_POST['transfer_to']) : null;
 
 if (empty($item_ids) || !is_array($item_ids)) {
     echo json_encode(['status' => 'error', 'message' => 'No items selected for bulk update.']);
+    exit();
+}
+
+if ($action === 'retire_items') {
+    $retired_count = 0;
+    $errors = [];
+
+    foreach ($item_ids as $id) {
+        $id = (int)$id;
+        if ($id <= 0) {
+            $errors[] = "Invalid item ID: $id";
+            continue;
+        }
+
+        $stmt = $conn->prepare("UPDATE assets SET retire_at = NOW(), updated_at = CURRENT_TIMESTAMP WHERE id = ? AND retire_at IS NULL");
+        if ($stmt === false) {
+            $errors[] = "Failed to prepare statement for item $id: " . $conn->error;
+            continue;
+        }
+
+        $stmt->bind_param("i", $id);
+        if ($stmt->execute()) {
+            if ($stmt->affected_rows > 0) {
+                $retired_count++;
+            }
+        } else {
+            $errors[] = "Failed to retire item $id: " . $stmt->error;
+        }
+        $stmt->close();
+    }
+
+    if (!empty($errors) && $retired_count === 0) {
+        echo json_encode(['status' => 'error', 'message' => implode('; ', $errors)]);
+    } else {
+        echo json_encode(['status' => 'success', 'message' => "{$retired_count} item(s) retired successfully."]);
+    }
+
+    $conn->close();
     exit();
 }
 
@@ -53,6 +93,34 @@ foreach ($item_ids as $id) {
 
     if (!isset($old_data[$id])) {
         $errors[] = "Item not found: $id";
+        continue;
+    }
+
+    if (!empty($transfer_to)) {
+        $sql = "UPDATE assets SET
+                    assigned_to = NULL,
+                    location = NULL,
+                    transfer_to = ?,
+                    transfer_date = NOW(),
+                    transferred = 1,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        if ($stmt === false) {
+            $errors[] = "Failed to prepare statement for item $id: " . $conn->error;
+            continue;
+        }
+        $stmt->bind_param("si", $transfer_to, $id);
+
+        if ($stmt->execute()) {
+            if ($stmt->affected_rows > 0) {
+                $updated_count++;
+            }
+        } else {
+            $errors[] = "Failed to update item $id: " . $stmt->error;
+        }
+
+        $stmt->close();
         continue;
     }
 
@@ -202,11 +270,52 @@ if ($updated_count > 0) {
         }
     }
 
+    if (!empty($transfer_to)) {
+        $affected_assets = [];
+        $affected_ids = [];
+        $old_assignees = [];
+
+        foreach ($old_data as $id => $data) {
+            $original_asset_name = htmlspecialchars($data['asset_name']);
+            $affected_assets[] = $original_asset_name;
+            $affected_ids[] = $id;
+
+            if (!empty($data['assigned_to'])) {
+                $old_assignees[$data['assigned_to']][] = $original_asset_name;
+            }
+        }
+
+        if (!empty($affected_assets)) {
+            $asset_list = format_asset_list($affected_assets);
+            $first_affected_id = $affected_ids[0];
+            $first_affected = $old_data[$first_affected_id];
+            $link = "view-batch-details.php?category_id=" . (int)$first_affected['category_id'] . "&asset_name=" . urlencode($first_affected['asset_name']) . "&batch_id=" . urlencode($first_affected['batch_id']);
+
+            $transfer_to_escaped = htmlspecialchars($transfer_to);
+            $message = count($affected_assets) === 1
+                ? "Asset {$asset_list} was transferred to {$transfer_to_escaped} by {$editor_name}."
+                : "Assets {$asset_list} were transferred to {$transfer_to_escaped} by {$editor_name}.";
+
+            create_admin_notification($conn, $message, $link, $_SESSION['user_id'] ?? null);
+
+            foreach ($old_assignees as $old_name => $assets) {
+                $old_user_id = get_user_id_by_name($conn, $old_name);
+                if (!$old_user_id || $old_user_id == $_SESSION['user_id']) continue;
+                $user_asset_list = format_asset_list($assets);
+                $notif_message = count($assets) === 1
+                    ? "Asset {$user_asset_list} is no longer assigned to you (transferred to {$transfer_to_escaped})."
+                    : "Assets {$user_asset_list} are no longer assigned to you (transferred to {$transfer_to_escaped}).";
+                create_notification($conn, $old_user_id, $notif_message, $link);
+            }
+        }
+    }
+
     if (!$is_admin_editor) {
         $changed_fields = [];
         if ($location !== null) $changed_fields[] = 'location';
         if ($status !== null) $changed_fields[] = 'status';
         if ($remarks !== null && $remarks !== '') $changed_fields[] = 'remarks';
+        if (!empty($transfer_to)) $changed_fields[] = 'transfer_to';
 
         if (!empty($changed_fields)) {
             $fields_str = implode(', ', $changed_fields);
