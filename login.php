@@ -1,9 +1,16 @@
+
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// ... the rest of your login code starts here
+
 session_start(); // Start a session to remember the user
 require 'db.php'; // Bring in your bridge
 
 // Set the content type to JSON for all responses
-header('Content-Type: application/json');
+// header('Content-Type: application/json');
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email = $_POST['email'];
@@ -37,4 +44,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         echo json_encode(['success' => false, 'message' => 'Invalid email or password.']);
     }
     $stmt->close();
+} else {
+    // If not a POST request, redirect to the login form page.
+    header("Location: login.html");
+    exit();
 }

@@ -26,6 +26,7 @@ $showGenerateReport = $pageView === 'generate-report';
 $showMyAssets = $pageView === 'my-assets';
 $showWriteOffAssets = $pageView === 'write-off-assets';
 $showTransferAssets = $pageView === 'transfer-assets';
+$showAudit = $pageView === 'audit';
 
 // --- START: Fetch asset counts for dashboard widgets ---
 $thisMonth = date('Y-m');
@@ -282,6 +283,49 @@ $recentMonthGrouped_modal = get_grouped_assets($conn, 'month');
 // --- END: New Grouped Recent Activity ---
 // --- END: Fetch asset counts ---
 
+// Fetch all unique locations for the audit dropdown
+$locations = [];
+if ($_SESSION['role'] === 'admin') {
+    $loc_result = $conn->query("SELECT DISTINCT location FROM assets WHERE location IS NOT NULL AND location != '' ORDER BY location ASC");
+    if ($loc_result) {
+        while ($loc_row = $loc_result->fetch_assoc()) {
+            $locations[] = $loc_row['location'];
+        }
+        $loc_result->free();
+    }
+}
+
+// Fetch ongoing audits for the audit page
+$ongoing_audits = [];
+if ($_SESSION['role'] === 'admin') {
+    $ongoing_audits_result = $conn->query("
+        SELECT a.id, a.location_id, a.audit_date, u.full_name
+        FROM audits a
+        JOIN users u ON a.audited_by_user_id = u.id
+        WHERE a.status = 'In Progress'
+        ORDER BY a.audit_date DESC
+    ");
+    if ($ongoing_audits_result) {
+        $ongoing_audits = $ongoing_audits_result->fetch_all(MYSQLI_ASSOC);
+    }
+}
+
+// Fetch completed audits for the audit page
+$completed_audits = [];
+if ($_SESSION['role'] === 'admin') {
+    $completed_audits_result = $conn->query("
+        SELECT a.id, a.location_id, a.audit_date, u.full_name
+        FROM audits a
+        JOIN users u ON a.audited_by_user_id = u.id
+        WHERE a.status = 'Completed'
+        ORDER BY a.audit_date DESC
+        LIMIT 10
+    ");
+    if ($completed_audits_result) {
+        $completed_audits = $completed_audits_result->fetch_all(MYSQLI_ASSOC);
+    }
+}
+
 // Maximum value for chart scaling
 $maxCount = max($category_counts);
 
@@ -483,7 +527,16 @@ $current_page = $pageView;
           }
           include 'generate-report.php';
           ?>
-        <?php elseif (!$showAddAsset && !$showGenerateReport && !$showMyAssets && !$showWriteOffAssets && !$showTransferAssets): ?>
+        <?php elseif ($showAudit): ?>
+          <div id="auditView">
+            <?php
+            if (!defined('IS_EMBEDDED')) {
+                define('IS_EMBEDDED', true);
+            }
+            include 'audit-start.php';
+            ?>
+          </div>
+        <?php elseif (!$showAddAsset && !$showGenerateReport && !$showMyAssets && !$showWriteOffAssets && !$showTransferAssets && !$showAudit): ?>
           <div id="dashboardView">
             <div class="flex items-start sm:items-center justify-between flex-wrap gap-3">
               <div>

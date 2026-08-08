@@ -59,6 +59,10 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin' && isset($conn)) {
                 <i data-lucide="arrow-right-left" style="width:18px;height:18px"></i>
                 Transfer Assets
             </a>
+            <a href="dashboard.php?view=audit" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors <?php echo ($current_page === 'audit') ? 'bg-slate-700 text-white font-semibold' : 'text-slate-300 hover:bg-slate-700 hover:text-white'; ?>">
+                <i data-lucide="clipboard-check" style="width:18px;height:18px"></i>
+                Audit
+            </a>
             <a href="manage-users.php" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors <?php echo ($current_page === 'manage-users') ? 'bg-slate-700 text-white font-semibold' : 'text-slate-300 hover:bg-slate-700 hover:text-white'; ?>">
                 <i data-lucide="users" style="width:18px;height:18px"></i>
                 Manage Users

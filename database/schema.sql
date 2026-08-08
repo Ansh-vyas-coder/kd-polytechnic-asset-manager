@@ -106,3 +106,28 @@ ALTER TABLE assets
     ADD COLUMN IF NOT EXISTS transfer_to VARCHAR(100) NULL AFTER assigned_to,
     ADD COLUMN IF NOT EXISTS transferred BOOLEAN NOT NULL DEFAULT FALSE AFTER transfer_to,
     ADD COLUMN IF NOT EXISTS transfer_date TIMESTAMP NULL DEFAULT NULL AFTER transferred;
+
+-- 7. AUDIT TABLES
+-- Table to store main audit session details
+CREATE TABLE IF NOT EXISTS audits (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    location_id VARCHAR(100) NOT NULL,
+    audited_by_user_id INT NOT NULL,
+    audit_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status ENUM('In Progress', 'Completed') NOT NULL DEFAULT 'In Progress',
+    FOREIGN KEY (audited_by_user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Table to store the status of each item within an audit
+CREATE TABLE IF NOT EXISTS audit_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    audit_id INT NOT NULL,
+    asset_id INT NOT NULL,
+    expected_location_id VARCHAR(100) NOT NULL,
+    scanned_location_id VARCHAR(100) NULL,
+    verification_status ENUM('Present', 'Missing', 'Misplaced') NOT NULL,
+    `condition` ENUM('Good', 'Needs Repair', 'Broken', 'Scrap') NULL DEFAULT 'Good',
+    note TEXT NULL,
+    FOREIGN KEY (audit_id) REFERENCES audits(id) ON DELETE CASCADE,
+    FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
+);
