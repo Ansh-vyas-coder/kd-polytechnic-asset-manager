@@ -50,6 +50,13 @@ $assets_result = $assets_stmt->get_result();
 $expected_assets = $assets_result->fetch_all(MYSQLI_ASSOC);
 $assets_stmt->close();
 
+// Get unique asset names for the filter dropdown
+$unique_asset_names = [];
+if (!empty($expected_assets)) {
+    $unique_asset_names = array_unique(array_column($expected_assets, 'asset_name'));
+    sort($unique_asset_names);
+}
+
 // Helper function for user menu
 function getInitials($name) {
     $words = explode(' ', $name);
@@ -155,23 +162,35 @@ $current_page = 'audit'; // for sidebar active state
                             </div>
 
                             <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-                                <div class="p-4 border-b border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-sm font-medium text-gray-600">Show:</span>
+                                <div class="p-4 border-b border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                    <div class="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+                                        <div class="flex items-center gap-2">
+                                        <span class="text-sm font-medium text-gray-600">Status:</span>
                                         <div class="inline-flex rounded-lg border border-gray-200 bg-white p-1 gap-1" id="filter-toggles">
                                             <button type="button" data-filter="all" class="filter-btn text-xs font-semibold px-3 py-1.5 rounded-md bg-blue-600 text-white transition-all">All</button>
                                             <button type="button" data-filter="pending" class="filter-btn text-xs font-semibold px-3 py-1.5 rounded-md text-gray-500 hover:bg-gray-50 transition-all">Pending</button>
                                             <button type="button" data-filter="verified" class="filter-btn text-xs font-semibold px-3 py-1.5 rounded-md text-gray-500 hover:bg-gray-50 transition-all">Verified</button>
                                         </div>
                                     </div>
+                                        <div class="flex items-center gap-2 w-full sm:w-auto">
+                                            <span class="text-sm font-medium text-gray-600">Item:</span>
+                                            <select id="assetNameFilter" class="w-full sm:w-auto text-sm bg-gray-50 border-gray-200 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                                                <option value="all">Show All Items</option>
+                                                <?php foreach ($unique_asset_names as $name): ?>
+                                                    <option value="<?php echo htmlspecialchars($name); ?>"><?php echo htmlspecialchars($name); ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                    </div>
                                     <button type="button" id="checkAllBtn" class="text-sm font-medium text-blue-600 hover:text-blue-800">Mark All as Present</button>
                                 </div>
                                 <ul class="divide-y divide-gray-100">
+                                    <li id="noFilterResults" class="p-6 text-center text-gray-500 hidden">No items match the current filters.</li>
                                     <?php if (empty($expected_assets)): ?>
                                         <li class="p-6 text-center text-gray-500">No assets are assigned to this location.</li>
                                     <?php else: ?>
                                         <?php foreach ($expected_assets as $asset): ?>
-                                            <li class="p-4 sm:p-5">
+                                            <li class="p-4 sm:p-5" data-asset-name="<?php echo htmlspecialchars($asset['asset_name']); ?>">
                                                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                                                     <!-- Left side: Asset Info -->
                                                     <div class="min-w-0 flex-1">
@@ -429,51 +448,64 @@ $current_page = 'audit'; // for sidebar active state
             const progressCounter = document.getElementById('progressCounter');
             const allCheckboxes = document.querySelectorAll('.asset-checkbox');
             const totalAssets = allCheckboxes.length;
-
             const filterToggles = document.getElementById('filter-toggles');
-            const assetRows = document.querySelectorAll('ul.divide-y > li');
+            const assetNameFilterSelect = document.getElementById('assetNameFilter');
+            const assetRows = document.querySelectorAll('ul.divide-y > li[data-asset-name]');
+            const noFilterResultsRow = document.getElementById('noFilterResults');
             const checkAllBtn = document.getElementById('checkAllBtn');
 
             function updateProgress() {
                 if (!progressBar || !progressCounter) return;
-
                 const checkedCount = document.querySelectorAll('.asset-checkbox:checked').length;
                 const percentage = totalAssets > 0 ? (checkedCount / totalAssets) * 100 : 0;
-
                 progressBar.style.width = `${percentage}%`;
                 progressCounter.textContent = `${checkedCount} / ${totalAssets} Items Verified`;
             }
 
-            function applyFilter(filter) {
+            function applyFilter() {
+                const statusFilter = filterToggles.querySelector('.bg-blue-600').dataset.filter;
+                const nameFilter = assetNameFilterSelect.value;
+                let visibleCount = 0;
+
                 assetRows.forEach(row => {
                     const checkbox = row.querySelector('.asset-checkbox');
-                    if (!checkbox) { // Handles the "No assets" message row
-                        row.classList.toggle('hidden', filter !== 'all');
-                        return;
-                    }
+                    if (!checkbox) return;
 
                     const isChecked = checkbox.checked;
+                    const assetName = row.dataset.assetName;
 
-                    switch (filter) {
+                    const nameMatch = (nameFilter === 'all' || assetName === nameFilter);
+
+                    let statusMatch = false;
+                    switch (statusFilter) {
                         case 'pending':
-                            row.classList.toggle('hidden', isChecked);
+                            statusMatch = !isChecked;
                             break;
                         case 'verified':
-                            row.classList.toggle('hidden', !isChecked);
+                            statusMatch = isChecked;
                             break;
                         case 'all':
                         default:
-                            row.classList.remove('hidden');
+                            statusMatch = true;
                             break;
                     }
+
+                    const shouldBeVisible = nameMatch && statusMatch;
+                    row.classList.toggle('hidden', !shouldBeVisible);
+                    if (shouldBeVisible) {
+                        visibleCount++;
+                    }
                 });
+
+                if (noFilterResultsRow) {
+                    noFilterResultsRow.classList.toggle('hidden', visibleCount > 0 || totalAssets === 0);
+                }
             }
 
             allCheckboxes.forEach(checkbox => {
                 checkbox.addEventListener('change', () => {
                     updateProgress();
-                    const activeFilter = filterToggles.querySelector('.bg-blue-600').dataset.filter;
-                    applyFilter(activeFilter);
+                    applyFilter();
                 });
             });
 
@@ -489,8 +521,12 @@ $current_page = 'audit'; // for sidebar active state
                     targetButton.classList.add('bg-blue-600', 'text-white');
                     targetButton.classList.remove('text-gray-500', 'hover:bg-gray-50');
 
-                    applyFilter(targetButton.dataset.filter);
+                    applyFilter();
                 });
+            }
+
+            if (assetNameFilterSelect) {
+                assetNameFilterSelect.addEventListener('change', applyFilter);
             }
 
             if (checkAllBtn) {
@@ -508,14 +544,14 @@ $current_page = 'audit'; // for sidebar active state
                         }
                     });
                     updateProgress();
-                    const activeFilter = filterToggles.querySelector('.bg-blue-600').dataset.filter;
-                    applyFilter(activeFilter);
+                    applyFilter();
                 });
             }
 
             // --- Initial Load from Storage ---
             loadStateFromStorage();
             updateProgress();
+            applyFilter();
         });
     </script>
     <script src="loader/loader.js"></script>

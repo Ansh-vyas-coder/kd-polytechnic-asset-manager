@@ -104,7 +104,8 @@ try {
     $update_audit_stmt->close();
 
     $conn->commit();
-    header("Location: dashboard.php?view=audit&status=success&message=" . urlencode("Audit #{$audit_id} completed successfully."));
+    // Redirect to the results page upon successful completion
+    header("Location: audit_results.php?id={$audit_id}&status=completed");
     exit();
 } catch (Exception $e) {
     $conn->rollback();
