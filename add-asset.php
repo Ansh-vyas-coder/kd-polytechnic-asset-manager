@@ -730,7 +730,7 @@ if (!$embedMode) {
         ocrNextBtn.disabled = idx === ocrRows.length - 1;
 
         // Step 1: Set category first (triggers default page suggestion)
-        if (row.category) {
+        if (row.category && String(row.category).trim() !== '') {
             const cat = row.category.toLowerCase();
             const categoryMap = { 'consumables': '2', 'consumable': '2', 'expandable': '1', 'deadstock': '3', 'dead stock': '3', 'furniture': '4' };
             const catValue = categoryMap[cat] || '';
@@ -763,9 +763,13 @@ if (!$embedMode) {
         else                   document.getElementById('gem_order_no').value = '';
 
         // page_no from top-right corner — overrides auto-suggestion
-        if (row.page_no)       document.getElementById('page_no').value = String(row.page_no).trim();
+        if (row.page_no && String(row.page_no).trim() !== '') {
+            document.getElementById('page_no').value = String(row.page_no).trim();
+        }
 
-        if (row.item_no)       document.getElementById('item_no').value = String(row.item_no).replace(/[^0-9]/g, '');
+        if (row.item_no && String(row.item_no).trim() !== '') {
+            document.getElementById('item_no').value = String(row.item_no).replace(/[^0-9]/g, '');
+        }
 
         if (row.gem_invoice_no) {
             let billNo = String(row.gem_invoice_no).trim();

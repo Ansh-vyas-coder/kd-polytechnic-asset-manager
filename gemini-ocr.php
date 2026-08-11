@@ -46,7 +46,7 @@ CRITICAL INSTRUCTIONS FOR GE M INVOICES:
    - "page_no": Default to empty string.
    - "item_no": Default to empty string.
    - "pr_page_no": Default to empty string.
-   - "category": Infer category based on product description (e.g. electronics/boards -> "Deadstock", furniture -> "Furniture", consumables like toner/cables -> "Consumables").
+   - "category": Default to empty string.
 
 CRITICAL INSTRUCTIONS FOR PHYSICAL STOCK REGISTERS:
 1. FIRST, determine register category from title at the top (e.g., "Departmental Stores Consumable Register" -> "Consumables").
