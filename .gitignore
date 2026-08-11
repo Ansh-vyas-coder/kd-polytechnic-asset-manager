@@ -1,1 +1,4 @@
 vendor/
+
+# Gemini API key — copy gemini-config.sample.php to this file and add your key
+gemini-config.php

@@ -66,8 +66,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
     $asset_name = trim($_POST['asset_name']);
     $category_id = (int)$_POST['category_id'];
     $quantity = (int)$_POST['quantity'];
+    $unit = !empty($_POST['unit']) ? trim($_POST['unit']) : 'pcs';
     $item_number = (int)$_POST['item_no'];
-    $cost = (float)$_POST['cost'];
+    $cost = !empty($_POST['cost']) ? (float)$_POST['cost'] : 0.00;
     $location = trim($_POST['location']);
     $date_of_issue = $_POST['date_of_issue'];
     $assigned_to = !empty($_POST['assigned_to']) ? trim($_POST['assigned_to']) : null;
@@ -113,17 +114,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
 
         $stmt = $conn->prepare(
             "INSERT INTO assets (
-                asset_name, category_id, quantity, item_no, asset_no, cost, location, date_of_issue, assigned_to, remarks, batch_id,
+                asset_name, category_id, quantity, unit, item_no, asset_no, cost, location, date_of_issue, assigned_to, remarks, batch_id,
                 page_no, gem_order_no, gpr_no, pr_page_no, gpr_item_no, gem_invoice_no
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         );
 
         $row_quantity = 1;
         $stmt->bind_param(
-            "siiisdsssssssssss",
+            "sissisdsssssssssss",
             $asset_name,
             $category_id,
             $row_quantity,
+            $unit,
             $row_item_number,
             $asset_no_value,
             $cost,
@@ -143,9 +145,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
         if ($stmt->execute()) {
             $inserted = true;
         } else {
-            $error_message = urlencode($stmt->error);
+            $error_message = $stmt->error;
             $stmt->close();
-            header("Location: dashboard.php?view=add-asset&status=error&message=" . $error_message);
+            // AJAX request: return JSON error
+            if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'message' => $error_message]);
+                exit();
+            }
+            header("Location: dashboard.php?view=add-asset&status=error&message=" . urlencode($error_message));
             exit();
         }
 
@@ -172,8 +180,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
                 }
             }
             // --- END NOTIFICATION LOGIC ---
+
+        // AJAX request: return JSON success (no redirect)
+        if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+            echo json_encode(['success' => true, 'category_id' => $category_id, 'asset_name' => $asset_name]);
+            exit();
+        }
         header("Location: view-assets.php?category_id=" . $category_id . "&status=asset_added");
     } else {
+        if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'No asset numbers were generated.']);
+            exit();
+        }
         header("Location: dashboard.php?view=add-asset&status=error&message=" . urlencode('No asset numbers were generated.'));
     }
     exit();
@@ -206,6 +225,25 @@ if (!$embedMode) {
 
             <div>
 
+                <!-- ===== OCR Feature Section ===== -->
+                <div class="mb-6 rounded-xl border border-blue-100 bg-blue-50 p-5">
+                    <h3 class="mb-1 text-lg font-bold text-blue-900">&#128444; Auto-fill from Register Photo (OCR)</h3>
+                    <p class="mb-4 text-sm text-blue-700">Upload a photo of the physical register. Gemini AI will extract each row automatically so you can review and submit one by one.</p>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <input type="file" id="ocrImage" accept="image/*" class="block text-sm text-slate-500 file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-700">
+                        <button type="button" id="ocrExtractBtn" class="rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700 disabled:opacity-60">Extract Data</button>
+                    </div>
+                    <div id="ocrStatus" class="mt-3 hidden text-sm font-medium"></div>
+                    <div id="ocrNavigation" class="mt-4 hidden items-center justify-between border-t border-blue-200 pt-3">
+                        <div class="text-sm font-semibold text-blue-900">Row: <span id="ocrCurrentIndex">0</span> / <span id="ocrTotalRows">0</span></div>
+                        <div class="space-x-2">
+                            <button type="button" id="ocrPrevBtn" class="rounded border border-blue-300 px-3 py-1 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-40 disabled:cursor-not-allowed">&#8592; Previous</button>
+                            <button type="button" id="ocrNextBtn" class="rounded bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed">Next &#8594;</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- ===== End OCR Feature Section ===== -->
+
                 <form id="assetForm" class="grid gap-6 lg:grid-cols-2" action="add-asset.php" method="post">
                     <input type="hidden" name="action" value="add_asset">
                     <div class="space-y-5 lg:col-span-2">
@@ -236,7 +274,16 @@ if (!$embedMode) {
 
                             <div>
                                 <label for="quantity" class="mb-2 block text-sm font-semibold text-slate-700">Quantity</label>
-                                <input type="number" id="quantity" name="quantity" min="1" value="1" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
+                                <div class="flex gap-2">
+                                    <input type="number" id="quantity" name="quantity" min="1" value="1" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
+                                    <select id="unit" name="unit" class="rounded-lg border border-slate-300 bg-slate-50 px-3 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200 w-32">
+                                        <option value="pcs">pcs</option>
+                                        <option value="mtr">mtr</option>
+                                        <option value="liter">liter</option>
+                                        <option value="box">box</option>
+                                        <option value="kg">kg</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
 
@@ -309,7 +356,7 @@ if (!$embedMode) {
                         <div class="grid gap-5 md:grid-cols-2">
                             <div>
                                 <label for="cost" class="mb-2 block text-sm font-semibold text-slate-700">Amount per Item</label>
-                                <input type="number" id="cost" name="cost" step="0.01" placeholder="₹ Amount" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
+                                <input type="number" id="cost" name="cost" step="0.01" placeholder="₹ Amount (optional)" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200">
                             </div>
 
                             <div>
@@ -584,11 +631,7 @@ if (!$embedMode) {
             return;
         }
 
-        if (parseFloat(costInput.value) < 0) {
-            event.preventDefault();
-            alert('Amount per Item cannot be negative.');
-            return;
-        }
+        // cost is optional — no validation needed
     });
 
     fetch('get-faculty.php')
@@ -610,6 +653,195 @@ if (!$embedMode) {
     populateLocationOptions();
     toggleCustomLocationInput();
     updateAssetNo();
+
+    // ===== OCR Logic =====
+    let ocrRows = [];
+    let ocrIndex = 0;
+
+    const ocrImageInput  = document.getElementById('ocrImage');
+    const ocrExtractBtn  = document.getElementById('ocrExtractBtn');
+    const ocrStatus      = document.getElementById('ocrStatus');
+    const ocrNavigation  = document.getElementById('ocrNavigation');
+    const ocrCurrentSpan = document.getElementById('ocrCurrentIndex');
+    const ocrTotalSpan   = document.getElementById('ocrTotalRows');
+    const ocrPrevBtn     = document.getElementById('ocrPrevBtn');
+    const ocrNextBtn     = document.getElementById('ocrNextBtn');
+
+    ocrExtractBtn.addEventListener('click', async () => {
+        if (!ocrImageInput.files[0]) { alert('Please select an image first.'); return; }
+        ocrStatus.className = 'mt-3 text-sm font-medium text-blue-600';
+        ocrStatus.textContent = 'Analysing image with Gemini AI... please wait.';
+        ocrStatus.classList.remove('hidden');
+        ocrExtractBtn.disabled = true;
+
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+            try {
+                const res  = await fetch('gemini-ocr.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: reader.result })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'API error');
+                if (!Array.isArray(data) || data.length === 0) throw new Error('No rows found in the image.');
+
+                ocrRows  = data;
+                ocrIndex = 0;
+                ocrStatus.className = 'mt-3 text-sm font-medium text-green-600';
+                ocrStatus.textContent = `✓ Extracted ${ocrRows.length} row(s). Review and submit each one below.`;
+                ocrTotalSpan.textContent = ocrRows.length;
+                ocrNavigation.classList.remove('hidden');
+                ocrNavigation.style.display = 'flex';
+                loadOcrRow(0);
+            } catch (e) {
+                ocrStatus.className = 'mt-3 text-sm font-medium text-red-600';
+                ocrStatus.textContent = 'Error: ' + e.message;
+            } finally {
+                ocrExtractBtn.disabled = false;
+            }
+        };
+        reader.readAsDataURL(ocrImageInput.files[0]);
+    });
+
+    function loadOcrRow(idx) {
+        const row = ocrRows[idx];
+        if (!row) return;
+        ocrCurrentSpan.textContent = idx + 1;
+        ocrPrevBtn.disabled = idx === 0;
+        ocrNextBtn.disabled = idx === ocrRows.length - 1;
+
+        // Step 1: Set category first (triggers default page suggestion)
+        if (row.category) {
+            const cat = row.category.toLowerCase();
+            const categoryMap = { 'consumables': '2', 'consumable': '2', 'expandable': '1', 'deadstock': '3', 'dead stock': '3', 'furniture': '4' };
+            const catValue = categoryMap[cat] || '';
+            if (catValue) {
+                document.getElementById('category').value = catValue;
+                updateSuggestedPageNo();
+            }
+        }
+
+        // Step 2: Override all fields from OCR (page_no overrides the auto-suggestion)
+        if (row.asset_name)    document.getElementById('asset_name').value = row.asset_name;
+        if (row.quantity)      document.getElementById('quantity').value = String(row.quantity).replace(/[^0-9]/g, '') || '1';
+
+        if (row.date_of_issue) {
+            let rawDate = String(row.date_of_issue).trim();
+            let formattedDate = '';
+            let parts = rawDate.split(/[-\/]/);
+            if (parts.length === 3) {
+                let day = parts[0].padStart(2,'0'), month = parts[1].padStart(2,'0'), year = parts[2];
+                if (year.length === 2) year = '20' + year;
+                if (year.length === 4) formattedDate = `${year}-${month}-${day}`;
+            }
+            const target = /^\d{4}-\d{2}-\d{2}$/.test(formattedDate) ? formattedDate : (/^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : '');
+            if (target) document.getElementById('date_of_issue').value = target;
+        }
+
+        if (row.remarks)       document.getElementById('remarks').value = row.remarks;
+        if (row.pr_page_no)    document.getElementById('pr_page_no').value = row.pr_page_no;
+        document.getElementById('gem_order_no').value = '';  // always blank
+
+        // page_no from top-right corner — overrides auto-suggestion
+        if (row.page_no)       document.getElementById('page_no').value = String(row.page_no).trim();
+
+        if (row.item_no)       document.getElementById('item_no').value = String(row.item_no).replace(/[^0-9]/g, '');
+
+        if (row.gem_invoice_no) {
+            let billNo = String(row.gem_invoice_no).trim();
+            let cleanBill = billNo.replace(/\b(?:dt|date)\b.*$/i, '').trim();
+            cleanBill = cleanBill.replace(/^(?:Bill\s*No\.?\s*)/i, '').trim();
+            document.getElementById('gem_invoice_no').value = cleanBill;
+        }
+
+        // Set unit selector
+        const unitEl = document.getElementById('unit');
+        if (unitEl) {
+            const uv = row.unit ? String(row.unit).trim().toLowerCase() : 'pcs';
+            const allowed = ['pcs','mtr','liter','box','kg'];
+            if (allowed.includes(uv)) { unitEl.value = uv; }
+            else if (uv.includes('meter')||uv.includes('mtr')) { unitEl.value = 'mtr'; }
+            else if (uv.includes('litre')||uv.includes('liter')||uv.includes('ltr')) { unitEl.value = 'liter'; }
+            else { unitEl.value = 'pcs'; }
+        }
+
+        // Cost = opening_balance / quantity
+        if (row.opening_balance) {
+            const openBal = parseFloat(String(row.opening_balance).replace(/[^0-9.]/g,''));
+            const qty     = parseInt(String(row.quantity).replace(/[^0-9]/g,'')) || 1;
+            if (!isNaN(openBal) && qty > 0) document.getElementById('cost').value = (openBal/qty).toFixed(2);
+        }
+
+        if (row.location) {
+            const opts  = Array.from(document.getElementById('location').options);
+            const match = opts.find(o => o.value.toLowerCase().includes(row.location.toLowerCase()));
+            if (match) document.getElementById('location').value = match.value;
+        }
+
+        updateAssetNo();
+        calculateTotal();
+    }
+
+    ocrPrevBtn.addEventListener('click', () => { if (ocrIndex > 0)                   loadOcrRow(--ocrIndex); });
+    ocrNextBtn.addEventListener('click', () => { if (ocrIndex < ocrRows.length - 1)  loadOcrRow(++ocrIndex); });
+
+    // ===== OCR AJAX Submit — prevent redirect when OCR rows are active =====
+    document.getElementById('assetForm').addEventListener('submit', async function(e) {
+        // Only intercept if OCR mode is active (rows extracted)
+        if (ocrRows.length === 0) return; // normal submit
+        e.preventDefault();
+
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const originalText = submitBtn ? submitBtn.textContent : '';
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Saving...'; }
+
+        try {
+            const formData = new FormData(this);
+            const res = await fetch('add-asset.php', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                // Show green toast
+                showOcrToast(`✓ Row ${ocrIndex + 1} saved: ${data.asset_name}`, 'green');
+
+                // Auto-advance to next row, or show completion
+                if (ocrIndex < ocrRows.length - 1) {
+                    loadOcrRow(++ocrIndex);
+                } else {
+                    showOcrToast('🎉 All rows saved! Redirecting...', 'green');
+                    setTimeout(() => { window.location.href = 'view-assets.php?category_id=' + encodeURIComponent(document.getElementById('category').value) + '&status=asset_added'; }, 1500);
+                }
+            } else {
+                showOcrToast('Error: ' + (data.message || 'Unknown error'), 'red');
+            }
+        } catch (err) {
+            showOcrToast('Network error: ' + err.message, 'red');
+        } finally {
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = originalText; }
+        }
+    });
+
+    function showOcrToast(msg, color) {
+        let toast = document.getElementById('ocrToast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'ocrToast';
+            toast.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;padding:14px 22px;border-radius:10px;font-size:0.9rem;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,0.15);transition:opacity 0.4s;max-width:360px;';
+            document.body.appendChild(toast);
+        }
+        toast.style.background  = color === 'green' ? '#16a34a' : '#dc2626';
+        toast.style.color       = '#fff';
+        toast.style.opacity     = '1';
+        toast.textContent       = msg;
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+    }
+    // ===== End OCR Logic =====
 </script>
 <?php if (!$embedMode) { ?>
 </body>

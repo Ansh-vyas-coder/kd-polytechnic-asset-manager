@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS assets (
     asset_name VARCHAR(255) NOT NULL,
     category_id INT NOT NULL,
     quantity INT NOT NULL DEFAULT 1,
+    unit VARCHAR(20) NOT NULL DEFAULT 'pcs',
     item_no INT NOT NULL,
     asset_no VARCHAR(255) NULL,
     page_no VARCHAR(100),
@@ -137,3 +138,7 @@ CREATE TABLE IF NOT EXISTS audit_items (
     FOREIGN KEY (audit_id) REFERENCES audits(id) ON DELETE CASCADE,
     FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
 );
+
+-- 9. UNIT COLUMN (for quantity measurement)
+ALTER TABLE assets
+    ADD COLUMN IF NOT EXISTS unit VARCHAR(20) NOT NULL DEFAULT 'pcs' AFTER quantity;

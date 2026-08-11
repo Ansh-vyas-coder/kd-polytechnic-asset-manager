@@ -63,7 +63,8 @@ if ($result) {
                 pr_page_no,
                 gpr_item_no,
                 gem_invoice_no,
-                COUNT(*) as total_items
+                COUNT(*) as total_items,
+                MIN(unit) as unit
             FROM assets
             WHERE category_id = " . (int)$selectedCategory . "
               AND page_no = '" . $conn->real_escape_string($groupValue) . "'
@@ -477,6 +478,9 @@ $register_title = $category_register_titles[$selectedCategory];
                     <!-- Col 4: Quantity Received -->
                     <td style="text-align:center; font-weight:700; vertical-align:top;">
                         <?php echo $total_items; ?>
+                        <?php if (!empty($asset['unit'])): ?>
+                            <div style="font-size:0.7rem; font-weight:400; color:#555;"><?php echo htmlspecialchars($asset['unit']); ?></div>
+                        <?php endif; ?>
                     </td>
 
                     <!-- Col 5: Cost -->
@@ -507,6 +511,9 @@ $register_title = $category_register_titles[$selectedCategory];
                     <!-- Col 10: Quantity Issued -->
                     <td style="text-align:center; font-weight:700; vertical-align:top;">
                         <?php echo $total_items; ?>
+                        <?php if (!empty($asset['unit'])): ?>
+                            <div style="font-size:0.7rem; font-weight:400; color:#555;"><?php echo htmlspecialchars($asset['unit']); ?></div>
+                        <?php endif; ?>
                     </td>
 
                     <!-- Col 11: Date of Issue -->
