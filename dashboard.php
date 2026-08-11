@@ -26,6 +26,7 @@ $showGenerateReport = $pageView === 'generate-report';
 $showMyAssets = $pageView === 'my-assets';
 $showWriteOffAssets = $pageView === 'write-off-assets';
 $showTransferAssets = $pageView === 'transfer-assets';
+$showLoanedAssets = $pageView === 'loaned-assets';
 $showAudit = $pageView === 'audit';
 
 // --- START: Fetch asset counts for dashboard widgets ---
@@ -519,6 +520,13 @@ $current_page = $pageView;
             define('IS_EMBEDDED', true);
           }
           include 'transfer-assets.php';
+          ?>
+        <?php elseif ($showLoanedAssets): ?>
+          <?php
+          if (!defined('IS_EMBEDDED')) {
+            define('IS_EMBEDDED', true);
+          }
+          include 'loaned-assets.php';
           ?>
         <?php elseif ($showMyAssets): ?>
           <?php

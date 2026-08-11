@@ -22,6 +22,8 @@ $location = isset($_POST['location']) ? trim($_POST['location']) : null;
 $status = isset($_POST['status']) ? trim($_POST['status']) : null;
 $remarks = isset($_POST['remarks']) ? trim($_POST['remarks']) : null;
 $transfer_to = isset($_POST['transfer_to']) ? trim($_POST['transfer_to']) : null;
+$loan_to = isset($_POST['loan_to']) ? trim($_POST['loan_to']) : null;
+$loan_time = isset($_POST['loan_time']) ? (int)$_POST['loan_time'] : 0;
 
 if (empty($item_ids) || !is_array($item_ids)) {
     echo json_encode(['status' => 'error', 'message' => 'No items selected for bulk update.']);
@@ -107,6 +109,12 @@ if (!empty($transfer_to) && $first_selected_id > 0) {
     $transfer_remarks = remarks_build_transfer_body($selected_items_for_note, $transfer_to, 'transferred to');
 }
 
+$loan_remarks = null;
+if (!empty($loan_to) && $first_selected_id > 0) {
+    $loan_days = max(1, $loan_time);
+    $loan_remarks = remarks_build_loan_body($selected_items_for_note, $loan_to, $loan_days);
+}
+
 $lab_reassign_remarks = null;
 if ($location !== null && !empty($selected_items_for_note)) {
     $lab_reassign_remarks = remarks_build_lab_change_body($selected_items_for_note, $location);
@@ -121,6 +129,37 @@ foreach ($item_ids as $id) {
 
     if (!isset($old_data[$id])) {
         $errors[] = "Item not found: $id";
+        continue;
+    }
+
+    if (!empty($loan_to)) {
+        $loan_days = max(1, $loan_time);
+        $base_remarks = $remarks !== null ? $remarks : ($old_data[$id]['remarks'] ?? '');
+        $final_remarks = remarks_upsert_block($base_remarks, 'Loan Note', $loan_remarks ?? '');
+        $sql = "UPDATE assets SET
+                    status = 'Loaned',
+                    loan_to = ?,
+                    loan_date = NOW(),
+                    return_date = DATE_ADD(NOW(), INTERVAL ? DAY),
+                    remarks = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?";
+        $stmt = $conn->prepare($sql);
+        if ($stmt === false) {
+            $errors[] = "Failed to prepare statement for item $id: " . $conn->error;
+            continue;
+        }
+        $stmt->bind_param("sisi", $loan_to, $loan_days, $final_remarks, $id);
+
+        if ($stmt->execute()) {
+            if ($stmt->affected_rows > 0) {
+                $updated_count++;
+            }
+        } else {
+            $errors[] = "Failed to update item $id: " . $stmt->error;
+        }
+
+        $stmt->close();
         continue;
     }
 
@@ -308,7 +347,46 @@ if ($updated_count > 0) {
         }
     }
 
-    if (!empty($transfer_to)) {
+    if (!empty($loan_to)) {
+        $loan_days = max(1, $loan_time);
+        $affected_assets = [];
+        $affected_ids = [];
+        $old_assignees = [];
+
+        foreach ($old_data as $id => $data) {
+            $original_asset_name = htmlspecialchars($data['asset_name']);
+            $affected_assets[] = $original_asset_name;
+            $affected_ids[] = $id;
+
+            if (!empty($data['assigned_to'])) {
+                $old_assignees[$data['assigned_to']][] = $original_asset_name;
+            }
+        }
+
+        if (!empty($affected_assets)) {
+            $asset_list = format_asset_list($affected_assets);
+            $first_affected_id = $affected_ids[0];
+            $first_affected = $old_data[$first_affected_id];
+            $link = "view-batch-details.php?category_id=" . (int)$first_affected['category_id'] . "&asset_name=" . urlencode($first_affected['asset_name']) . "&batch_id=" . urlencode($first_affected['batch_id']);
+
+            $loan_to_escaped = htmlspecialchars($loan_to);
+            $message = count($affected_assets) === 1
+                ? "Asset {$asset_list} was loaned to {$loan_to_escaped} for {$loan_days} day(s) by {$editor_name}."
+                : "Assets {$asset_list} were loaned to {$loan_to_escaped} for {$loan_days} day(s) by {$editor_name}.";
+
+            create_admin_notification($conn, $message, $link, $_SESSION['user_id'] ?? null);
+
+            foreach ($old_assignees as $old_name => $assets) {
+                $old_user_id = get_user_id_by_name($conn, $old_name);
+                if (!$old_user_id || $old_user_id == $_SESSION['user_id']) continue;
+                $user_asset_list = format_asset_list($assets);
+                $notif_message = count($assets) === 1
+                    ? "Asset {$user_asset_list} is no longer assigned to you (loaned to {$loan_to_escaped})."
+                    : "Assets {$user_asset_list} are no longer assigned to you (loaned to {$loan_to_escaped}).";
+                create_notification($conn, $old_user_id, $notif_message, $link);
+            }
+        }
+    } elseif (!empty($transfer_to)) {
         $affected_assets = [];
         $affected_ids = [];
         $old_assignees = [];
@@ -354,6 +432,7 @@ if ($updated_count > 0) {
         if ($status !== null) $changed_fields[] = 'status';
         if ($remarks !== null && $remarks !== '') $changed_fields[] = 'remarks';
         if (!empty($transfer_to)) $changed_fields[] = 'transfer_to';
+        if (!empty($loan_to)) $changed_fields[] = 'loan_to';
 
         if (!empty($changed_fields)) {
             $fields_str = implode(', ', $changed_fields);

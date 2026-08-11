@@ -74,6 +74,24 @@ function remarks_build_transfer_body(array $items, string $target, string $actio
     return "On {$date_text}, {$count_text} with total quantity {$total_quantity} ({$summary}) {$verb} {$action_label} {$target}.";
 }
 
+function remarks_build_loan_body(array $items, string $loan_to, int $loan_days): string
+{
+    $loan_to = trim($loan_to);
+    $summary = remarks_build_asset_summary($items);
+    $total_quantity = 0;
+
+    foreach ($items as $item) {
+        $total_quantity += max((int)($item['quantity'] ?? 1), 1);
+    }
+
+    $date_text = date('d/m/Y');
+    $count = count($items);
+    $count_text = $count === 1 ? '1 selected asset' : $count . ' selected assets';
+    $verb = $count === 1 ? 'was' : 'were';
+
+    return "On {$date_text}, {$count_text} with total quantity {$total_quantity} ({$summary}) {$verb} loaned to {$loan_to} for {$loan_days} day(s).";
+}
+
 function remarks_build_lab_change_body(array $items, string $lab_name): string
 {
     return remarks_build_transfer_body($items, $lab_name, 'reassigned to');

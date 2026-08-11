@@ -62,6 +62,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $assigned_to = isset($_POST['assigned_to']) ? trim($_POST['assigned_to']) : '';
     $remarks = isset($_POST['remarks']) ? trim($_POST['remarks']) : '';
     $remarks_value = $remarks;
+    $loan_to = isset($_POST['loan_to']) ? trim($_POST['loan_to']) : '';
+    $loan_time = isset($_POST['loan_time']) ? (int)$_POST['loan_time'] : 0;
 
     // Validate required fields
     if (empty($asset_name)) {
@@ -72,38 +74,108 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $remarks_value = remarks_upsert_block($remarks_value, 'Lab Reassign Note', $lab_note_body);
         }
 
-        // Update the asset in database with prepared statement
-        $update_stmt = $conn->prepare(
-            "UPDATE assets SET 
-                asset_name = ?, category_id = ?, quantity = ?, item_no = ?, 
-                page_no = ?, gem_order_no = ?, gem_invoice_no = ?, gpr_no = ?, 
-                pr_page_no = ?, gpr_item_no = ?, location = ?, date_of_issue = ?, 
-                cost = ?, assigned_to = ?, remarks = ? 
-            WHERE id = ?"
-        );
+        if (!empty($loan_to)) {
+            $loan_days = max(1, $loan_time);
+            $loan_remarks = $remarks_value;
+            $loan_note_body = remarks_build_loan_body([$asset], $loan_to, $loan_days);
+            $loan_remarks = remarks_upsert_block($remarks_value, 'Loan Note', $loan_note_body);
+
+            $update_stmt = $conn->prepare(
+                "UPDATE assets SET 
+                    asset_name = ?, category_id = ?, quantity = ?, item_no = ?, 
+                    page_no = ?, gem_order_no = ?, gem_invoice_no = ?, gpr_no = ?, 
+                    pr_page_no = ?, gpr_item_no = ?, location = ?, date_of_issue = ?, 
+                    cost = ?, assigned_to = ?, remarks = ?, 
+                    status = 'Loaned', loan_to = ?, loan_date = NOW(), 
+                    return_date = DATE_ADD(NOW(), INTERVAL ? DAY)
+                WHERE id = ?"
+            );
+        } elseif (empty($loan_to) && !empty($asset['loan_to'])) {
+            $update_stmt = $conn->prepare(
+                "UPDATE assets SET 
+                    asset_name = ?, category_id = ?, quantity = ?, item_no = ?, 
+                    page_no = ?, gem_order_no = ?, gem_invoice_no = ?, gpr_no = ?, 
+                    pr_page_no = ?, gpr_item_no = ?, location = ?, date_of_issue = ?, 
+                    cost = ?, assigned_to = ?, remarks = ?, 
+                    status = 'active', loan_to = NULL, loan_date = NULL, return_date = NULL
+                WHERE id = ?"
+            );
+        } else {
+            $update_stmt = $conn->prepare(
+                "UPDATE assets SET 
+                    asset_name = ?, category_id = ?, quantity = ?, item_no = ?, 
+                    page_no = ?, gem_order_no = ?, gem_invoice_no = ?, gpr_no = ?, 
+                    pr_page_no = ?, gpr_item_no = ?, location = ?, date_of_issue = ?, 
+                    cost = ?, assigned_to = ?, remarks = ? 
+                WHERE id = ?"
+            );
+        }
 
         if (!$update_stmt) {
             $error_message = "Database error: " . $conn->error;
         } else {
-            $update_stmt->bind_param(
-                "siisssssssssdssi",
-                $asset_name,
-                $category_id,
-                $quantity,
-                $item_no,
-                $page_no,
-                $gem_order_no,
-                $gem_invoice_no,
-                $gpr_no,
-                $pr_page_no,
-                $gpr_item_no,
-                $location,
-                $date_of_issue,
-                $cost,
-                $assigned_to,
-                $remarks_value,
-                $asset_id
-            );
+            if (!empty($loan_to)) {
+                $loan_days = max(1, $loan_time);
+                $update_stmt->bind_param(
+                    "siissssssssdssii",
+                    $asset_name,
+                    $category_id,
+                    $quantity,
+                    $item_no,
+                    $page_no,
+                    $gem_order_no,
+                    $gem_invoice_no,
+                    $gpr_no,
+                    $pr_page_no,
+                    $gpr_item_no,
+                    $date_of_issue,
+                    $cost,
+                    $loan_remarks,
+                    $loan_to,
+                    $loan_days,
+                    $asset_id
+                );
+            } elseif (empty($loan_to) && !empty($asset['loan_to'])) {
+                $update_stmt->bind_param(
+                    "siissssssssdssi",
+                    $asset_name,
+                    $category_id,
+                    $quantity,
+                    $item_no,
+                    $page_no,
+                    $gem_order_no,
+                    $gem_invoice_no,
+                    $gpr_no,
+                    $pr_page_no,
+                    $gpr_item_no,
+                    $location,
+                    $date_of_issue,
+                    $cost,
+                    $assigned_to,
+                    $remarks_value,
+                    $asset_id
+                );
+            } else {
+                $update_stmt->bind_param(
+                    "siisssssssssdssi",
+                    $asset_name,
+                    $category_id,
+                    $quantity,
+                    $item_no,
+                    $page_no,
+                    $gem_order_no,
+                    $gem_invoice_no,
+                    $gpr_no,
+                    $pr_page_no,
+                    $gpr_item_no,
+                    $location,
+                    $date_of_issue,
+                    $cost,
+                    $assigned_to,
+                    $remarks_value,
+                    $asset_id
+                );
+            }
 
             if ($update_stmt->execute()) {
                 // --- START NOTIFICATION LOGIC ---
@@ -136,6 +208,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($new_user_id && $new_user_id != $_SESSION['user_id']) {
                         create_notification($conn, $new_user_id, "Asset '{$original_asset_name}' has been assigned to you.", $link);
                     }
+                }
+
+                // Loan notification
+                if (!empty($loan_to) && $asset['status'] !== 'Loaned') {
+                    $loan_message = "Asset '{$original_asset_name}' was loaned to " . htmlspecialchars($loan_to) . " by {$editor_name}.";
+                    create_admin_notification($conn, $loan_message, $link, $_SESSION['user_id']);
+                } elseif (empty($loan_to) && !empty($asset['loan_to'])) {
+                    $return_message = "Asset '{$original_asset_name}' was returned from loan by {$editor_name}.";
+                    create_admin_notification($conn, $return_message, $link, $_SESSION['user_id']);
                 }
 
                 // 2. Notify admins about other major changes by non-admins
@@ -353,6 +434,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#1e3271] focus:border-[#1e3271] outline-none transition-all bg-white">
                         <option value="">Loading faculty...</option>
                     </select>
+                </div>
+            </div>
+
+            <!-- Row 8: Loan To | Loan Duration -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                <div>
+                    <label for="loanTo" class="block text-sm font-medium text-slate-700 mb-1">Loan To</label>
+                    <input type="text" id="loanTo" name="loan_to" value="<?php echo htmlspecialchars($asset['loan_to'] ?? ''); ?>" placeholder="e.g. Mech Dept."
+                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#1e3271] focus:border-[#1e3271] outline-none transition-all">
+                </div>
+                <div>
+                    <label for="loanTime" class="block text-sm font-medium text-slate-700 mb-1">Loan Duration (days)</label>
+                    <input type="number" id="loanTime" name="loan_time" value="" min="1" placeholder="e.g. 15"
+                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#1e3271] focus:border-[#1e3271] outline-none transition-all">
                 </div>
             </div>
 

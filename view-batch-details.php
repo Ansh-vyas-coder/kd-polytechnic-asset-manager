@@ -248,9 +248,9 @@ if (strpos($batch_id, 'batch_uncategorized_') === 0) {
 
 if ($filter_status === 'retired') {
      $sql .= " AND retire_at IS NOT NULL";
- } else {
-     $sql .= " AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)";
- }
+  } else {
+      $sql .= " AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)";
+  }
 
 if ($filter_status !== 'all' && $filter_status !== 'retired') {
     $sql .= " AND LOWER(status) = ?";
@@ -529,7 +529,7 @@ if (!function_exists('getInitials')) {
                                             ?>
                                             <tr class="text-gray-600">
                                                 <td class="px-6 py-4 bulk-edit-checkbox-col hidden">
-                                                    <input type="checkbox" class="bulk-edit-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" data-item-id="<?php echo htmlspecialchars($item['id']); ?>" data-asset-no="<?php echo htmlspecialchars($item['asset_no']); ?>" data-quantity="<?php echo htmlspecialchars($item['quantity']); ?>" data-assigned-to="<?php echo htmlspecialchars($item['assigned_to']); ?>" data-location="<?php echo htmlspecialchars($item['location']); ?>" data-status="<?php echo htmlspecialchars($item['status']); ?>" data-remarks="<?php echo htmlspecialchars($item['remarks']); ?>" data-transfer-to="<?php echo htmlspecialchars($item['transfer_to'] ?? ''); ?>">
+                                                     <input type="checkbox" class="bulk-edit-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" data-item-id="<?php echo htmlspecialchars($item['id']); ?>" data-asset-no="<?php echo htmlspecialchars($item['asset_no']); ?>" data-quantity="<?php echo htmlspecialchars($item['quantity']); ?>" data-assigned-to="<?php echo htmlspecialchars($item['assigned_to']); ?>" data-location="<?php echo htmlspecialchars($item['location']); ?>" data-status="<?php echo htmlspecialchars($item['status']); ?>" data-remarks="<?php echo htmlspecialchars($item['remarks']); ?>" data-transfer-to="<?php echo htmlspecialchars($item['transfer_to'] ?? ''); ?>" data-loan-to="<?php echo htmlspecialchars($item['loan_to'] ?? ''); ?>">
                                                 </td>
                                                 <td class="px-6 py-4 font-mono text-xs"><?php echo htmlspecialchars($item['item_no']); ?></td>
                                                 <td class="px-6 py-4 font-mono text-xs"><?php echo htmlspecialchars($item['asset_no']); ?></td>
@@ -552,17 +552,18 @@ if (!function_exists('getInitials')) {
                                                     <td class="px-6 py-4 text-sm whitespace-nowrap">
                                                         <?php if ($is_admin): ?>
 <button type="button"
-																 class="edit-item-btn text-blue-600 hover:text-blue-800 font-medium mr-2"
-                                                                data-id="<?php echo htmlspecialchars($item['id']); ?>"
-                                                                data-asset-no="<?php echo htmlspecialchars($item['asset_no']); ?>"
-                                                                data-quantity="<?php echo htmlspecialchars($item['quantity']); ?>"
-                                                                data-assigned-to="<?php echo htmlspecialchars($item['assigned_to']); ?>"
-																 data-location="<?php echo htmlspecialchars($item['location']); ?>"
-																 data-status="<?php echo htmlspecialchars($item['status']); ?>"
-																 data-remarks="<?php echo htmlspecialchars($item['remarks']); ?>"
-																 data-transfer-to="<?php echo htmlspecialchars($item['transfer_to'] ?? ''); ?>">
-																 Edit
-                                                            </button>
+    class="edit-item-btn text-blue-600 hover:text-blue-800 font-medium mr-2"
+    data-id="<?php echo htmlspecialchars($item['id']); ?>"
+    data-asset-no="<?php echo htmlspecialchars($item['asset_no']); ?>"
+    data-quantity="<?php echo htmlspecialchars($item['quantity']); ?>"
+    data-assigned-to="<?php echo htmlspecialchars($item['assigned_to']); ?>"
+    data-location="<?php echo htmlspecialchars($item['location']); ?>"
+    data-status="<?php echo htmlspecialchars($item['status']); ?>"
+    data-remarks="<?php echo htmlspecialchars($item['remarks']); ?>"
+    data-transfer-to="<?php echo htmlspecialchars($item['transfer_to'] ?? ''); ?>"
+    data-loan-to="<?php echo htmlspecialchars($item['loan_to'] ?? ''); ?>">
+    Edit
+</button>
                                                             <button type="button"
                                                                 class="retire-item-btn text-red-600 hover:text-red-800 font-medium"
                                                                 data-id="<?php echo htmlspecialchars($item['id']); ?>"
@@ -806,6 +807,14 @@ if (!function_exists('getInitials')) {
                         <div>
                             <label for="item_transfer_to" class="block text-sm font-medium text-gray-700 mb-1">Transfer To</label>
                             <input type="text" name="transfer_to" id="item_transfer_to" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                        </div>
+                        <div>
+                            <label for="item_loan_to" class="block text-sm font-medium text-gray-700 mb-1">Loan To</label>
+                            <input type="text" name="loan_to" id="item_loan_to" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="e.g. Mech Dept.">
+                        </div>
+                        <div>
+                            <label for="item_loan_time" class="block text-sm font-medium text-gray-700 mb-1">Loan Duration (days)</label>
+                            <input type="number" name="loan_time" id="item_loan_time" min="1" class="w-full px-3 py-2 text-sm rounded-md bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="e.g. 15">
                         </div>
                         <div>
                             <label for="item_remarks" class="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
@@ -1054,12 +1063,14 @@ if (!function_exists('getInitials')) {
                 const remarksTextarea = document.getElementById('item_remarks');
                 const transferToInput = document.getElementById('item_transfer_to');
                 const locationSelect = document.getElementById('item_location');
+                const loanToInput = document.getElementById('item_loan_to');
                 if (!remarksTextarea || !transferToInput || !locationSelect) return;
 
                 let currentValue = remarksTextarea.value || '';
                 const originalLocation = remarksTextarea.dataset.originalLocation || '';
                 const transferTo = transferToInput.value.trim();
                 const currentLocation = locationSelect.value.trim();
+                const loanTo = loanToInput ? loanToInput.value.trim() : '';
 
                 if (transferTo) {
                     currentValue = upsertRemarkBlock(
@@ -1074,6 +1085,16 @@ if (!function_exists('getInitials')) {
                         currentValue,
                         'Lab Reassign Note',
                         buildBulkActionNote('reassigned to', currentLocation)
+                    );
+                }
+
+                if (loanTo) {
+                    const loanTimeInput = document.getElementById('item_loan_time');
+                    const loanDays = loanTimeInput ? Math.max(1, parseInt(loanTimeInput.value || '1', 10)) : 1;
+                    currentValue = upsertRemarkBlock(
+                        currentValue,
+                        'Loan Note',
+                        buildBulkActionNote('loaned to', loanTo + ' for ' + loanDays + ' day(s)')
                     );
                 }
 
@@ -1182,6 +1203,8 @@ if (!function_exists('getInitials')) {
                         remarksTextarea.value = firstItem.dataset.remarks || '';
                         remarksTextarea.dataset.originalLocation = firstItem.dataset.location || '';
                         transferToInput.value = firstItem.dataset.transferTo || '';
+                        document.getElementById('item_loan_to').value = firstItem.dataset.loanTo || '';
+                        document.getElementById('item_loan_time').value = '';
                         itemEditModal.dataset.currentItemId = firstItem.dataset.itemId || '';
                         itemEditModal.dataset.currentAssetNo = firstItem.dataset.assetNo || '';
                         itemEditModal.dataset.currentQuantity = firstItem.dataset.quantity || '1';
@@ -1306,6 +1329,8 @@ document.querySelectorAll('.edit-item-btn').forEach(button => {
                         document.getElementById('item_remarks').value = remarks;
                         document.getElementById('item_remarks').dataset.originalLocation = location || '';
                         document.getElementById('item_transfer_to').value = transferTo || '';
+                        document.getElementById('item_loan_to').value = this.dataset.loanTo || '';
+                        document.getElementById('item_loan_time').value = '';
                         itemEditModal.dataset.currentItemId = id || '';
                         itemEditModal.dataset.currentAssetNo = this.dataset.assetNo || '';
                         itemEditModal.dataset.currentQuantity = this.dataset.quantity || '1';
@@ -1396,7 +1421,7 @@ document.querySelectorAll('.edit-item-btn').forEach(button => {
             }
 
             document.addEventListener('input', function(e) {
-                if (e.target && (e.target.id === 'item_remarks' || e.target.id === 'item_transfer_to')) {
+                if (e.target && (e.target.id === 'item_remarks' || e.target.id === 'item_transfer_to' || e.target.id === 'item_loan_to' || e.target.id === 'item_loan_time')) {
                     syncBulkRemarksPreview();
                 }
             });
