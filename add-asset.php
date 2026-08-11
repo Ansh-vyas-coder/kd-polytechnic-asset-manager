@@ -741,7 +741,8 @@ if (!$embedMode) {
 
         if (row.remarks)       document.getElementById('remarks').value = row.remarks;
         if (row.pr_page_no)    document.getElementById('pr_page_no').value = row.pr_page_no;
-        document.getElementById('gem_order_no').value = '';  // always blank
+        if (row.gem_order_no)  document.getElementById('gem_order_no').value = String(row.gem_order_no).trim();
+        else                   document.getElementById('gem_order_no').value = '';
 
         // page_no from top-right corner — overrides auto-suggestion
         if (row.page_no)       document.getElementById('page_no').value = String(row.page_no).trim();

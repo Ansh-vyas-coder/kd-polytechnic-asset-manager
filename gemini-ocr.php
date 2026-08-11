@@ -27,30 +27,43 @@ if (strpos($base64Image, 'data:image/') === 0) {
     $base64Image = $parts[1];
 }
 
-$prompt = 'You are an expert OCR system specializing in tabular data and bilingual text (English and Gujarati handwritten and printed text). 
-I will provide you with an image of a physical asset register.
-Your task is to extract the table rows and return them as a JSON array of objects.
+$prompt = 'You are an expert OCR system specializing in extracting asset details from BOTH physical stock register images and government GeM Invoices.
+Your task is to analyze the provided image, extract the data rows, and return them as a JSON array of objects.
 
-CRITICAL INSTRUCTIONS:
-1. Some entries span MULTIPLE lines in the image (e.g., a long asset name might wrap to the next line within the same row cell). You MUST intelligently merge multi-line text into a single entry for that cell. Do NOT create separate rows for wrapped text.
-2. FIRST, look at the title/header of the register at the top of the image (e.g., "Departmental Stores Consumable Register", "Dead Stock Register", "Furniture Register", "Expandable Register"). Based on this title, determine the register category.
-3. ALSO look at the very top-right corner of the image. There may be a small handwritten or printed page/folio number there (e.g., "3", "12", "46"). Extract this as the page_no. If there is no such number visible in the top-right corner, return empty string.
-4. The columns in the register usually include: Date of Receipt, Pg No of G.P.R. entry, Opening Balance, Indent No & Date, Quantity received, Total Qty, Initial of HOD, Name of section, Qty issued, Date of issue, Closing Balance, Bill No, Item No / I No, Remarks, etc.
-5. Map the extracted data to the following JSON keys for EACH ROW:
-   - "category": ONE of these exact values based on the register title: "Consumables" (for consumable register), "Expandable" (for expandable register), "Deadstock" (for dead stock/deadstock register), "Furniture" (for furniture register). If unclear, return empty string.
-   - "page_no": Look closely at the very top-right corner of the page, inside or near the round stamp/seal. There is often a handwritten page number written in ink (for example, "48" written in purple ink inside the circle). Extract ONLY this handwritten digit/number. Same value for all rows. Empty string if not found.
-   - "item_no": Value from the "Item No" or "I No" or "I-No" column in the row. This is the serial item number. Empty string if not present.
-   - "date_of_issue": Date of Receipt or Date of issue (YYYY-MM-DD format if possible, otherwise the string as written).
-   - "pr_page_no": Pg No of G.P.R entry (the GPR page reference number).
-   - "gem_order_no": Leave this field as an EMPTY STRING.
-   - "gem_invoice_no": Value from the "Bill No" or "Bill Number" column. Only extract the number itself (e.g., if it says "Bill No 14832 Dt. 24/10/17" or "Bill No. 880", extract "14832" or "880"). Exclude any date part (like "Dt. 24/10/17" or "date...").
-   - "quantity": Quantity Received or Total Qty (numeric).
-   - "unit": The unit of quantity (e.g. "pcs", "mtr", "liter", "box", "kg"). Look for units near the quantity number or in the column header. By default, use "pcs".
-   - "opening_balance": The value from the "Opening Balance" column (numeric, can be decimal). Empty string if not present.
-   - "location": Name of section.
-   - "asset_name": Name of Material. If the material name spans the Indent column too, merge them intelligently.
-   - "remarks": Any remarks or extra info.
-6. ONLY return a valid JSON array of objects. Do not include markdown formatting like ```json or any other text.';
+Identify if the document is a GeM Invoice (typically has GeM logo, Seller Details, Shipping To, Product Description table at bottom) or a physical stock register page.
+
+CRITICAL INSTRUCTIONS FOR GE M INVOICES:
+1. Locate "GeM Invoice No" (e.g., "GEM-77000376") and extract it as gem_invoice_no.
+2. Locate "Order No" (e.g., "GEMC-511687775489539") and extract it as gem_order_no.
+3. Locate "GeM Invoice Date" (e.g., "20-Jul-2026") or "Dispatch Date". Convert to YYYY-MM-DD format (e.g., 2026-07-20) and extract as date_of_issue.
+4. From the product table, each row represents an asset item:
+   - "asset_name": Extracted from "Product Description" column (e.g., "RASPBERRY PI Digital Signal Processing Board").
+   - "quantity": Extracted from "Supplied Qty" or "Quantity" column (digits only).
+   - "unit": Measurement unit (e.g. "pieces" -> "pcs", "meters" -> "mtr", default "pcs").
+   - "opening_balance": The total price inclusive of all taxes for that item (e.g., "Rs. 17052.600" -> extract "17052.60").
+   - "location": Default to empty string.
+   - "page_no": Default to empty string.
+   - "item_no": Default to empty string.
+   - "pr_page_no": Default to empty string.
+   - "category": Infer category based on product description (e.g. electronics/boards -> "Deadstock", furniture -> "Furniture", consumables like toner/cables -> "Consumables").
+
+CRITICAL INSTRUCTIONS FOR PHYSICAL STOCK REGISTERS:
+1. FIRST, determine register category from title at the top (e.g., "Departmental Stores Consumable Register" -> "Consumables").
+2. Look at the very top-right corner of the page for a handwritten page number (e.g. "48") and extract as page_no.
+3. Extract each row:
+   - "asset_name": Name of Material/Article.
+   - "quantity": Quantity received.
+   - "unit": Unit of measure (default "pcs").
+   - "item_no": Serial/item number from "Item No" or "I No" column.
+   - "date_of_issue": Date of receipt or issue.
+   - "pr_page_no": GPR page number.
+   - "gem_order_no": Leave as empty string.
+   - "gem_invoice_no": Invoice/Bill number from "Bill No" column (exclude date suffix).
+   - "opening_balance": Value from "Opening Balance" column.
+   - "category": Match register title ("Consumables", "Expandable", "Deadstock", "Furniture").
+
+Map all fields to these JSON keys: "category", "page_no", "item_no", "date_of_issue", "pr_page_no", "gem_order_no", "gem_invoice_no", "quantity", "unit", "opening_balance", "location", "asset_name", "remarks".
+ONLY return a valid JSON array of objects. Do not include markdown formatting like ```json or any other text.';
 
 $url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
 
