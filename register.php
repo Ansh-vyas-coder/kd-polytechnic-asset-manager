@@ -21,11 +21,66 @@ $category_register_titles = [
 // Fetch distinct pages for the selected category
 $selectedCategory = isset($_GET['category']) && isset($category_names[(int)$_GET['category']]) ? (int)$_GET['category'] : 1;
 
+// Ensure register_page_notes table exists
+$conn->query("
+    CREATE TABLE IF NOT EXISTS register_page_notes (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        category_id INT NOT NULL,
+        page_no VARCHAR(100) NOT NULL,
+        notes TEXT NULL,
+        UNIQUE KEY (category_id, page_no)
+    )
+");
+
+// Handle POST actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    if ($_POST['action'] === 'add_blank_page') {
+        $selectedCategory = (int)$_POST['category_id'];
+        $max_sql = "
+            SELECT MAX(CAST(page_no AS UNSIGNED)) as max_page 
+            FROM (
+                SELECT page_no, category_id FROM assets
+                UNION
+                SELECT page_no, category_id FROM register_page_notes
+            ) as combined_pages
+            WHERE category_id = " . $selectedCategory . "
+              AND page_no REGEXP '^[0-9]+$'
+        ";
+        $max_res = $conn->query($max_sql);
+        $new_page_no = 1;
+        if ($max_res && $max_row = $max_res->fetch_assoc()) {
+            if ($max_row['max_page'] !== null) {
+                $new_page_no = (int)$max_row['max_page'] + 1;
+            }
+        }
+        $stmt = $conn->prepare("INSERT INTO register_page_notes (category_id, page_no, notes) VALUES (?, ?, '') ON DUPLICATE KEY UPDATE notes=notes");
+        $stmt->bind_param("is", $selectedCategory, $new_page_no);
+        if ($stmt->execute()) {
+            $stmt->close();
+            // Use JS redirect — PHP header() won't work here because
+            // dashboard.php already sent HTML output before including register.php
+            $redirect_url = "dashboard.php?view=register&category=" . $selectedCategory . "&page_no=" . $new_page_no;
+            echo "<script>window.location.href=" . json_encode($redirect_url) . ";</script>";
+            exit();
+        }
+    }
+}
+
 // Fetch all pages grouped by category for dynamic dropdowns in the export modal
 $export_pages = [];
 for ($c_id = 1; $c_id <= 4; $c_id++) {
     $export_pages[$c_id] = [];
-    $p_sql = "SELECT DISTINCT page_no FROM assets WHERE category_id = $c_id AND TRIM(COALESCE(page_no, '')) <> '' ORDER BY CAST(page_no AS UNSIGNED) ASC, page_no ASC";
+    $p_sql = "
+        SELECT DISTINCT page_no 
+        FROM (
+            SELECT page_no, category_id FROM assets
+            UNION
+            SELECT page_no, category_id FROM register_page_notes
+        ) as combined_pages
+        WHERE category_id = $c_id 
+          AND TRIM(COALESCE(page_no, '')) <> '' 
+        ORDER BY CAST(page_no AS UNSIGNED) ASC, page_no ASC
+    ";
     $p_res = $conn->query($p_sql);
     if ($p_res) {
         while ($p_row = $p_res->fetch_assoc()) {
@@ -35,7 +90,17 @@ for ($c_id = 1; $c_id <= 4; $c_id++) {
 }
 
 $groups = [];
-$sql = "SELECT DISTINCT page_no AS group_value FROM assets WHERE category_id = " . (int)$selectedCategory . " AND TRIM(COALESCE(page_no, '')) <> '' ORDER BY CAST(page_no AS UNSIGNED) ASC, page_no ASC";
+$sql = "
+    SELECT DISTINCT page_no AS group_value 
+    FROM (
+        SELECT page_no, category_id FROM assets
+        UNION
+        SELECT page_no, category_id FROM register_page_notes
+    ) as combined_pages
+    WHERE category_id = " . (int)$selectedCategory . " 
+      AND TRIM(COALESCE(page_no, '')) <> '' 
+    ORDER BY CAST(page_no AS UNSIGNED) ASC, page_no ASC
+";
 $result = $conn->query($sql);
 
 if ($result) {
@@ -110,6 +175,16 @@ if ($page_index >= $total_pages) $page_index = max(0, $total_pages - 1);
 
 $current_group = $groups[$page_index];
 $register_title = $category_register_titles[$selectedCategory];
+
+$current_page_no = $current_group['label'];
+$page_notes = '';
+if ($current_page_no !== '-') {
+    $notes_sql = "SELECT notes FROM register_page_notes WHERE category_id = " . (int)$selectedCategory . " AND page_no = '" . $conn->real_escape_string($current_page_no) . "'";
+    $notes_res = $conn->query($notes_sql);
+    if ($notes_res && $notes_row = $notes_res->fetch_assoc()) {
+        $page_notes = $notes_row['notes'] ?? '';
+    }
+}
 ?>
 
 <style>
@@ -335,7 +410,61 @@ $register_title = $category_register_titles[$selectedCategory];
             background-size: 100% 32px;
         }
         .reg-table { min-width: 100%; font-size: 0.7rem; }
+        .print-only { display: block !important; }
     }
+
+    /* ---- Editable cells ---- */
+    .edit-cell {
+        outline: none;
+        cursor: text;
+        min-height: 20px;
+        border-radius: 3px;
+        transition: background 0.15s, box-shadow 0.15s;
+    }
+    .edit-cell:hover { background: rgba(59,130,246,0.07); }
+    .edit-cell:focus {
+        background: #fffbe6;
+        box-shadow: 0 0 0 2px rgba(234,179,8,0.4);
+    }
+    .edit-cell.saving { opacity: 0.5; }
+
+    /* ---- Page notes (doc-like) ---- */
+    .page-notes-wrap {
+        position: relative;
+        margin-bottom: 8px;
+    }
+    .page-notes-editable {
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 0.9rem;
+        color: #1a1a1a;
+        outline: none;
+        min-height: 38px;
+        padding: 6px 8px;
+        border-radius: 4px;
+        white-space: pre-wrap;
+        word-break: break-word;
+        transition: background 0.15s, box-shadow 0.15s;
+        border: 1.5px dashed transparent;
+    }
+    .page-notes-editable:hover { border-color: #fbbf24; background: rgba(251,191,36,0.06); }
+    .page-notes-editable:focus { background: #fffbe6; border-color: #fbbf24; box-shadow: 0 0 0 2px rgba(234,179,8,0.3); }
+    .page-notes-editable:empty:before {
+        content: attr(data-placeholder);
+        color: #bbb;
+        font-style: italic;
+        pointer-events: none;
+    }
+    .notes-save-indicator {
+        position: absolute;
+        right: 8px;
+        top: 6px;
+        font-size: 0.68rem;
+        color: #16a34a;
+        opacity: 0;
+        transition: opacity 0.4s;
+        font-weight: 600;
+    }
+    .print-only { display: none; }
 </style>
 
 <div class="reg-wrap space-y-0 pb-10">
@@ -347,6 +476,13 @@ $register_title = $category_register_titles[$selectedCategory];
             <p class="text-sm text-slate-500">Exact replica of the physical departmental register.</p>
         </div>
         <div class="flex gap-2">
+            <form method="POST" action="dashboard.php?view=register&category=<?php echo $selectedCategory; ?>" class="inline m-0">
+                <input type="hidden" name="action" value="add_blank_page">
+                <input type="hidden" name="category_id" value="<?php echo $selectedCategory; ?>">
+                <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-700 transition no-print" title="Adds a new blank writable page at the end of this register">
+                    ➕ Add Blank Page
+                </button>
+            </form>
             <button onclick="openExportModal()" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition no-print">
                 📥 Export / Download
             </button>
@@ -399,8 +535,27 @@ $register_title = $category_register_titles[$selectedCategory];
         </div>
     <?php endif; ?>
 
+    <?php if ($current_page_no !== '-'): ?>
+    <!-- Doc-like Page Notes (click anywhere to write) -->
+    <div class="page-notes-wrap no-print">
+        <div
+            id="pageNotesEditable"
+            class="page-notes-editable"
+            contenteditable="true"
+            data-page="<?php echo htmlspecialchars($current_page_no); ?>"
+            data-category="<?php echo $selectedCategory; ?>"
+            data-placeholder="📝 Click here to write page formalities, HOD initials, verification notes or audit remarks..."
+        ><?php echo htmlspecialchars($page_notes); ?></div>
+        <span class="notes-save-indicator" id="notesSaveIndicator">✓ Saved</span>
+    </div>
+    <?php endif; ?>
+
     <!-- The Register Sheet -->
     <div class="reg-sheet">
+
+        <?php if (!empty($page_notes)): ?>
+        <div class="print-only" style="padding:6px 8px; margin-bottom:8px; border:1px solid #aaa; font-size:0.8rem; white-space:pre-wrap; font-style:italic;"><strong>Page Notes / Formalities:</strong><br><?php echo htmlspecialchars($page_notes); ?></div>
+        <?php endif; ?>
 
         <!-- Header Area -->
         <div class="reg-header-area">
@@ -562,11 +717,18 @@ $register_title = $category_register_titles[$selectedCategory];
                 for ($i = $filled; $i < $min_rows; $i++):
                 ?>
                 <tr>
-                    <td></td><td></td><td></td><td></td><td></td>
+                    <td><span class="edit-cell" contenteditable="true" data-col="item_no" data-page="<?php echo htmlspecialchars($current_page_no); ?>" data-cat="<?php echo $selectedCategory; ?>"></span></td>
+                    <td><span class="edit-cell" contenteditable="true" data-col="pr_page_no" data-page="<?php echo htmlspecialchars($current_page_no); ?>" data-cat="<?php echo $selectedCategory; ?>"></span></td>
+                    <td><span class="edit-cell" contenteditable="true" data-col="gem_invoice_no" data-page="<?php echo htmlspecialchars($current_page_no); ?>" data-cat="<?php echo $selectedCategory; ?>"></span></td>
+                    <td><span class="edit-cell" contenteditable="true" data-col="quantity" data-page="<?php echo htmlspecialchars($current_page_no); ?>" data-cat="<?php echo $selectedCategory; ?>"></span></td>
+                    <td><span class="edit-cell" contenteditable="true" data-col="cost" data-page="<?php echo htmlspecialchars($current_page_no); ?>" data-cat="<?php echo $selectedCategory; ?>"></span></td>
                     <td class="sig-cell"></td><td class="sig-cell"></td>
-                    <td></td><td></td><td></td><td></td>
+                    <td><span class="edit-cell" contenteditable="true" data-col="asset_no" data-page="<?php echo htmlspecialchars($current_page_no); ?>" data-cat="<?php echo $selectedCategory; ?>"></span></td>
+                    <td><span class="edit-cell" contenteditable="true" data-col="asset_name" data-page="<?php echo htmlspecialchars($current_page_no); ?>" data-cat="<?php echo $selectedCategory; ?>"></span></td>
+                    <td><span class="edit-cell" contenteditable="true" data-col="quantity" data-page="<?php echo htmlspecialchars($current_page_no); ?>" data-cat="<?php echo $selectedCategory; ?>"></span></td>
+                    <td><span class="edit-cell" contenteditable="true" data-col="date_of_issue" data-page="<?php echo htmlspecialchars($current_page_no); ?>" data-cat="<?php echo $selectedCategory; ?>"></span></td>
                     <td class="sig-cell"></td><td class="sig-cell"></td><td class="sig-cell"></td>
-                    <td></td>
+                    <td><span class="edit-cell" contenteditable="true" data-col="remarks" data-page="<?php echo htmlspecialchars($current_page_no); ?>" data-cat="<?php echo $selectedCategory; ?>"></span></td>
                 </tr>
                 <?php endfor; ?>
             </tbody>
@@ -779,4 +941,75 @@ $register_title = $category_register_titles[$selectedCategory];
             saveBtn.textContent = originalText;
         });
     }
+
+    // ─── Page Notes auto-save ───────────────────────────────────────────────────
+    (function () {
+        const el = document.getElementById('pageNotesEditable');
+        if (!el) return;
+        const indicator = document.getElementById('notesSaveIndicator');
+        let saveTimer = null;
+
+        function saveNotes() {
+            const page  = el.dataset.page;
+            const catId = el.dataset.category;
+            const notes = el.innerText;
+
+            const fd = new FormData();
+            fd.append('action', 'save_page_notes');
+            fd.append('category_id', catId);
+            fd.append('page_no', page);
+            fd.append('notes', notes);
+
+            fetch('register-ajax.php', { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success) {
+                        indicator.style.opacity = '1';
+                        setTimeout(() => { indicator.style.opacity = '0'; }, 2000);
+                    }
+                })
+                .catch(() => {});
+        }
+
+        // Debounce: save 1 sec after user stops typing
+        el.addEventListener('input', () => {
+            clearTimeout(saveTimer);
+            saveTimer = setTimeout(saveNotes, 1000);
+        });
+        el.addEventListener('blur', () => {
+            clearTimeout(saveTimer);
+            saveNotes();
+        });
+
+        // Prevent Enter from inserting <div> — use newline instead
+        el.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                document.execCommand('insertLineBreak');
+            }
+        });
+    })();
+
+    // ─── Filler cell contenteditable: save to localStorage (no DB needed for temp notes) ─
+    // These are purely local scratch notes in the filler rows.
+    // We use localStorage so notes persist across page navigations without needing a DB row per cell.
+    (function () {
+        const storageKey = (cat, page, col, rowIdx) => `regcell_${cat}_${page}_${col}_${rowIdx}`;
+
+        document.querySelectorAll('.edit-cell[contenteditable]').forEach((cell, idx) => {
+            const col  = cell.dataset.col;
+            const page = cell.dataset.page;
+            const cat  = cell.dataset.cat;
+            // Compute row index within this set of filler cells by position
+            const key  = storageKey(cat, page, col, idx);
+
+            // Restore from localStorage
+            const saved = localStorage.getItem(key);
+            if (saved) cell.innerText = saved;
+
+            cell.addEventListener('blur', () => {
+                localStorage.setItem(key, cell.innerText);
+            });
+        });
+    })();
 </script>

@@ -141,4 +141,18 @@ CREATE TABLE IF NOT EXISTS audit_items (
 
 -- 9. UNIT COLUMN (for quantity measurement)
 ALTER TABLE assets
-    ADD COLUMN IF NOT EXISTS unit VARCHAR(20) NOT NULL DEFAULT 'pcs' AFTER quantity;
+    ADD COLUMN IF NOT EXISTS unit VARCHAR(20) NOT NULL DEFAULT 'pcs' AFTER quantity;
+
+-- 10. VIRTUAL REGISTER PAGE NOTES TABLE
+-- Stores admin-written formalities, HOD initials, verification/audit remarks
+-- for each page of each register category.
+-- A blank page added via "Add Blank Page" button also gets a row here (with empty notes).
+CREATE TABLE IF NOT EXISTS register_page_notes (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    category_id INT          NOT NULL,          -- 1=Expandable 2=Consumables 3=Deadstock 4=Furniture
+    page_no     VARCHAR(100) NOT NULL,           -- Physical page number (e.g. '1', '2', '14A')
+    notes       TEXT         NULL,              -- Free-form text written by admin on the register page
+    created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_cat_page (category_id, page_no)
+);
