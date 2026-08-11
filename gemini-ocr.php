@@ -14,17 +14,18 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $input = json_decode(file_get_contents('php://input'), true);
 
-if (!isset($input['image']) || empty($input['image'])) {
-    http_response_code(400);
-    echo json_encode(['error' => 'No image provided']);
-    exit;
-}
-
 $base64Image = $input['image'];
-// Remove data URI scheme prefix if present
-if (strpos($base64Image, 'data:image/') === 0) {
+$mimeType = 'image/jpeg';
+
+if (strpos($base64Image, 'data:') === 0) {
     $parts = explode(',', $base64Image);
+    $meta = $parts[0];
     $base64Image = $parts[1];
+    
+    // Extract mimetype (e.g. image/png, application/pdf, etc.)
+    if (preg_match('/data:([^;]+);/', $meta, $matches)) {
+        $mimeType = $matches[1];
+    }
 }
 
 $prompt = 'You are an expert OCR system specializing in extracting asset details from BOTH physical stock register images and government GeM Invoices.
@@ -74,7 +75,7 @@ $data = [
                 ['text' => $prompt],
                 [
                     'inlineData' => [
-                        'mimeType' => 'image/jpeg',
+                        'mimeType' => $mimeType,
                         'data' => $base64Image
                     ]
                 ]

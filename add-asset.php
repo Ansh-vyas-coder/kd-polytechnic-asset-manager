@@ -227,10 +227,21 @@ if (!$embedMode) {
 
                 <!-- ===== OCR Feature Section ===== -->
                 <div class="mb-6 rounded-xl border border-blue-100 bg-blue-50 p-5">
-                    <h3 class="mb-1 text-lg font-bold text-blue-900">&#128444; Auto-fill from Register Photo (OCR)</h3>
-                    <p class="mb-4 text-sm text-blue-700">Upload a photo of the physical register. Gemini AI will extract each row automatically so you can review and submit one by one.</p>
-                    <div class="flex flex-wrap items-center gap-3">
-                        <input type="file" id="ocrImage" accept="image/*" class="block text-sm text-slate-500 file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-700">
+                    <h3 class="mb-1 text-lg font-bold text-blue-900">&#128444; Auto-fill from Document (OCR)</h3>
+                    <p class="mb-4 text-sm text-blue-700">Upload either a Register Photo (Image) OR a GeM Invoice/Bill (Image or PDF). Gemini AI will extract each row automatically.</p>
+                    
+                    <div class="grid gap-5 md:grid-cols-2 mb-4">
+                        <div>
+                            <label class="mb-2 block text-xs font-semibold text-blue-800 uppercase tracking-wider">Option A: Register Scan (Photo)</label>
+                            <input type="file" id="ocrImage" accept="image/*" class="block w-full text-sm text-slate-500 file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-700">
+                        </div>
+                        <div>
+                            <label class="mb-2 block text-xs font-semibold text-blue-800 uppercase tracking-wider">Option B: GeM Invoice / Bill (PDF or Image)</label>
+                            <input type="file" id="ocrBill" accept="image/*,application/pdf" class="block w-full text-sm text-slate-500 file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-700">
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-3">
                         <button type="button" id="ocrExtractBtn" class="rounded-md bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700 disabled:opacity-60">Extract Data</button>
                     </div>
                     <div id="ocrStatus" class="mt-3 hidden text-sm font-medium"></div>
@@ -659,6 +670,7 @@ if (!$embedMode) {
     let ocrIndex = 0;
 
     const ocrImageInput  = document.getElementById('ocrImage');
+    const ocrBillInput   = document.getElementById('ocrBill');
     const ocrExtractBtn  = document.getElementById('ocrExtractBtn');
     const ocrStatus      = document.getElementById('ocrStatus');
     const ocrNavigation  = document.getElementById('ocrNavigation');
@@ -667,10 +679,16 @@ if (!$embedMode) {
     const ocrPrevBtn     = document.getElementById('ocrPrevBtn');
     const ocrNextBtn     = document.getElementById('ocrNextBtn');
 
+    // Enforce mutual exclusion
+    ocrImageInput.addEventListener('change', () => { if (ocrImageInput.files[0]) ocrBillInput.value = ''; });
+    ocrBillInput.addEventListener('change', () => { if (ocrBillInput.files[0]) ocrImageInput.value = ''; });
+
     ocrExtractBtn.addEventListener('click', async () => {
-        if (!ocrImageInput.files[0]) { alert('Please select an image first.'); return; }
+        const file = ocrImageInput.files[0] || ocrBillInput.files[0];
+        if (!file) { alert('Please select either a Register Photo OR a GeM Invoice/Bill to extract.'); return; }
+        
         ocrStatus.className = 'mt-3 text-sm font-medium text-blue-600';
-        ocrStatus.textContent = 'Analysing image with Gemini AI... please wait.';
+        ocrStatus.textContent = 'Analysing document with Gemini AI... please wait.';
         ocrStatus.classList.remove('hidden');
         ocrExtractBtn.disabled = true;
 
@@ -684,7 +702,7 @@ if (!$embedMode) {
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'API error');
-                if (!Array.isArray(data) || data.length === 0) throw new Error('No rows found in the image.');
+                if (!Array.isArray(data) || data.length === 0) throw new Error('No rows found in the document.');
 
                 ocrRows  = data;
                 ocrIndex = 0;
@@ -701,7 +719,7 @@ if (!$embedMode) {
                 ocrExtractBtn.disabled = false;
             }
         };
-        reader.readAsDataURL(ocrImageInput.files[0]);
+        reader.readAsDataURL(file);
     });
 
     function loadOcrRow(idx) {
