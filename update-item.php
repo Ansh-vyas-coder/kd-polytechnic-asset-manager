@@ -23,6 +23,8 @@ $location = isset($_POST['location']) ? trim($_POST['location']) : null;
 $status = isset($_POST['status']) ? trim($_POST['status']) : null;
 $remarks = isset($_POST['remarks']) ? trim($_POST['remarks']) : null;
 $transfer_to = isset($_POST['transfer_to']) ? trim($_POST['transfer_to']) : null;
+$loan_to = isset($_POST['loan_to']) ? trim($_POST['loan_to']) : null;
+$loan_time = isset($_POST['loan_time']) ? (int)$_POST['loan_time'] : 0;
 
 // Basic validation
 if ($id <= 0) {
@@ -44,7 +46,26 @@ if ($prep_stmt) {
 }
 // --- END NOTIFICATION PREP ---
 
-if (!empty($transfer_to)) {
+if (!empty($loan_to)) {
+    $loan_days = max(1, $loan_time);
+    $loan_note_body = remarks_build_loan_body([$old_asset_data], $loan_to, $loan_days);
+    $base_remarks = $remarks !== null ? $remarks : ($old_asset_data['remarks'] ?? '');
+    $loan_remarks = remarks_upsert_block($base_remarks, 'Loan Note', $loan_note_body);
+    $sql = "UPDATE assets SET 
+                status = 'Loaned',
+                loan_to = ?,
+                loan_date = NOW(),
+                return_date = DATE_ADD(NOW(), INTERVAL ? DAY),
+                remarks = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?";
+    $stmt = $conn->prepare($sql);
+    if ($stmt === false) {
+        echo json_encode(['status' => 'error', 'message' => 'Failed to prepare statement: ' . $conn->error]);
+        exit();
+    }
+    $stmt->bind_param("sisi", $loan_to, $loan_days, $loan_remarks, $id);
+} elseif (!empty($transfer_to)) {
     $transfer_note_body = remarks_build_transfer_body([$old_asset_data], $transfer_to, 'transferred to');
     $base_remarks = $remarks !== null ? $remarks : ($old_asset_data['remarks'] ?? '');
     $transfer_remarks = remarks_upsert_block($base_remarks, 'Transfer Note', $transfer_note_body);
@@ -103,7 +124,16 @@ if ($stmt->execute()) {
         $original_asset_name = htmlspecialchars($old_asset_data['asset_name']);
         $link = "view-batch-details.php?category_id={$old_asset_data['category_id']}&asset_name=" . urlencode($old_asset_data['asset_name']) . "&batch_id=" . urlencode($old_asset_data['batch_id']);
 
-        if (!empty($transfer_to)) {
+        if (!empty($loan_to)) {
+            $loan_days = max(1, $loan_time);
+            $message = "Asset '{$original_asset_name}' was loaned to " . htmlspecialchars($loan_to) . " for {$loan_days} day(s) by {$editor_name}.";
+            create_admin_notification($conn, $message, $link, $_SESSION['user_id'] ?? null);
+
+            $old_user_id = get_user_id_by_name($conn, $old_asset_data['assigned_to']);
+            if ($old_user_id && $old_user_id != $_SESSION['user_id']) {
+                create_notification($conn, $old_user_id, "Asset '{$original_asset_name}' is no longer assigned to you (loaned to " . htmlspecialchars($loan_to) . ").", $link);
+            }
+        } elseif (!empty($transfer_to)) {
             $message = "Asset '{$original_asset_name}' was transferred to " . htmlspecialchars($transfer_to) . " by {$editor_name}.";
             create_admin_notification($conn, $message, $link, $_SESSION['user_id'] ?? null);
 
