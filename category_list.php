@@ -11,69 +11,6 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-// --- START: Retire asset handling (merged from retire_asset.php) ---
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-        header("Location: dashboard.php?status=error&message=" . urlencode("Only admins can retire assets."));
-        exit();
-    }
-
-    $retireId = isset($_POST['id']) ? (int)$_POST['id'] : 0;
-
-    if ($retireId <= 0) {
-        header("Location: dashboard.php");
-        exit();
-    }
-
-    // Get asset information before deleting
-    $stmt = $conn->prepare("
-        SELECT category_id, asset_name
-        FROM assets
-        WHERE id = ?
-    ");
-
-    $stmt->bind_param("i", $retireId);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    if ($result->num_rows === 0) {
-        $stmt->close();
-        header("Location: dashboard.php");
-        exit();
-    }
-
-    $retiredAsset = $result->fetch_assoc();
-    $stmt->close();
-
-    // Delete asset
-    $stmt = $conn->prepare("
-        DELETE FROM assets
-        WHERE id = ?
-    ");
-
-    $stmt->bind_param("i", $retireId);
-
-    if ($stmt->execute()) {
-
-        header(
-            "Location: view-asset-details.php?category_id=" .
-            $retiredAsset['category_id'] .
-            "&asset_name=" .
-            urlencode($retiredAsset['asset_name'])
-        );
-
-    } else {
-
-        header(
-            "Location: category-list.php?id=" .
-            $retireId
-        );
-    }
-
-    $stmt->close();
-    exit();
-}
-// --- END: Retire asset handling ---
 
 // Get asset ID from URL
 $asset_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
@@ -400,39 +337,6 @@ function getInitials($name)
                                         Edit Asset
                                     </button>
 
-                                    <form id="retireForm" action="category_list.php" method="POST">
-
-                                    <input
-                                        type="hidden"
-                                        name="id"
-                                        value="<?php echo (int)$asset['id']; ?>">
-
-                                    <button
-                                        type="button"
-                                        onclick="retireAsset()"
-                                        class="w-full bg-white border border-[#fecaca] text-[#dc2626] hover:bg-red-50 font-medium py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors">
-
-                                        <svg xmlns="http://www.w3.org/2000/svg"
-                                            width="16"
-                                            height="16"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2">
-
-                                            <polyline points="3 6 5 6 21 6"></polyline>
-                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
-                                            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                            <line x1="10" y1="11" x2="10" y2="17"></line>
-                                            <line x1="14" y1="11" x2="14" y2="17"></line>
-
-                                        </svg>
-
-                                        Retire Asset
-
-                                    </button>
-
-                                    </form>
                                 </div>
                             <?php endif; ?>
                         </div>
@@ -483,65 +387,6 @@ function getInitials($name)
         </div>
     </div>
 
-    <!-- Retire Asset Confirmation Modal -->
-    <div id="retireModal"
-        class="fixed inset-0 bg-black/50 hidden items-center justify-center z-[999]">
-
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
-
-            <div class="p-6">
-
-                <div class="flex items-center gap-3 mb-4">
-                    <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                            class="w-6 h-6 text-red-600"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor">
-
-                            <path stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M12 9v2m0 4h.01M12 3L2 21h20L12 3z" />
-                        </svg>
-                    </div>
-
-                    <h2 class="text-lg font-semibold text-gray-900">
-                        Retire Asset
-                    </h2>
-                </div>
-
-                <p class="text-gray-700">
-                    Are you sure you want to retire this asset?
-                </p>
-
-                <p class="text-sm text-gray-500 mt-2">
-                    This action can't be undone.
-                </p>
-
-                <div class="flex justify-end gap-3 mt-8">
-
-                    <button
-                        onclick="closeRetireModal()"
-                        class="px-5 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition">
-
-                        Cancel
-                    </button>
-
-                    <button
-                        onclick="confirmRetire()"
-                        class="px-5 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition">
-
-                        Retire
-                    </button>
-
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
     <?php endif; ?>
 
     <script>
@@ -604,19 +449,6 @@ function getInitials($name)
             document.getElementById('editAssetModalContent').innerHTML = '';
         }
 
-        function retireAsset() {
-            document.getElementById("retireModal").classList.remove("hidden");
-            document.getElementById("retireModal").classList.add("flex");
-        }
-
-        function closeRetireModal() {
-            document.getElementById("retireModal").classList.add("hidden");
-            document.getElementById("retireModal").classList.remove("flex");
-        }
-
-        function confirmRetire() {
-            document.getElementById("retireForm").submit();
-        }
         <?php endif; ?>
     </script>
   <script src="loader/loader.js"></script>
