@@ -17,18 +17,74 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
 // Action Handler: Mark an asset as written-off (retired)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'mark_writeoff') {
     $asset_id = (int)($_POST['asset_id'] ?? 0);
+    $item_no_post = (int)($_POST['item_no'] ?? 0);
     $category_id = (int)($_POST['category'] ?? 1);
     $tab = $_POST['tab'] ?? 'candidates';
 
     $writeoff_reason = trim($_POST['writeoff_reason'] ?? '');
 
-    if ($asset_id > 0) {
+    if ($item_no_post > 0) {
+        $cutoff_date = date('Y-m-d', strtotime('-5 years'));
+        if ($writeoff_reason !== '') {
+            $stmt = $conn->prepare("UPDATE assets SET retire_at = NOW(), status = 'Retired', remarks = ? WHERE item_no = ? AND category_id = ? AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL) AND date_of_issue <= ?");
+            $stmt->bind_param("siis", $writeoff_reason, $item_no_post, $category_id, $cutoff_date);
+        } else {
+            $stmt = $conn->prepare("UPDATE assets SET retire_at = NOW(), status = 'Retired' WHERE item_no = ? AND category_id = ? AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL) AND date_of_issue <= ?");
+            $stmt->bind_param("iis", $item_no_post, $category_id, $cutoff_date);
+        }
+        if ($stmt->execute()) {
+            $stmt->close();
+            $redirect_url = "dashboard.php?view=write-off-assets&tab=" . urlencode($tab) . "&category=" . $category_id . "&status=writeoff_success";
+            echo "<script>window.location.href=" . json_encode($redirect_url) . ";</script>";
+            exit();
+        }
+        $stmt->close();
+    } elseif ($asset_id > 0) {
         if ($writeoff_reason !== '') {
             $stmt = $conn->prepare("UPDATE assets SET retire_at = NOW(), status = 'Retired', remarks = ? WHERE id = ? AND retire_at IS NULL");
             $stmt->bind_param("si", $writeoff_reason, $asset_id);
         } else {
             $stmt = $conn->prepare("UPDATE assets SET retire_at = NOW(), status = 'Retired' WHERE id = ? AND retire_at IS NULL");
             $stmt->bind_param("i", $asset_id);
+        }
+        if ($stmt->execute()) {
+            $stmt->close();
+            $redirect_url = "dashboard.php?view=write-off-assets&tab=" . urlencode($tab) . "&category=" . $category_id . "&status=writeoff_success";
+            echo "<script>window.location.href=" . json_encode($redirect_url) . ";</script>";
+            exit();
+        }
+        $stmt->close();
+    }
+    $redirect_url = "dashboard.php?view=write-off-assets&tab=" . urlencode($tab) . "&category=" . $category_id . "&status=writeoff_error";
+    echo "<script>window.location.href=" . json_encode($redirect_url) . ";</script>";
+    exit();
+}
+
+// Action Handler: Bulk write-off selected asset IDs
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'mark_writeoff_bulk') {
+    $asset_ids_raw = $_POST['asset_ids'] ?? [];
+    $asset_ids     = array_filter(array_map('intval', (array)$asset_ids_raw));
+    $category_id   = (int)($_POST['category'] ?? 1);
+    $tab           = $_POST['tab'] ?? 'candidates';
+    $writeoff_reason = trim($_POST['writeoff_reason'] ?? '');
+
+    if (!empty($asset_ids)) {
+        $placeholders = implode(',', array_fill(0, count($asset_ids), '?'));
+        $types = str_repeat('i', count($asset_ids));
+        if ($writeoff_reason !== '') {
+            $sql = "UPDATE assets SET retire_at = NOW(), status = 'Retired', remarks = ? WHERE id IN ($placeholders) AND retire_at IS NULL";
+            $stmt = $conn->prepare($sql);
+            $bind_params = array_merge([$writeoff_reason], $asset_ids);
+            $bind_types  = 's' . $types;
+            $refs = [$bind_types];
+            foreach ($bind_params as &$v) { $refs[] = &$v; }
+            call_user_func_array([$stmt, 'bind_param'], $refs);
+        } else {
+            $sql = "UPDATE assets SET retire_at = NOW(), status = 'Retired' WHERE id IN ($placeholders) AND retire_at IS NULL";
+            $stmt = $conn->prepare($sql);
+            $refs = [$types];
+            foreach ($asset_ids as &$v) { $refs[] = &$v; }
+            call_user_func_array([$stmt, 'bind_param'], $refs);
         }
         if ($stmt->execute()) {
             $stmt->close();
@@ -588,11 +644,11 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
 
         <div class="wo-list-head">
             <div>Sr</div>
-            <div>Asset No / Asset Name</div>
-            <div>Issue Date / Age</div>
-            <div><?php echo $active_tab === 'history' ? 'Written-Off Date' : 'Location / Faculty'; ?></div>
+            <div>Item No / Asset Name</div>
+            <div>Eligible Qty / Total Cost</div>
+            <div><?php echo $active_tab === 'history' ? 'Written-Off Date Range' : 'Locations / Faculty'; ?></div>
             <div>Status</div>
-            <div class="text-right"><?php echo $active_tab === 'candidates' ? 'Action' : 'Location'; ?></div>
+            <div class="text-right">Action</div>
         </div>
 
         <div>
@@ -600,65 +656,156 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
                 <div class="wo-empty py-12 text-center text-slate-500">
                     <?php echo $active_tab === 'history' ? 'No written-off assets found in this category.' : 'No 5+ years old write-off candidate assets found in this category.'; ?>
                 </div>
-            <?php else: ?>
-                <?php $sr_no = 1; ?>
-                <?php foreach ($selected_assets as $asset): ?>
-                    <?php
-                        $issue_time = strtotime($asset['date_of_issue']);
-                        $age_years = $issue_time ? date_diff(date_create($asset['date_of_issue']), date_create('today'))->y : 0;
-                        $holder = $asset['location'] ?: ($asset['assigned_to'] ?: 'N/A');
-                        $status = trim($asset['status'] ?: ($active_tab === 'history' ? 'Retired' : 'Active'));
-                        $retire_time = !empty($asset['retire_at']) ? strtotime($asset['retire_at']) : null;
-                        $retire_fmt = $retire_time ? date('d/m/Y H:i', $retire_time) : 'N/A';
-
-                        $statusClass = 'wo-status-active';
-                        if (stripos($status, 'maintenance') !== false) {
-                            $statusClass = 'wo-status-maintenance';
-                        } elseif (stripos($status, 'retire') !== false || stripos($status, 'write') !== false || $active_tab === 'history') {
-                            $statusClass = 'wo-status-retired';
+            <?php else:
+                // Group by item_no
+                $grouped = [];
+                foreach ($selected_assets as $asset) {
+                    $item_no = $asset['item_no'] ?: 'Uncategorized';
+                    if (!isset($grouped[$item_no])) {
+                        $grouped[$item_no] = [
+                            'item_no'           => $item_no,
+                            'asset_name'        => $asset['asset_name'],
+                            'page_no'           => $asset['page_no'],
+                            'date_of_issue_min' => $asset['date_of_issue'],
+                            'retire_at_max'     => $asset['retire_at'] ?? null,
+                            'total_cost'        => 0,
+                            'status'            => $asset['status'] ?: ($active_tab === 'history' ? 'Retired' : 'Active'),
+                            'locations'         => [],
+                            'items'             => []
+                        ];
+                    }
+                    $grouped[$item_no]['items'][] = $asset;
+                    $grouped[$item_no]['total_cost'] += (float)$asset['cost'];
+                    $loc = $asset['location'] ?: ($asset['assigned_to'] ?: 'N/A');
+                    if (!in_array($loc, $grouped[$item_no]['locations'])) {
+                        $grouped[$item_no]['locations'][] = $loc;
+                    }
+                    if (!empty($asset['date_of_issue']) && strtotime($asset['date_of_issue']) < strtotime($grouped[$item_no]['date_of_issue_min'])) {
+                        $grouped[$item_no]['date_of_issue_min'] = $asset['date_of_issue'];
+                    }
+                    // Track latest retire_at for history tab
+                    if (!empty($asset['retire_at'])) {
+                        if (empty($grouped[$item_no]['retire_at_max']) || strtotime($asset['retire_at']) > strtotime($grouped[$item_no]['retire_at_max'])) {
+                            $grouped[$item_no]['retire_at_max'] = $asset['retire_at'];
                         }
-                    ?>
-                    <div class="wo-list-row">
+                    }
+
+                $sr_no = 1;
+                foreach ($grouped as $item_no => $group):
+                    $items_count = count($group['items']);
+                    $holder_summary = implode(', ', array_slice($group['locations'], 0, 2));
+                    if (count($group['locations']) > 2) {
+                        $holder_summary .= ' (+' . (count($group['locations']) - 2) . ' more)';
+                    }
+                    $status = $group['status'];
+                    $statusClass = 'wo-status-active';
+                    if (stripos($status, 'maintenance') !== false) {
+                        $statusClass = 'wo-status-maintenance';
+                    } elseif (stripos($status, 'retire') !== false || stripos($status, 'write') !== false || $active_tab === 'history') {
+                        $statusClass = 'wo-status-retired';
+                    }
+            ?>
+                    <div class="wo-list-row" style="background: #ffffff; border-bottom: 1px solid #e2e8f0;">
                         <div class="wo-cell wo-sr"><?php echo $sr_no; ?></div>
 
                         <div class="wo-cell">
-                            <div class="wo-mono"><?php echo htmlspecialchars($asset['asset_no'] ?: 'N/A'); ?></div>
-                            <div class="wo-primary mt-0.5"><?php echo htmlspecialchars($asset['asset_name']); ?></div>
-                            <div class="wo-secondary">Item No: <?php echo htmlspecialchars($asset['item_no'] ?: 'N/A'); ?> | Page No: <?php echo htmlspecialchars($asset['page_no'] ?: 'N/A'); ?></div>
+                            <div class="flex items-center gap-2">
+                                <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100"><?php echo htmlspecialchars($item_no); ?></span>
+                                <div class="wo-primary capitalize"><?php echo htmlspecialchars($group['asset_name']); ?></div>
+                            </div>
+                            <?php
+                                $date_from = $group['date_of_issue_min'] ? date('d/m/Y', strtotime($group['date_of_issue_min'])) : 'N/A';
+                                if ($active_tab === 'history') {
+                                    $date_to_label = 'Written Off';
+                                    $date_to = !empty($group['retire_at_max']) ? date('d/m/Y', strtotime($group['retire_at_max'])) : 'N/A';
+                                } else {
+                                    $date_to_label = 'Today';
+                                    $date_to = date('d/m/Y');
+                                }
+                            ?>
+                            <div class="wo-secondary mt-1">Page No: <?php echo htmlspecialchars($group['page_no'] ?: 'N/A'); ?> | Issued: <?php echo $date_from; ?> → <?php echo $date_to_label; ?>: <strong><?php echo $date_to; ?></strong></div>
                         </div>
 
                         <div class="wo-cell">
-                            <div class="wo-meta"><?php echo $issue_time ? date('d/m/Y', $issue_time) : 'N/A'; ?></div>
-                            <div class="wo-secondary">Age: <strong class="text-slate-700"><?php echo (int)$age_years; ?> yrs</strong></div>
-                            <div class="wo-secondary">Cost: <strong class="text-slate-700">&#8377;<?php echo number_format((float)$asset['cost'], 2); ?></strong></div>
+                            <div class="wo-meta text-slate-800 font-bold"><?php echo $items_count; ?> Asset<?php echo $items_count !== 1 ? 's' : ''; ?></div>
+                            <div class="wo-secondary">Total Cost: &#8377;<?php echo number_format($group['total_cost'], 2); ?></div>
                         </div>
 
                         <div class="wo-cell">
-                            <?php if ($active_tab === 'history'): ?>
-                                <div class="wo-meta text-red-700 font-semibold"><?php echo htmlspecialchars($retire_fmt); ?></div>
-                                <div class="wo-secondary">Location: <?php echo htmlspecialchars($holder); ?></div>
-                            <?php else: ?>
-                                <div class="wo-meta"><?php echo htmlspecialchars($holder); ?></div>
-                            <?php endif; ?>
+                            <div class="wo-meta text-slate-600"><?php echo htmlspecialchars($holder_summary ?: 'N/A'); ?></div>
                         </div>
 
                         <div class="wo-cell">
                             <span class="wo-status <?php echo $statusClass; ?>"><?php echo htmlspecialchars($status); ?></span>
                         </div>
 
-                        <div class="wo-cell text-right">
+                        <div class="wo-cell text-right flex flex-col sm:flex-row items-end sm:items-center justify-end gap-1.5">
+                            <button type="button" id="btn-toggle-<?php echo $item_no; ?>" onclick="toggleGroupDetails('<?php echo $item_no; ?>')" class="wo-btn wo-btn-secondary text-xs px-2.5 py-1.5 rounded-lg shadow-sm">
+                                🔽 View Detail
+                            </button>
                             <?php if ($active_tab === 'candidates'): ?>
-                                <button type="button"
-                                        onclick="openConfirmWriteOffModal(<?php echo (int)$asset['id']; ?>, '<?php echo htmlspecialchars(addslashes($asset['asset_name'])); ?>', '<?php echo htmlspecialchars(addslashes($asset['asset_no'] ?? '')); ?>')"
-                                        class="wo-btn wo-btn-danger text-xs px-2.5 py-1.5 rounded-lg shadow-sm">
-                                    🗑️ Write Off
+                                <button type="button" onclick="openConfirmWriteOffModal(0, '<?php echo htmlspecialchars(addslashes($group['asset_name'])); ?>', '', '<?php echo htmlspecialchars($item_no); ?>')" class="wo-btn wo-btn-danger text-xs px-2.5 py-1.5 rounded-lg shadow-sm">
+                                    🗑️ Write Off All
                                 </button>
-                            <?php else: ?>
-                                <span class="text-xs text-slate-500"><?php echo htmlspecialchars($holder); ?></span>
                             <?php endif; ?>
                         </div>
                     </div>
-                <?php $sr_no++; endforeach; ?>
+
+                    <!-- Accordion Sub-rows with Checkboxes -->
+                    <div id="details-item-<?php echo $item_no; ?>" class="hidden bg-slate-50 border-l-4 border-blue-500 shadow-inner no-print" style="margin-left: 20px; margin-right: 20px; border-radius: 0 0 8px 8px; overflow: hidden;">
+
+                        <?php if ($active_tab === 'candidates'): ?>
+                        <!-- Bulk action header -->
+                        <div class="flex items-center justify-between px-5 py-3 bg-slate-100 border-b border-slate-200">
+                            <label class="flex items-center gap-2 cursor-pointer select-none">
+                                <input type="checkbox" id="selectAll-<?php echo $item_no; ?>" onchange="toggleSelectAll('<?php echo $item_no; ?>', this.checked)" class="w-4 h-4 rounded border-slate-400 accent-red-600 cursor-pointer">
+                                <span class="text-xs font-bold text-slate-600 uppercase tracking-wide">Select All (<?php echo $items_count; ?> assets)</span>
+                            </label>
+                            <button type="button" id="bulkWriteOffBtn-<?php echo $item_no; ?>" onclick="openBulkWriteOffModal('<?php echo $item_no; ?>', '<?php echo htmlspecialchars(addslashes($group['asset_name'])); ?>')" class="hidden wo-btn wo-btn-danger text-xs px-3 py-1.5 rounded-lg" style="padding: 6px 14px;">
+                                🗑️ Write Off Selected (<span id="bulkCount-<?php echo $item_no; ?>">0</span>)
+                            </button>
+                        </div>
+                        <?php else: ?>
+                        <div class="px-5 py-3 bg-slate-100 border-b border-slate-200">
+                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Asset Details — Item No: <?php echo htmlspecialchars($item_no); ?></span>
+                        </div>
+                        <?php endif; ?>
+
+                        <div class="px-5 py-3 space-y-2">
+                            <?php foreach ($group['items'] as $sub_idx => $sub_asset):
+                                $sub_issue_time = strtotime($sub_asset['date_of_issue']);
+                                $sub_age = $sub_issue_time ? date_diff(date_create($sub_asset['date_of_issue']), date_create('today'))->y : 0;
+                                $sub_holder = $sub_asset['location'] ?: ($sub_asset['assigned_to'] ?: 'N/A');
+                                $sub_retire_time = !empty($sub_asset['retire_at']) ? strtotime($sub_asset['retire_at']) : null;
+                                $sub_retire_fmt = $sub_retire_time ? date('d/m/Y H:i', $sub_retire_time) : 'N/A';
+                            ?>
+                                <div class="flex items-center gap-3 bg-white border border-slate-200 rounded-lg p-3 transition hover:border-blue-300">
+                                    <?php if ($active_tab === 'candidates'): ?>
+                                    <input type="checkbox"
+                                        class="asset-cb-<?php echo $item_no; ?> w-4 h-4 rounded border-slate-300 accent-red-600 cursor-pointer shrink-0"
+                                        value="<?php echo (int)$sub_asset['id']; ?>"
+                                        onchange="updateBulkBtn('<?php echo $item_no; ?>')">
+                                    <?php else: ?>
+                                    <span class="w-4 shrink-0"></span>
+                                    <?php endif; ?>
+
+                                    <div class="flex flex-wrap items-center gap-x-4 gap-y-1 flex-1 text-xs">
+                                        <span class="font-mono text-blue-600 font-bold"><?php echo htmlspecialchars($sub_asset['asset_no'] ?: 'N/A'); ?></span>
+                                        <span class="text-slate-500">Age: <strong class="text-slate-700"><?php echo $sub_age; ?> yrs</strong></span>
+                                        <span class="text-slate-500">Cost: <strong class="text-slate-700">&#8377;<?php echo number_format((float)$sub_asset['cost'], 2); ?></strong></span>
+                                        <span class="text-slate-500">Holder: <strong class="text-slate-700"><?php echo htmlspecialchars($sub_holder); ?></strong></span>
+                                        <?php if ($active_tab === 'history'): ?>
+                                            <span class="text-red-600">Retired: <strong><?php echo htmlspecialchars($sub_retire_fmt); ?></strong></span>
+                                        <?php endif; ?>
+                                        <?php if (!empty($sub_asset['remarks'])): ?>
+                                            <span class="text-slate-400 italic">"<?php echo htmlspecialchars($sub_asset['remarks']); ?>"</span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+            <?php $sr_no++; endforeach; ?>
             <?php endif; ?>
         </div>
     </div>
@@ -680,11 +827,12 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
         <form method="POST" action="dashboard.php?view=write-off-assets">
             <input type="hidden" name="action" value="mark_writeoff">
             <input type="hidden" id="writeoff_modal_asset_id" name="asset_id" value="">
+            <input type="hidden" id="writeoff_modal_item_no" name="item_no" value="">
             <input type="hidden" name="category" value="<?php echo (int)$selectedCategory; ?>">
             <input type="hidden" name="tab" value="<?php echo htmlspecialchars($active_tab); ?>">
 
             <p class="text-sm text-slate-700 mb-3 leading-relaxed">
-                Are you sure you want to write off asset <strong id="writeoff_modal_asset_name" class="text-slate-900"></strong> (<span id="writeoff_modal_asset_no" class="font-mono text-slate-600"></span>)?
+                Are you sure you want to write off asset <strong id="writeoff_modal_asset_name" class="text-slate-900"></strong> <span id="writeoff_modal_asset_no_span">(<span id="writeoff_modal_asset_no" class="font-mono text-slate-600"></span>)</span>?
             </p>
 
             <div class="mb-4">
@@ -711,6 +859,53 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
     </div>
 </div>
 
+<!-- Modal: Bulk Write-off Selected Assets -->
+<div id="bulkWriteOffModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm no-print">
+    <div id="bulkWriteOffModalContainer" class="w-full max-w-md scale-95 transform rounded-2xl bg-white p-6 shadow-xl transition-all duration-200 opacity-0">
+        <div class="flex items-center gap-3 border-b border-slate-100 pb-4 mb-4">
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 text-red-600 font-bold text-lg shrink-0">
+                🗑️
+            </div>
+            <div>
+                <h3 class="text-lg font-bold text-slate-900">Write Off Selected Assets</h3>
+                <p id="bulkWriteOffSubtitle" class="text-xs text-slate-500">Multiple assets will be marked as Retired</p>
+            </div>
+        </div>
+
+        <form method="POST" action="dashboard.php?view=write-off-assets" id="bulkWriteOffForm">
+            <input type="hidden" name="action" value="mark_writeoff_bulk">
+            <input type="hidden" name="category" value="<?php echo (int)$selectedCategory; ?>">
+            <input type="hidden" name="tab" value="<?php echo htmlspecialchars($active_tab); ?>">
+            <div id="bulkAssetIdsContainer"></div>
+
+            <p class="text-sm text-slate-700 mb-3 leading-relaxed">
+                You are about to write off <strong id="bulkWriteOffCount" class="text-red-600">0</strong> selected asset(s) under Item No: <strong id="bulkWriteOffItemLabel" class="text-slate-900"></strong>.
+            </p>
+
+            <div class="mb-4">
+                <label for="bulk_writeoff_reason" class="block text-xs font-bold text-slate-700 mb-1">Write-Off Reason / Remarks <span class="text-slate-400 font-normal">(optional)</span></label>
+                <textarea id="bulk_writeoff_reason" name="writeoff_reason" rows="2" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-red-500 focus:bg-white focus:ring-2 focus:ring-red-100" placeholder="e.g. Damaged beyond repair, Obsolete equipment..."></textarea>
+                <p class="text-[11px] text-slate-500 mt-1">This reason will overwrite the remarks field for all selected assets.</p>
+            </div>
+
+            <div class="mb-4">
+                <span class="text-xs text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200 block">
+                    ⚠️ Selected assets will be marked as <strong>Retired</strong> and moved to the Written-Off Archive.
+                </span>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button type="button" onclick="closeBulkWriteOffModal()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition">
+                    Cancel
+                </button>
+                <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-5 py-2 text-sm font-semibold text-white shadow-md hover:bg-red-700 transition">
+                    Yes, Write Off Selected
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Modal Popup for Excel Export -->
 <div id="writeOffExportModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm no-print">
     <div id="writeOffExportModalContainer" class="w-full max-w-md scale-95 transform rounded-2xl bg-white p-6 shadow-xl transition-all duration-200 opacity-0">
@@ -721,10 +916,8 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
                     📊
                 </div>
                 <div>
-                    <h3 class="text-lg font-bold text-slate-900">Export Excel Report</h3>
-                    <p class="text-xs text-slate-500">
-                        <?php echo $active_tab === 'history' ? 'Export Written-Off Assets History' : 'Export Write-off Candidates'; ?>
-                    </p>
+                    <h3 class="text-lg font-bold text-slate-900">Download Excel Report</h3>
+                    <p class="text-xs text-slate-500">Configure columns for the spreadsheet</p>
                 </div>
             </div>
             <button onclick="closeWriteOffExportModal()" type="button" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition">
@@ -733,18 +926,11 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
         </div>
 
         <!-- Export Form -->
-        <form method="POST" action="export-write-off.php" target="_blank" onsubmit="return validateWriteOffExportForm(event);">
+        <form method="GET" action="export-write-off.php">
             <input type="hidden" name="tab" value="<?php echo htmlspecialchars($active_tab); ?>">
             <input type="hidden" name="name" value="<?php echo htmlspecialchars($name_filter); ?>">
             <input type="hidden" name="issue_from" value="<?php echo htmlspecialchars($issue_from); ?>">
             <input type="hidden" name="issue_to" value="<?php echo htmlspecialchars($issue_to); ?>">
-
-            <div class="space-y-3 mb-6">
-                <!-- Checkbox: Select All -->
-                <label class="flex items-center gap-3 p-3 rounded-xl border border-blue-200 bg-blue-50/70 hover:bg-blue-50 cursor-pointer transition font-bold text-slate-800 text-sm">
-                    <input type="checkbox" id="writeoff_select_all" checked onchange="toggleAllWriteOffCategories(this)" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
-                    <span>Select All Categories</span>
-                </label>
 
                 <div class="border-t border-slate-100 pt-2 space-y-2">
                     <!-- Checkbox 1: Expandable -->
@@ -792,10 +978,17 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
 </div>
 
 <script>
-    function openConfirmWriteOffModal(id, name, assetNo) {
+    function openConfirmWriteOffModal(id, name, assetNo, itemNo = '') {
         document.getElementById('writeoff_modal_asset_id').value = id;
-        document.getElementById('writeoff_modal_asset_name').textContent = name;
-        document.getElementById('writeoff_modal_asset_no').textContent = assetNo || 'N/A';
+        document.getElementById('writeoff_modal_item_no').value = itemNo;
+        if (itemNo) {
+            document.getElementById('writeoff_modal_asset_name').textContent = "ALL eligible assets under Item No: " + itemNo + " (" + name + ")";
+            document.getElementById('writeoff_modal_asset_no_span').style.display = 'none';
+        } else {
+            document.getElementById('writeoff_modal_asset_name').textContent = name;
+            document.getElementById('writeoff_modal_asset_no_span').style.display = 'inline';
+            document.getElementById('writeoff_modal_asset_no').textContent = assetNo || 'N/A';
+        }
         const reasonInput = document.getElementById('writeoff_reason');
         if (reasonInput) reasonInput.value = '';
 
@@ -873,5 +1066,81 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
         }
         closeWriteOffExportModal();
         return true;
+    }
+
+    // ── Toggle accordion detail panel ──
+    function toggleGroupDetails(itemNo) {
+        const panel = document.getElementById('details-item-' + itemNo);
+        const btn   = document.getElementById('btn-toggle-' + itemNo);
+        if (!panel) return;
+        if (panel.classList.contains('hidden')) {
+            panel.classList.remove('hidden');
+            if (btn) btn.innerHTML = '🔼 Hide';
+        } else {
+            panel.classList.add('hidden');
+            if (btn) btn.innerHTML = '🔽 View Detail';
+        }
+    }
+
+    // ── Checkbox: toggle all checkboxes in a group ──
+    function toggleSelectAll(itemNo, checked) {
+        document.querySelectorAll('.asset-cb-' + itemNo).forEach(cb => {
+            cb.checked = checked;
+        });
+        updateBulkBtn(itemNo);
+    }
+
+    // ── Checkbox: update the bulk button count & visibility ──
+    function updateBulkBtn(itemNo) {
+        const cbs = document.querySelectorAll('.asset-cb-' + itemNo);
+        const checked = Array.from(cbs).filter(cb => cb.checked);
+        const btn  = document.getElementById('bulkWriteOffBtn-' + itemNo);
+        const span = document.getElementById('bulkCount-' + itemNo);
+        const allCb = document.getElementById('selectAll-' + itemNo);
+
+        if (span)  span.textContent = checked.length;
+        if (btn)   btn.classList.toggle('hidden', checked.length === 0);
+        if (allCb) allCb.indeterminate = (checked.length > 0 && checked.length < cbs.length);
+        if (allCb && checked.length === cbs.length) allCb.checked = true;
+        if (allCb && checked.length === 0) { allCb.checked = false; allCb.indeterminate = false; }
+    }
+
+    // ── Open bulk write-off modal ──
+    function openBulkWriteOffModal(itemNo, assetName) {
+        const cbs = Array.from(document.querySelectorAll('.asset-cb-' + itemNo)).filter(cb => cb.checked);
+        if (cbs.length === 0) return;
+
+        // Populate hidden inputs
+        const container = document.getElementById('bulkAssetIdsContainer');
+        container.innerHTML = '';
+        cbs.forEach(cb => {
+            const inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = 'asset_ids[]';
+            inp.value = cb.value;
+            container.appendChild(inp);
+        });
+
+        document.getElementById('bulkWriteOffCount').textContent = cbs.length;
+        document.getElementById('bulkWriteOffItemLabel').textContent = itemNo + ' (' + assetName + ')';
+        const reasonEl = document.getElementById('bulk_writeoff_reason');
+        if (reasonEl) reasonEl.value = '';
+
+        const modal = document.getElementById('bulkWriteOffModal');
+        const mc    = document.getElementById('bulkWriteOffModalContainer');
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            mc.classList.remove('scale-95', 'opacity-0');
+            mc.classList.add('scale-100', 'opacity-100');
+        }, 10);
+    }
+
+    // ── Close bulk write-off modal ──
+    function closeBulkWriteOffModal() {
+        const modal = document.getElementById('bulkWriteOffModal');
+        const mc    = document.getElementById('bulkWriteOffModalContainer');
+        mc.classList.remove('scale-100', 'opacity-100');
+        mc.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => modal.classList.add('hidden'), 200);
     }
 </script>

@@ -13,11 +13,12 @@ if (!isset($_SESSION['user_id'])) {
   exit();
 }
 
-// Get category ID from URL, default to 0 if not set
-$category_id = isset($_GET['category_id']) ? (int)$_GET['category_id'] : 0;
+// Get parameters from URL
+$category_id  = isset($_GET['category_id']) ? (int)$_GET['category_id'] : 0;
+$group_filter = isset($_GET['group']) ? strtolower(trim($_GET['group'])) : ''; // e.g. "mouse"
 $search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
 
-// Define categories to get the name from the ID
+// Define categories
 $categories = [
   1 => 'Expandable',
   2 => 'Consumables',
@@ -25,57 +26,105 @@ $categories = [
   4 => 'Furniture'
 ];
 
-// Check if the category ID is valid
 if ($category_id === 0 || !array_key_exists($category_id, $categories)) {
-  // Redirect or show an error if the category is invalid
   header("Location: dashboard.php?status=error&message=" . urlencode("Invalid category specified."));
   exit();
 }
 
 $category_name = $categories[$category_id];
 
-$sql_where_clauses = ["category_id = ?", "retire_at IS NULL", "(transferred = 0 OR transferred IS NULL)"];
-$sql_params = ["i", $category_id];
-
-if (!empty($search_query)) {
-  $sql_where_clauses[] = "asset_name LIKE ?";
-  $sql_params[0] .= "s";
-  $search_term = "%" . $search_query . "%";
-  $sql_params[] = $search_term;
+// Helper: display name of a group key
+function getGroupDisplay(string $key): string {
+  return ucfirst(strtolower($key));
 }
 
-// Fetch and group assets by name for the specified category
-$assets = [];
-$sql = "
-    SELECT asset_name, 
-           SUM(quantity) as total_quantity, 
-           COUNT(DISTINCT batch_id) as record_count,
-           MIN(date_of_issue) as first_issue_date
-    FROM assets 
-    WHERE " . implode(" AND ", $sql_where_clauses) . "
-    GROUP BY asset_name 
-    ORDER BY asset_name ASC
-";
+// ============================================================
+// MODE A: No group selected → show GENERIC GROUPS
+//   Groups by last word of asset_name (SUBSTRING_INDEX trick)
+//   "HP Mouse", "Mouse", "Lenovo Mouse" → all become group "mouse"
+//   "Crompton Table Fan" → group "fan"
+//   No hardcoded list — works for any future product automatically
+// ============================================================
+if ($group_filter === '') {
+  $base_where = "category_id = ? AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)";
+  $params = [$category_id];
+  $types  = "i";
 
-$stmt = $conn->prepare($sql);
-$stmt->bind_param(...$sql_params);
-$stmt->execute();
-$result = $stmt->get_result();
-if ($result) {
-  $assets = $result->fetch_all(MYSQLI_ASSOC);
+  if (!empty($search_query)) {
+    $base_where .= " AND asset_name LIKE ?";
+    $params[]    = "%" . $search_query . "%";
+    $types      .= "s";
+  }
+
+  $sql = "
+    SELECT
+      LOWER(TRIM(SUBSTRING_INDEX(TRIM(asset_name), ' ', -1))) AS group_key,
+      COUNT(DISTINCT item_no)  AS total_item_nos,
+      SUM(quantity)            AS total_quantity,
+      MIN(date_of_issue)       AS first_issue_date
+    FROM assets
+    WHERE {$base_where}
+    GROUP BY group_key
+    ORDER BY group_key ASC
+  ";
+
+  $stmt = $conn->prepare($sql);
+  $stmt->bind_param($types, ...$params);
+  $stmt->execute();
+  $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+  $stmt->close();
+
+  $mode       = 'groups';
+  $page_title = "Assets: {$category_name}";
 }
-$stmt->close();
+
+// ============================================================
+// MODE B: Group selected → show all item_no entries in that group
+//   e.g. group=mouse shows: HP Mouse I-5, Lenovo Mouse I-7, Mouse I-9
+// ============================================================
+else {
+  $base_where = "category_id = ? AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)
+                 AND LOWER(TRIM(SUBSTRING_INDEX(TRIM(asset_name), ' ', -1))) = ?";
+  $params = [$category_id, $group_filter];
+  $types  = "is";
+
+  if (!empty($search_query)) {
+    $base_where .= " AND asset_name LIKE ?";
+    $params[]    = "%" . $search_query . "%";
+    $types      .= "s";
+  }
+
+  $sql = "
+    SELECT
+      item_no,
+      asset_name,
+      SUM(quantity)      AS total_quantity,
+      COUNT(*)           AS total_records,
+      MIN(date_of_issue) AS first_issue_date
+    FROM assets
+    WHERE {$base_where}
+    GROUP BY item_no, asset_name
+    ORDER BY item_no ASC
+  ";
+
+  $stmt = $conn->prepare($sql);
+  $stmt->bind_param($types, ...$params);
+  $stmt->execute();
+  $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+  $stmt->close();
+
+  $mode          = 'items';
+  $group_display = getGroupDisplay($group_filter);
+  $page_title    = "{$group_display} — {$category_name}";
+}
 
 // Helper function to generate initials
 if (!function_exists('getInitials')) {
-  function getInitials($name)
-  {
+  function getInitials($name) {
     $words = explode(' ', $name);
-    $initials = '';
-    foreach ($words as $word) {
-      $initials .= strtoupper(substr($word, 0, 1));
-    }
-    return substr($initials, 0, 2);
+    $init = '';
+    foreach ($words as $w) $init .= strtoupper(substr($w, 0, 1));
+    return substr($init, 0, 2);
   }
 }
 ?>
@@ -85,35 +134,20 @@ if (!function_exists('getInitials')) {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>View <?php echo htmlspecialchars($category_name); ?> - KDP Asset Manager</title>
+  <title><?php echo htmlspecialchars($page_title); ?> - KDP Asset Manager</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
   <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', 'sans-serif']
-          }
-        }
-      }
-    };
+    tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } } };
   </script>
   <style>
-    html,
-    body {
-      font-family: 'Inter', sans-serif;
-    }
-
-    .clickable-row:hover {
-      background-color: #f9fafb;
-      cursor: pointer;
-    }
+    html, body { font-family: 'Inter', sans-serif; }
+    .clickable-row:hover { background-color: #f9fafb; cursor: pointer; }
+    .group-card { transition: all .18s ease; border: 1px solid #f1f5f9; }
+    .group-card:hover { background: #eff6ff; border-color: #bfdbfe; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59,130,246,.1); }
   </style>
-
   <link rel="stylesheet" href="loader/loader.css" />
-
 </head>
 
 <body class="h-screen bg-gray-50 text-gray-900 antialiased">
@@ -151,69 +185,151 @@ if (!function_exists('getInitials')) {
             <nav class="text-sm font-medium text-gray-500 mb-3">
               <a href="dashboard.php" class="hover:text-blue-600 transition-colors">Dashboard</a>
               <span class="mx-2 text-gray-400">&gt;</span>
-              <span class="text-gray-900"><?php echo htmlspecialchars($category_name); ?></span>
+              <?php if ($mode === 'items'): ?>
+                <a href="view-assets.php?category_id=<?php echo $category_id; ?>" class="hover:text-blue-600 transition-colors"><?php echo htmlspecialchars($category_name); ?></a>
+                <span class="mx-2 text-gray-400">&gt;</span>
+                <span class="text-gray-900"><?php echo htmlspecialchars($group_display); ?></span>
+              <?php else: ?>
+                <span class="text-gray-900"><?php echo htmlspecialchars($category_name); ?></span>
+              <?php endif; ?>
             </nav>
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Assets: <?php echo htmlspecialchars($category_name); ?></h1>
+              <div>
+                <h1 class="text-2xl font-bold text-gray-900 tracking-tight">
+                  <?php if ($mode === 'items'): ?>
+                    <span class="text-blue-600"><?php echo htmlspecialchars($group_display); ?></span>
+                    <span class="text-gray-400 font-normal text-lg"> — <?php echo htmlspecialchars($category_name); ?></span>
+                  <?php else: ?>
+                    <?php echo htmlspecialchars($category_name); ?>
+                  <?php endif; ?>
+                </h1>
+                <p class="text-sm text-gray-500 mt-1">
+                  <?php if ($mode === 'items'): ?>
+                    All variants of <strong><?php echo htmlspecialchars($group_display); ?></strong> with their Item Numbers
+                  <?php else: ?>
+                    Select a group to browse Item Numbers &amp; assets
+                  <?php endif; ?>
+                </p>
+              </div>
               <form action="view-assets.php" method="GET" class="flex items-center gap-2">
                 <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
+                <?php if ($mode === 'items'): ?>
+                  <input type="hidden" name="group" value="<?php echo htmlspecialchars($group_filter); ?>">
+                <?php endif; ?>
                 <div class="relative flex-grow">
-                  <input type="text" name="search" value="<?php echo htmlspecialchars($search_query); ?>" placeholder="Search in <?php echo htmlspecialchars($category_name); ?>..." class="w-full pl-4 pr-10 py-2.5 text-sm rounded-full bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                  <input type="text" name="search" value="<?php echo htmlspecialchars($search_query); ?>"
+                         placeholder="Search <?php echo $mode === 'items' ? htmlspecialchars($group_display) : htmlspecialchars($category_name); ?>..."
+                         class="w-full pl-4 pr-10 py-2.5 text-sm rounded-full bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
                   <button type="submit" class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600">
                     <i data-lucide="search" style="width:16px;height:16px"></i>
                   </button>
                 </div>
                 <?php if (!empty($search_query)): ?>
-                  <a href="view-assets.php?category_id=<?php echo $category_id; ?>" class="px-4 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200">Clear</a>
+                  <a href="view-assets.php?category_id=<?php echo $category_id; ?><?php echo $mode === 'items' ? '&group=' . urlencode($group_filter) : ''; ?>"
+                     class="px-4 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200">Clear</a>
                 <?php endif; ?>
               </form>
             </div>
           </div>
 
-          <!-- Assets Table -->
+          <?php if ($mode === 'groups'): ?>
+          <!-- MODE A: Groups as table list -->
           <div class="bg-white rounded-xl shadow-sm border border-gray-100">
             <div class="overflow-x-auto">
               <table class="w-full text-sm">
                 <thead class="bg-gray-50">
                   <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
-                    <th class="px-6 py-3 font-medium">Component Name</th>
-                    <th class="px-6 py-3 font-medium">Total Quantity</th>
-                    <th class="px-6 py-3 font-medium">Entry Records</th>
+                    <th class="px-6 py-3 font-medium">Group Name</th>
+                    <th class="px-6 py-3 font-medium">Item Nos</th>
+                    <th class="px-6 py-3 font-medium">Total Qty</th>
                     <th class="px-6 py-3 font-medium">First Added</th>
                     <th class="px-6 py-3 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                  <?php if (empty($assets)): ?>
+                  <?php if (empty($rows)): ?>
                     <tr>
                       <td colspan="5" class="text-center py-16 text-gray-500">
                         <div class="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-3">
                           <i data-lucide="search-slash" class="w-7 h-7 text-gray-400"></i>
                         </div>
                         <h3 class="font-semibold text-gray-800">No assets found</h3>
-                        <p class="text-sm mt-1"><?php echo !empty($search_query) ? 'Your search for "' . htmlspecialchars($search_query) . '" did not return any results.' : 'There are no assets in this category yet.'; ?></p>
-                        No assets found in this category.
+                        <p class="text-sm mt-1"><?php echo !empty($search_query) ? 'No results for &quot;' . htmlspecialchars($search_query) . '&quot;.' : 'There are no assets in this category yet.'; ?></p>
                       </td>
                     </tr>
                   <?php else: ?>
-                    <?php foreach ($assets as $asset): ?>
-                      <tr
-                        class="clickable-row transition-colors duration-150"
-                        data-href="view-asset-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset['asset_name']); ?>">
-                        <td class="px-6 py-4 whitespace-nowrap font-semibold text-gray-900 capitalize"><?php echo htmlspecialchars($asset['asset_name']); ?></td>
-                        <td class="px-6 py-4 whitespace-nowrap text-gray-600 font-bold"><?php echo htmlspecialchars($asset['total_quantity']); ?></td>
-                        <td class="px-6 py-4 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($asset['record_count']); ?></td>
-                        <td class="px-6 py-4 whitespace-nowrap text-gray-500"><?php echo date('M d, Y', strtotime($asset['first_issue_date'])); ?></td>
-                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <a href="view-asset-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset['asset_name']); ?>" class="text-indigo-600 hover:text-indigo-900" onclick="event.stopPropagation()">View Details</a>
-                        </td>
-                      </tr>
+                    <?php foreach ($rows as $grp):
+                      $gk    = $grp['group_key'];
+                      $gname = getGroupDisplay($gk);
+                      $gLink = "view-assets.php?category_id={$category_id}&group=" . urlencode($gk);
+                    ?>
+                    <tr class="clickable-row transition-colors duration-150" data-href="<?php echo $gLink; ?>">
+                      <td class="px-6 py-4 whitespace-nowrap font-semibold text-gray-900 capitalize"><?php echo htmlspecialchars($gname); ?></td>
+                      <td class="px-6 py-4 whitespace-nowrap text-gray-600"><?php echo $grp['total_item_nos']; ?> item no<?php echo $grp['total_item_nos'] != 1 ? 's' : ''; ?></td>
+                      <td class="px-6 py-4 whitespace-nowrap text-gray-700 font-bold"><?php echo $grp['total_quantity']; ?></td>
+                      <td class="px-6 py-4 whitespace-nowrap text-gray-500"><?php echo date('M d, Y', strtotime($grp['first_issue_date'])); ?></td>
+                      <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <a href="<?php echo $gLink; ?>" class="text-indigo-600 hover:text-indigo-900" onclick="event.stopPropagation()">Browse</a>
+                      </td>
+                    </tr>
                     <?php endforeach; ?>
                   <?php endif; ?>
                 </tbody>
               </table>
             </div>
           </div>
+
+          <?php else: ?>
+          <!-- ============================
+               MODE B: Item No table
+               ============================ -->
+          <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50">
+                  <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
+                    <th class="px-6 py-3 font-medium">Item No</th>
+                    <th class="px-6 py-3 font-medium">Asset Name</th>
+                    <th class="px-6 py-3 font-medium">Total Qty</th>
+                    <th class="px-6 py-3 font-medium">First Added</th>
+                    <th class="px-6 py-3 font-medium text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  <?php if (empty($rows)): ?>
+                    <tr>
+                      <td colspan="5" class="text-center py-16 text-gray-500">
+                        <h3 class="font-semibold text-gray-800">No assets found</h3>
+                        <p class="text-sm mt-1"><?php echo !empty($search_query) ? 'No results for &quot;' . htmlspecialchars($search_query) . '&quot;.' : 'Nothing in this group yet.'; ?></p>
+                      </td>
+                    </tr>
+                  <?php else: ?>
+                    <?php foreach ($rows as $asset):
+                      $item_no = (int)$asset['item_no'];
+                      $link = "view-asset-details.php?category_id={$category_id}&asset_name=" . urlencode($asset['asset_name']) . "&item_no={$item_no}&group=" . urlencode($group_filter);
+                    ?>
+                    <tr class="clickable-row transition-colors duration-150" data-href="<?php echo $link; ?>">
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex items-center justify-center w-9 h-9 rounded-full bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100"><?php echo $item_no; ?></span>
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap font-semibold text-gray-900 capitalize"><?php echo htmlspecialchars($asset['asset_name']); ?></td>
+                      <td class="px-6 py-4 whitespace-nowrap text-gray-700 font-bold">
+                        <?php echo $asset['total_quantity']; ?>
+                        <span class="text-xs font-normal text-gray-400">(<?php echo $asset['total_records']; ?> record<?php echo $asset['total_records'] != 1 ? 's' : ''; ?>)</span>
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap text-gray-500"><?php echo date('M d, Y', strtotime($asset['first_issue_date'])); ?></td>
+                      <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <a href="<?php echo $link; ?>" class="text-indigo-600 hover:text-indigo-900" onclick="event.stopPropagation()">View Assets</a>
+                      </td>
+                    </tr>
+                    <?php endforeach; ?>
+                  <?php endif; ?>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <?php endif; ?>
+
         </main>
         <?php include 'footer.php'; ?>
       </div>

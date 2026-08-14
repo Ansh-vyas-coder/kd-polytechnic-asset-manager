@@ -14,11 +14,15 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // Get parameters from URL
-$category_id = isset($_GET['category_id']) ? (int)$_GET['category_id'] : 0;
+$category_id    = isset($_GET['category_id']) ? (int)$_GET['category_id'] : 0;
 $asset_name_raw = isset($_GET['asset_name']) ? trim($_GET['asset_name']) : '';
-$batch_id = isset($_GET['batch_id']) ? trim($_GET['batch_id']) : '';
-$search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
-$filter_status = isset($_GET['filter_status']) ? $_GET['filter_status'] : 'all';
+$batch_id       = isset($_GET['batch_id']) ? trim($_GET['batch_id']) : '';
+$search_query   = isset($_GET['search']) ? trim($_GET['search']) : '';
+$filter_status  = isset($_GET['filter_status']) ? $_GET['filter_status'] : 'all';
+$item_no_filter = isset($_GET['item_no']) ? (int)$_GET['item_no'] : 0;
+$group_filter   = isset($_GET['group']) ? strtolower(trim($_GET['group'])) : '';
+function vbdGroupDisplay(string $k): string { return ucfirst(strtolower($k)); }
+$group_display = $group_filter !== '' ? vbdGroupDisplay($group_filter) : '';
 $valid_filters = ['all', 'active', 'under maintenance', 'not working', 'retired'];
 if (!in_array($filter_status, $valid_filters, true)) {
     $filter_status = 'all';
@@ -367,8 +371,17 @@ if (!function_exists('getInitials')) {
                             <a href="dashboard.php" class="hover:text-blue-600">Dashboard</a>
                             <span class="mx-2 text-gray-400">&gt;</span>
                             <a href="view-assets.php?category_id=<?php echo $category_id; ?>" class="hover:text-blue-600"><?php echo htmlspecialchars($category_name); ?></a>
+                            <?php if ($group_filter !== ''): ?>
+                              <span class="mx-2 text-gray-400">&gt;</span>
+                              <a href="view-assets.php?category_id=<?php echo $category_id; ?>&group=<?php echo urlencode($group_filter); ?>" class="hover:text-blue-600 capitalize"><?php echo htmlspecialchars($group_display); ?></a>
+                            <?php endif; ?>
                             <span class="mx-2 text-gray-400">&gt;</span>
-                            <a href="view-asset-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset_name_raw); ?>" class="hover:text-blue-600 capitalize"><?php echo htmlspecialchars($asset_name_raw); ?></a>
+                            <?php
+                              $back_url = "view-asset-details.php?category_id={$category_id}&asset_name=" . urlencode($asset_name_raw);
+                              if ($item_no_filter > 0) $back_url .= "&item_no={$item_no_filter}";
+                              if ($group_filter !== '') $back_url .= "&group=" . urlencode($group_filter);
+                            ?>
+                            <a href="<?php echo $back_url; ?>" class="hover:text-blue-600 capitalize"><?php echo htmlspecialchars($asset_name_raw); ?><?php echo $item_no_filter > 0 ? ' (I-' . $item_no_filter . ')' : ''; ?></a>
                             <span class="mx-2 text-gray-400">&gt;</span>
                             <span class="text-gray-900">Record of <?php echo date('M d, Y', strtotime($batch_details['date_of_issue'])); ?></span>
                         </nav>
@@ -378,6 +391,8 @@ if (!function_exists('getInitials')) {
                                 <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
                                 <input type="hidden" name="asset_name" value="<?php echo htmlspecialchars($asset_name_raw); ?>">
                                 <input type="hidden" name="batch_id" value="<?php echo htmlspecialchars($batch_id); ?>">
+                                <?php if ($item_no_filter > 0): ?><input type="hidden" name="item_no" value="<?php echo $item_no_filter; ?>"><?php endif; ?>
+                                <?php if ($group_filter !== ''): ?><input type="hidden" name="group" value="<?php echo htmlspecialchars($group_filter); ?>"><?php endif; ?>
                                 <div class="relative flex-grow">
                                     <input type="text" name="search" value="<?php echo htmlspecialchars($search_query); ?>" placeholder="Search in this record..." class="w-full pl-4 pr-10 py-2.5 text-sm rounded-full bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
                                     <button type="submit" class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600">

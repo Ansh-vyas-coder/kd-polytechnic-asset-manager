@@ -173,25 +173,79 @@ foreach ($header_row as $h) {
 }
 echo '</tr>';
 
-// Data rows
-$row_num = 1;
+// Load all rows and group by item_no
+$all_rows = [];
 while ($row = $result->fetch_assoc()) {
-    echo '<tr>';
-    echo '<td style="text-align:center;color:#888;">' . $row_num++ . '</td>';
+    $all_rows[] = $row;
+}
+
+$grouped = [];
+foreach ($all_rows as $row) {
+    $key = $row['item_no'] ?? 'Uncategorized';
+    if (!isset($grouped[$key])) {
+        $grouped[$key] = [
+            'item_no'      => $key,
+            'asset_name'   => $row['asset_name'] ?? '',
+            'category_id'  => $row['category_id'] ?? '',
+            'page_no'      => $row['page_no'] ?? '',
+            'total_cost'   => 0.0,
+            'total_qty'    => 0,
+            'items'        => [],
+        ];
+    }
+    $grouped[$key]['items'][]    = $row;
+    $grouped[$key]['total_cost'] += (float)($row['cost'] ?? 0);
+    $grouped[$key]['total_qty']  += (int)($row['quantity'] ?? 1);
+}
+
+// Data rows — summary + sub-rows
+$row_num = 1;
+foreach ($grouped as $item_no => $grp) {
+    $item_count = count($grp['items']);
+
+    // ── Summary / parent row ──
+    echo '<tr style="font-weight:700; background:#dbeafe;">';
+    echo '<td style="text-align:center;color:#64748b;">' . $row_num++ . '</td>';
     foreach ($selected_columns as $col) {
-        $val = $row[$col] ?? '';
-        // Category: convert ID → name
-        if ($col === 'category_id') {
-            $val = $categories[$val] ?? $val;
+        $val = '';
+        switch ($col) {
+            case 'item_no':     $val = $item_no; break;
+            case 'asset_name':  $val = $grp['asset_name']; break;
+            case 'category_id': $val = $categories[$grp['category_id']] ?? $grp['category_id']; break;
+            case 'page_no':     $val = $grp['page_no']; break;
+            case 'quantity':    $val = $grp['total_qty']; break;
+            case 'cost':        $val = number_format($grp['total_cost'], 2); break;
+            case 'asset_no':    $val = 'GROUP SUMMARY (' . $item_count . ' item' . ($item_count !== 1 ? 's' : '') . ')'; break;
+            default:
+                $uniques = array_unique(array_filter(array_column($grp['items'], $col)));
+                $val = implode(', ', array_slice($uniques, 0, 3));
+                if (count($uniques) > 3) $val .= ' (+' . (count($uniques) - 3) . ' more)';
         }
-        // Date: force text format to prevent Excel from hiding it
         if ($col === 'date_of_issue') {
-            echo '<td style="mso-number-format:\'\@\';">' . htmlspecialchars((string)$val) . '</td>';
-            continue;
+            echo '<td style="font-weight:700; mso-number-format:\'\@\';">' . htmlspecialchars((string)$val) . '</td>';
+        } else {
+            echo '<td>' . nl2br(htmlspecialchars((string)$val)) . '</td>';
         }
-        echo '<td>' . nl2br(htmlspecialchars((string)$val)) . '</td>';
     }
     echo '</tr>';
+
+    // ── Child / sub-rows ──
+    foreach ($grp['items'] as $sub_idx => $sub) {
+        echo '<tr style="background:#f8fafc; color:#475569; font-style:italic;">';
+        echo '<td style="text-align:center;color:#cbd5e1;font-size:0.75em;">&nbsp;</td>';
+        foreach ($selected_columns as $col) {
+            $val = $sub[$col] ?? '';
+            if ($col === 'category_id') $val = $categories[$val] ?? $val;
+            if ($col === 'asset_no')    $val = '  ↳ ' . $val;
+            if ($col === 'cost' && $val !== '') $val = number_format((float)$val, 2);
+            if ($col === 'date_of_issue') {
+                echo '<td style="mso-number-format:\'\@\'; color:#64748b;">' . htmlspecialchars((string)$val) . '</td>';
+            } else {
+                echo '<td style="color:#64748b;">' . nl2br(htmlspecialchars((string)$val)) . '</td>';
+            }
+        }
+        echo '</tr>';
+    }
 }
 
 echo '</table>';
