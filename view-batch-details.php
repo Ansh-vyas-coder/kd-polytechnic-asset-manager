@@ -371,17 +371,24 @@ if (!function_exists('getInitials')) {
                             <a href="dashboard.php" class="hover:text-blue-600">Dashboard</a>
                             <span class="mx-2 text-gray-400">&gt;</span>
                             <a href="view-assets.php?category_id=<?php echo $category_id; ?>" class="hover:text-blue-600"><?php echo htmlspecialchars($category_name); ?></a>
-                            <?php if ($group_filter !== ''): ?>
-                              <span class="mx-2 text-gray-400">&gt;</span>
-                              <a href="view-assets.php?category_id=<?php echo $category_id; ?>&group=<?php echo urlencode($group_filter); ?>" class="hover:text-blue-600 capitalize"><?php echo htmlspecialchars($group_display); ?></a>
-                            <?php endif; ?>
-                            <span class="mx-2 text-gray-400">&gt;</span>
-                            <?php
-                              $back_url = "view-asset-details.php?category_id={$category_id}&asset_name=" . urlencode($asset_name_raw);
-                              if ($item_no_filter > 0) $back_url .= "&item_no={$item_no_filter}";
-                              if ($group_filter !== '') $back_url .= "&group=" . urlencode($group_filter);
-                            ?>
-                            <a href="<?php echo $back_url; ?>" class="hover:text-blue-600 capitalize"><?php echo htmlspecialchars($asset_name_raw); ?><?php echo $item_no_filter > 0 ? ' (I-' . $item_no_filter . ')' : ''; ?></a>
+                                                        <?php if ($group_filter !== ''): ?>
+                                                            <span class="mx-2 text-gray-400">&gt;</span>
+                                                            <a href="view-assets.php?category_id=<?php echo $category_id; ?>&group=<?php echo urlencode($group_filter); ?>" class="hover:text-blue-600 capitalize"><?php echo htmlspecialchars($group_display); ?></a>
+                                                        <?php endif; ?>
+                                                        <?php
+                                                            // Only show the asset link when it's different from the group label
+                                                            $show_asset_link = true;
+                                                            if ($group_filter !== '' && strtolower($asset_name_raw) === $group_filter) {
+                                                                    $show_asset_link = false;
+                                                            }
+                                                            if ($show_asset_link) {
+                                                                    echo '<span class="mx-2 text-gray-400">&gt;</span>';
+                                                                    // Link back to the asset list (skip view-asset-details)
+                                                                    $back_url = "view-assets.php?category_id={$category_id}";
+                                                                    if ($group_filter !== '') $back_url .= "&group=" . urlencode($group_filter);
+                                                                    echo '<a href="' . htmlspecialchars($back_url) . '" class="hover:text-blue-600 capitalize">' . htmlspecialchars($asset_name_raw) . ($item_no_filter > 0 ? ' (I-' . $item_no_filter . ')' : '') . '</a>';
+                                                            }
+                                                        ?>
                             <span class="mx-2 text-gray-400">&gt;</span>
                             <span class="text-gray-900">Record of <?php echo date('M d, Y', strtotime($batch_details['date_of_issue'])); ?></span>
                         </nav>
