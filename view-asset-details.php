@@ -14,9 +14,15 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // Get parameters from URL
-$category_id = isset($_GET['category_id']) ? (int)$_GET['category_id'] : 0;
+$category_id    = isset($_GET['category_id']) ? (int)$_GET['category_id'] : 0;
 $asset_name_raw = isset($_GET['asset_name']) ? trim($_GET['asset_name']) : '';
-$search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
+$item_no_filter = isset($_GET['item_no']) ? (int)$_GET['item_no'] : 0;
+$group_filter   = isset($_GET['group']) ? strtolower(trim($_GET['group'])) : ''; // e.g. "mouse"
+$search_query   = isset($_GET['search']) ? trim($_GET['search']) : '';
+
+// Derive group display name
+function vadGroupDisplay(string $k): string { return ucfirst(strtolower($k)); }
+$group_display = $group_filter !== '' ? vadGroupDisplay($group_filter) : '';
 
 // Define categories to get the name from the ID
 $categories = [
@@ -36,6 +42,13 @@ $category_name = $categories[$category_id];
 
 $sql_where_clauses = ["category_id = ?", "asset_name = ?", "retire_at IS NULL", "(transferred = 0 OR transferred IS NULL)"];
 $sql_params = ["is", $category_id, $asset_name_raw];
+
+// If a specific item_no is requested, filter to only that item
+if ($item_no_filter > 0) {
+  $sql_where_clauses[] = "item_no = ?";
+  $sql_params[0] .= "i";
+  $sql_params[] = $item_no_filter;
+}
 
 // Staff can only view rows assigned to themselves
 if ($_SESSION['role'] === 'staff') {
@@ -168,14 +181,29 @@ if (!function_exists('getInitials')) {
               <a href="dashboard.php" class="hover:text-blue-600 transition-colors">Dashboard</a>
               <span class="mx-2 text-gray-400">&gt;</span>
               <a href="view-assets.php?category_id=<?php echo $category_id; ?>" class="hover:text-blue-600 transition-colors"><?php echo htmlspecialchars($category_name); ?></a>
+              <?php if ($group_filter !== ''): ?>
+                <span class="mx-2 text-gray-400">&gt;</span>
+                <a href="view-assets.php?category_id=<?php echo $category_id; ?>&group=<?php echo urlencode($group_filter); ?>" class="hover:text-blue-600 transition-colors capitalize"><?php echo htmlspecialchars($group_display); ?></a>
+              <?php endif; ?>
               <span class="mx-2 text-gray-400">&gt;</span>
-              <span class="text-gray-900 capitalize"><?php echo htmlspecialchars($asset_name_raw); ?></span>
+              <span class="text-gray-900 capitalize"><?php echo htmlspecialchars($asset_name_raw); ?><?php echo $item_no_filter > 0 ? ' (I-' . $item_no_filter . ')' : ''; ?></span>
             </nav>
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <h1 class="text-2xl font-bold text-gray-900 tracking-tight capitalize"><?php echo htmlspecialchars($asset_name_raw); ?> Details</h1>
+              <h1 class="text-2xl font-bold text-gray-900 tracking-tight capitalize">
+                <?php if ($item_no_filter > 0): ?>
+                  <span class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 text-blue-700 text-sm font-bold mr-2"><?php echo $item_no_filter; ?></span>
+                <?php endif; ?>
+                <?php echo htmlspecialchars($asset_name_raw); ?> Details
+              </h1>
               <form action="view-asset-details.php" method="GET" class="flex items-center gap-2">
                 <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
                 <input type="hidden" name="asset_name" value="<?php echo htmlspecialchars($asset_name_raw); ?>">
+                <?php if ($item_no_filter > 0): ?>
+                  <input type="hidden" name="item_no" value="<?php echo $item_no_filter; ?>">
+                <?php endif; ?>
+                <?php if ($group_filter !== ''): ?>
+                  <input type="hidden" name="group" value="<?php echo htmlspecialchars($group_filter); ?>">
+                <?php endif; ?>
                 <div class="relative flex-grow">
                   <input type="text" name="search" value="<?php echo htmlspecialchars($search_query); ?>" placeholder="Search by location or date..." class="w-full pl-4 pr-10 py-2.5 text-sm rounded-full bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50">
                   <button type="submit" class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600">
@@ -183,11 +211,17 @@ if (!function_exists('getInitials')) {
                   </button>
                 </div>
                 <?php if (!empty($search_query)): ?>
-                  <a href="view-asset-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset_name_raw); ?>" class="px-4 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200">Clear</a>
+                  <?php
+                    $clear_url = "view-asset-details.php?category_id={$category_id}&asset_name=" . urlencode($asset_name_raw);
+                    if ($item_no_filter > 0) $clear_url .= "&item_no={$item_no_filter}";
+                    if ($group_filter !== '') $clear_url .= "&group=" . urlencode($group_filter);
+                  ?>
+                  <a href="<?php echo $clear_url; ?>" class="px-4 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200">Clear</a>
                 <?php endif; ?>
               </form>
             </div>
           </div>
+
 
           <!-- Assets Table -->
           <div class="bg-white rounded-xl shadow-sm border border-gray-100">
@@ -215,17 +249,20 @@ if (!function_exists('getInitials')) {
                     </tr>
                   <?php else: ?>
                     <?php foreach ($asset_batches as $batch_id => $batch): ?>
-                      <?php $details = $batch['details'];
-                      $items = $batch['items']; ?>
-                      <tr
-                        class="clickable-row transition-colors duration-150"
-                        data-href="view-batch-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset_name_raw); ?>&batch_id=<?php echo urlencode($batch_id); ?>">
+                      <?php
+                        $details = $batch['details'];
+                        $items   = $batch['items'];
+                        $batch_link = "view-batch-details.php?category_id={$category_id}&asset_name=" . urlencode($asset_name_raw) . "&batch_id=" . urlencode($batch_id);
+                        if ($item_no_filter > 0) $batch_link .= "&item_no={$item_no_filter}";
+                        if ($group_filter !== '') $batch_link .= "&group=" . urlencode($group_filter);
+                      ?>
+                      <tr class="clickable-row transition-colors duration-150" data-href="<?php echo $batch_link; ?>">
                         <td class="px-6 py-4 whitespace-nowrap font-semibold text-gray-800"><?php echo date('M d, Y', strtotime($details['date_of_issue'])); ?></td>
                         <td class="px-6 py-4 whitespace-nowrap text-gray-600 font-bold"><?php echo count($items); ?></td>
                         <td class="px-6 py-4 whitespace-nowrap text-gray-600 truncate"><?php echo htmlspecialchars($details['location'] ?: 'N/A'); ?></td>
                         <td class="px-6 py-4 whitespace-nowrap text-gray-600">₹<?php echo htmlspecialchars(number_format($details['cost'], 2)); ?></td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <a href="view-batch-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset_name_raw); ?>&batch_id=<?php echo urlencode($batch_id); ?>" class="text-indigo-600 hover:text-indigo-900" onclick="event.stopPropagation()">View Record</a>
+                          <a href="<?php echo $batch_link; ?>" class="text-indigo-600 hover:text-indigo-900" onclick="event.stopPropagation()">View Record</a>
                         </td>
                       </tr>
                     <?php endforeach; ?>

@@ -514,8 +514,8 @@ $selected_assets = $transfer_assets[$selectedCategory] ?? [];
         <div class="wo-header-area">
             <div class="wo-title"><?php echo htmlspecialchars($selected_category_name); ?> Transfer List</div>
             <div class="wo-subtitle">Assets that have been transferred out.</div>
-            <div class="wo-page-line">
-                <div>Total Transferred: <strong><?php echo number_format($total_transferred); ?></strong></div>
+                <div class="wo-page-line">
+                    <div>Total Transferred: <strong><?php echo number_format($total_transferred); ?></strong></div>
                 <div class="wo-sheet-meta">
                     <span class="wo-pill">Category: <?php echo htmlspecialchars($selected_category_name); ?></span>
                     <span class="wo-pill">Rows: <?php echo number_format(count($selected_assets)); ?></span>
@@ -538,43 +538,120 @@ $selected_assets = $transfer_assets[$selectedCategory] ?? [];
         </div>
         <div class="wo-list-head">
             <div>Sr</div>
-            <div>Asset No</div>
-            <div>Asset Name</div>
-            <div>Transfer To</div>
-            <div>Transfer Date</div>
+            <div>Item No</div>
+            <div>Asset Name &amp; Transferred Qty</div>
+            <div>Transfer To (Destination)</div>
+            <div>Transfer Date / Action</div>
         </div>
 
         <div>
             <?php if (empty($selected_assets)): ?>
                 <div class="wo-empty py-10 text-center text-slate-500">No transferred assets found in this category.</div>
-            <?php else: ?>
-                <?php $sr_no = 1; ?>
-                <?php foreach ($selected_assets as $asset): ?>
-                    <?php
-                        $holder = $asset['assigned_to'] ?: ($asset['location'] ?: 'N/A');
-                    ?>
-                    <div class="wo-list-row">
+            <?php else:
+                // Group by item_no
+                $grouped = [];
+                foreach ($selected_assets as $asset) {
+                    $item_no = $asset['item_no'] ?: 'Uncategorized';
+                    if (!isset($grouped[$item_no])) {
+                        $grouped[$item_no] = [
+                            'item_no' => $item_no,
+                            'asset_name' => $asset['asset_name'],
+                            'destinations' => [],
+                            'date_min' => $asset['transfer_date'],
+                            'date_max' => $asset['transfer_date'],
+                            'items' => []
+                        ];
+                    }
+                    $grouped[$item_no]['items'][] = $asset;
+                    $dest = $asset['transfer_to'] ?: 'N/A';
+                    if (!in_array($dest, $grouped[$item_no]['destinations'])) {
+                        $grouped[$item_no]['destinations'][] = $dest;
+                    }
+                    if ($asset['transfer_date']) {
+                        if (!$grouped[$item_no]['date_min'] || strtotime($asset['transfer_date']) < strtotime($grouped[$item_no]['date_min'])) {
+                            $grouped[$item_no]['date_min'] = $asset['transfer_date'];
+                        }
+                        if (!$grouped[$item_no]['date_max'] || strtotime($asset['transfer_date']) > strtotime($grouped[$item_no]['date_max'])) {
+                            $grouped[$item_no]['date_max'] = $asset['transfer_date'];
+                        }
+                    }
+                }
+
+                $sr_no = 1;
+                foreach ($grouped as $item_no => $group):
+                    $items_count = count($group['items']);
+                    $dest_summary = implode(', ', array_slice($group['destinations'], 0, 2));
+                    if (count($group['destinations']) > 2) {
+                        $dest_summary .= ' (+' . (count($group['destinations']) - 2) . ' more)';
+                    }
+                    $date_range = 'N/A';
+                    if ($group['date_min'] && $group['date_max']) {
+                        $date_range = date('d/m/Y', strtotime($group['date_min'])) . ' - ' . date('d/m/Y', strtotime($group['date_max']));
+                    }
+            ?>
+                    <div class="wo-list-row" style="background: #ffffff; border-bottom: 1px solid #e2e8f0;">
                         <div class="wo-cell wo-sr"><?php echo $sr_no; ?></div>
 
-                        <div class="wo-cell wo-mono">
-                            <?php echo htmlspecialchars($asset['asset_no'] ?: 'N/A'); ?>
+                        <div class="wo-cell">
+                            <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100"><?php echo htmlspecialchars($item_no); ?></span>
                         </div>
 
                         <div class="wo-cell">
-                            <div class="wo-primary"><?php echo htmlspecialchars($asset['asset_name']); ?></div>
-                            <div class="wo-secondary">Item No: <?php echo htmlspecialchars($asset['item_no'] ?: 'N/A'); ?></div>
+                            <div class="wo-primary capitalize"><?php echo htmlspecialchars($group['asset_name']); ?></div>
+                            <div class="wo-secondary font-bold text-blue-600"><?php echo $items_count; ?> unit<?php echo $items_count !== 1 ? 's' : ''; ?> transferred</div>
                         </div>
 
-                        <div class="wo-cell wo-location">
-                            <?php echo htmlspecialchars($asset['transfer_to'] ?: 'N/A'); ?>
+                        <div class="wo-cell wo-location font-semibold">
+                            <?php echo htmlspecialchars($dest_summary ?: 'N/A'); ?>
                         </div>
 
-                        <div class="wo-cell wo-meta">
-                            <?php echo $asset['transfer_date'] ? date('d/m/Y', strtotime($asset['transfer_date'])) : 'N/A'; ?>
+                        <div class="wo-cell flex items-center justify-between gap-2">
+                            <div class="wo-meta font-medium text-xs text-slate-500"><?php echo $date_range; ?></div>
+                            <button type="button" id="btn-toggle-transfer-<?php echo $item_no; ?>" onclick="toggleTransferDetails('<?php echo $item_no; ?>')" class="wo-btn wo-btn-secondary text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition shrink-0" style="padding: 6px 10px;">
+                                🔽 Details
+                            </button>
                         </div>
                     </div>
-                <?php $sr_no++; endforeach; ?>
+
+                    <!-- Accordion Sub-rows -->
+                    <div id="details-transfer-<?php echo $item_no; ?>" class="hidden bg-slate-50 border-l-4 border-blue-500 px-6 py-4 space-y-3 shadow-inner no-print" style="margin-left: 20px; margin-right: 20px; border-radius: 0 0 8px 8px;">
+                        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Transferred Asset Details for Item No: <?php echo htmlspecialchars($item_no); ?></h4>
+                        <div class="space-y-2">
+                            <?php foreach ($group['items'] as $sub_asset):
+                                $sub_date = $sub_asset['transfer_date'] ? date('d/m/Y', strtotime($sub_asset['transfer_date'])) : 'N/A';
+                                $sub_cost = (float)$sub_asset['cost'];
+                            ?>
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-slate-200 rounded-lg p-3 gap-2">
+                                    <div class="flex flex-wrap items-center gap-4 text-xs">
+                                        <div>Asset No: <span class="font-mono text-blue-600 font-bold"><?php echo htmlspecialchars($sub_asset['asset_no'] ?: 'N/A'); ?></span></div>
+                                        <div>Destination: <span class="font-bold text-slate-700"><?php echo htmlspecialchars($sub_asset['transfer_to'] ?: 'N/A'); ?></span></div>
+                                        <div>Date: <span class="font-bold text-slate-700"><?php echo $sub_date; ?></span></div>
+                                        <div>Cost: <span class="font-bold text-slate-700">&#8377;<?php echo number_format($sub_cost, 2); ?></span></div>
+                                        <?php if (!empty($sub_asset['remarks'])): ?>
+                                            <div class="text-slate-400 italic">Remarks: "<?php echo htmlspecialchars($sub_asset['remarks']); ?>"</div>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+            <?php $sr_no++; endforeach; ?>
             <?php endif; ?>
         </div>
+
+        <script>
+            function toggleTransferDetails(itemNo) {
+                const el = document.getElementById('details-transfer-' + itemNo);
+                const btn = document.getElementById('btn-toggle-transfer-' + itemNo);
+                if (el.classList.contains('hidden')) {
+                    el.classList.remove('hidden');
+                    btn.innerHTML = '🔼 Hide';
+                } else {
+                    el.classList.add('hidden');
+                    btn.innerHTML = '🔽 Details';
+                }
+            }
+        </script>
+
     </div>
 </div>

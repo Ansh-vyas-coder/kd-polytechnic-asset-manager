@@ -11,9 +11,14 @@ if (!defined('IS_EMBEDDED')) { // If accessed directly, establish a context.
 
 require_once 'notification_utils.php';
 
+$old_data = $_SESSION['add_asset_old_data'] ?? [];
+unset($_SESSION['add_asset_old_data']);
+
 $suggested_page_nos = [];
+$suggested_item_nos = [];
 for ($category_id = 1; $category_id <= 4; $category_id++) {
     $suggested_page_nos[$category_id] = 1;
+    $suggested_item_nos[$category_id] = 1;
 
     $page_stmt = $conn->prepare("
         SELECT page_no
@@ -36,31 +41,29 @@ for ($category_id = 1; $category_id <= 4; $category_id++) {
 
         $page_stmt->close();
     }
-}
 
-$suggested_item_no = 1;
-$latest_item_stmt = $conn->prepare("SELECT item_no FROM assets ORDER BY id DESC LIMIT 20");
-if ($latest_item_stmt) {
-    $latest_item_stmt->execute();
-    $latest_item_stmt->bind_result($latest_item_value);
+    $item_stmt = $conn->prepare("
+        SELECT MAX(item_no)
+        FROM assets
+        WHERE category_id = ?
+    ");
 
-    while ($latest_item_stmt->fetch()) {
-        if (is_numeric($latest_item_value)) {
-            $suggested_item_no = (int)$latest_item_value + 1;
-            break;
+    if ($item_stmt) {
+        $item_stmt->bind_param("i", $category_id);
+        $item_stmt->execute();
+        $item_stmt->bind_result($latest_item_no);
+
+        if ($item_stmt->fetch() && $latest_item_no !== null && is_numeric($latest_item_no)) {
+            $suggested_item_nos[$category_id] = (int)$latest_item_no + 1;
         }
 
-        if (preg_match('/I-(\d+)/', $latest_item_value, $matches)) {
-            $suggested_item_no = (int)$matches[1] + 1;
-            break;
-        }
+        $item_stmt->close();
     }
-
-    $latest_item_stmt->close();
 }
 
 // --- START: ACTION HANDLER FOR ADDING AN ASSET ---
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['action'] === 'add_asset') {
+    $_SESSION['add_asset_old_data'] = $_POST;
     
     // Sanitize and retrieve POST data from the form
     $asset_name = trim($_POST['asset_name']);
@@ -83,6 +86,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
     if ($page_no === null || $page_no === '') {
         header("Location: dashboard.php?view=add-asset&status=error&message=" . urlencode('Page No is required.'));
         exit();
+    }
+
+    // Check if item_no is already used in this category
+    $check_item_stmt = $conn->prepare("SELECT id, asset_name FROM assets WHERE category_id = ? AND item_no = ? LIMIT 1");
+    if ($check_item_stmt) {
+        $check_item_stmt->bind_param("ii", $category_id, $item_number);
+        $check_item_stmt->execute();
+        $check_item_result = $check_item_stmt->get_result();
+        if ($existing_row = $check_item_result->fetch_assoc()) {
+            $check_item_stmt->close();
+            $category_name_str = match($category_id) {
+                1 => 'Expandable',
+                2 => 'Consumables',
+                3 => 'Deadstock',
+                4 => 'Furniture',
+                default => 'selected'
+            };
+            $err_msg = "Item No. {$item_number} is already used in {$category_name_str} category (Asset: '{$existing_row['asset_name']}'). Please use a unique Item No.";
+            if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'message' => $err_msg]);
+                exit();
+            }
+            header("Location: dashboard.php?view=add-asset&status=error&message=" . urlencode($err_msg));
+            exit();
+        }
+        $check_item_stmt->close();
     }
 
     // Generate a unique batch ID for this entire submission
@@ -109,7 +139,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
 
     $inserted = false;
     for ($index = 0; $index < $asset_count; $index++) {
-        $row_item_number = $item_number + $index;
+        $row_item_number = $item_number;
         $asset_no_value = $asset_numbers[$index] ?? $posted_asset_numbers;
 
         $stmt = $conn->prepare(
@@ -181,6 +211,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
             }
             // --- END NOTIFICATION LOGIC ---
 
+        unset($_SESSION['add_asset_old_data']);
         // AJAX request: return JSON success (no redirect)
         if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
             echo json_encode(['success' => true, 'category_id' => $category_id, 'asset_name' => $asset_name]);
@@ -255,23 +286,32 @@ if (!$embedMode) {
                 </div>
                 <!-- ===== End OCR Feature Section ===== -->
 
+                <?php if (isset($_GET['status']) && $_GET['status'] === 'error' && !empty($_GET['message'])): ?>
+                    <div class="mb-5 flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                        <span><?php echo htmlspecialchars($_GET['message']); ?></span>
+                    </div>
+                <?php endif; ?>
+
                 <form id="assetForm" class="grid gap-6 lg:grid-cols-2" action="add-asset.php" method="post">
                     <input type="hidden" name="action" value="add_asset">
                     <div class="space-y-5 lg:col-span-2">
                         <div class="grid gap-5 md:grid-cols-2">
                             <div>
                                 <label for="asset_name" class="mb-2 block text-sm font-semibold text-slate-700">Asset Name</label>
-                                <input type="text" id="asset_name" name="asset_name" placeholder="Keyboard" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
+                                <input type="text" id="asset_name" name="asset_name" placeholder="Keyboard" value="<?php echo htmlspecialchars($old_data['asset_name'] ?? ''); ?>" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
                             </div>
 
                             <div>
                                 <label for="category" class="mb-2 block text-sm font-semibold text-slate-700">Category</label>
                                 <select id="category" name="category_id" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
                                     <option value="">Select category</option>
-                                    <option value="1">Expandable</option>
-                                    <option value="2">Consumables</option>
-                                    <option value="3">Deadstock</option>
-                                    <option value="4">Furniture</option>
+                                    <option value="1" <?php echo (($old_data['category_id'] ?? '') == '1') ? 'selected' : ''; ?>>Expandable</option>
+                                    <option value="2" <?php echo (($old_data['category_id'] ?? '') == '2') ? 'selected' : ''; ?>>Consumables</option>
+                                    <option value="3" <?php echo (($old_data['category_id'] ?? '') == '3') ? 'selected' : ''; ?>>Deadstock</option>
+                                    <option value="4" <?php echo (($old_data['category_id'] ?? '') == '4') ? 'selected' : ''; ?>>Furniture</option>
                                 </select>
                             </div>
                         </div>
@@ -279,20 +319,20 @@ if (!$embedMode) {
                         <div class="grid gap-5 md:grid-cols-2">
                             <div>
                                 <label for="page_no" class="mb-2 block text-sm font-semibold text-slate-700">Page No.</label>
-                                <input type="text" id="page_no" name="page_no" placeholder="Enter page no." class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
+                                <input type="text" id="page_no" name="page_no" placeholder="Enter page no." value="<?php echo htmlspecialchars($old_data['page_no'] ?? ''); ?>" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
                                 <p class="mt-2 text-xs text-slate-500">Auto-suggests the next page for selected category. You can edit it.</p>
                             </div>
 
                             <div>
                                 <label for="quantity" class="mb-2 block text-sm font-semibold text-slate-700">Quantity</label>
                                 <div class="flex gap-2">
-                                    <input type="number" id="quantity" name="quantity" min="1" value="1" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
+                                    <input type="number" id="quantity" name="quantity" min="1" value="<?php echo htmlspecialchars($old_data['quantity'] ?? '1'); ?>" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
                                     <select id="unit" name="unit" class="rounded-lg border border-slate-300 bg-slate-50 px-3 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200 w-32">
-                                        <option value="pcs">pcs</option>
-                                        <option value="mtr">mtr</option>
-                                        <option value="liter">liter</option>
-                                        <option value="box">box</option>
-                                        <option value="kg">kg</option>
+                                        <option value="pcs" <?php echo (($old_data['unit'] ?? '') == 'pcs') ? 'selected' : ''; ?>>pcs</option>
+                                        <option value="mtr" <?php echo (($old_data['unit'] ?? '') == 'mtr') ? 'selected' : ''; ?>>mtr</option>
+                                        <option value="liter" <?php echo (($old_data['unit'] ?? '') == 'liter') ? 'selected' : ''; ?>>liter</option>
+                                        <option value="box" <?php echo (($old_data['unit'] ?? '') == 'box') ? 'selected' : ''; ?>>box</option>
+                                        <option value="kg" <?php echo (($old_data['unit'] ?? '') == 'kg') ? 'selected' : ''; ?>>kg</option>
                                     </select>
                                 </div>
                             </div>
@@ -301,30 +341,30 @@ if (!$embedMode) {
                         <div class="grid gap-5 md:grid-cols-2">
                             <div>
                                 <label for="gem_order_no" class="mb-2 block text-sm font-semibold text-slate-700">Gem Order No.</label>
-                                <input type="text" id="gem_order_no" name="gem_order_no" placeholder="Enter GEM order no." class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200">
+                                <input type="text" id="gem_order_no" name="gem_order_no" placeholder="Enter GEM order no." value="<?php echo htmlspecialchars($old_data['gem_order_no'] ?? ''); ?>" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200">
                             </div>
 
                             <div>
                                 <label for="gem_invoice_no" class="mb-2 block text-sm font-semibold text-slate-700">Gem Invoice No.</label>
-                                <input type="text" id="gem_invoice_no" name="gem_invoice_no" placeholder="Enter GEM invoice no." class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200">
+                                <input type="text" id="gem_invoice_no" name="gem_invoice_no" placeholder="Enter GEM invoice no." value="<?php echo htmlspecialchars($old_data['gem_invoice_no'] ?? ''); ?>" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200">
                             </div>
                         </div>
 
                         <div class="grid gap-5 md:grid-cols-2">
                             <div>
                                 <label for="gpr_no" class="mb-2 block text-sm font-semibold text-slate-700">GPR No.</label>
-                                <input type="text" id="gpr_no" name="gpr_no" placeholder="Enter GPR no." class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200">
+                                <input type="text" id="gpr_no" name="gpr_no" placeholder="Enter GPR no." value="<?php echo htmlspecialchars($old_data['gpr_no'] ?? ''); ?>" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200">
                             </div>
 
                             <div class="grid gap-5 sm:grid-cols-2">
                                 <div>
                                     <label for="pr_page_no" class="mb-2 block text-sm font-semibold text-slate-700">GPR Page No.</label>
-                                    <input type="text" id="pr_page_no" name="pr_page_no" placeholder="Enter GPR page no." class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200">
+                                    <input type="text" id="pr_page_no" name="pr_page_no" placeholder="Enter GPR page no." value="<?php echo htmlspecialchars($old_data['pr_page_no'] ?? ''); ?>" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200">
                                 </div>
 
                                 <div>
                                     <label for="gpr_item_no" class="mb-2 block text-sm font-semibold text-slate-700">GPR Item No.</label>
-                                    <input type="text" id="gpr_item_no" name="gpr_item_no" placeholder="Enter GPR item no." class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200">
+                                    <input type="text" id="gpr_item_no" name="gpr_item_no" placeholder="Enter GPR item no." value="<?php echo htmlspecialchars($old_data['gpr_item_no'] ?? ''); ?>" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200">
                                 </div>
                             </div>
                         </div>
@@ -332,7 +372,8 @@ if (!$embedMode) {
                         <div class="grid gap-5 md:grid-cols-2">
                             <div>
                                 <label for="item_no" class="mb-2 block text-sm font-semibold text-slate-700">Item No</label>
-                                <input type="number" id="item_no" name="item_no" min="1" value="<?php echo (int)$suggested_item_no; ?>" placeholder="Enter item no." class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
+                                <input type="number" id="item_no" name="item_no" min="1" value="<?php echo htmlspecialchars($old_data['item_no'] ?? ''); ?>" placeholder="Auto-assigned on category select" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
+                                <p class="mt-2 text-xs text-slate-500">Auto-suggests the next unique Item No for selected category.</p>
                             </div>
 
                             <div>
@@ -353,7 +394,7 @@ if (!$embedMode) {
                         <div class="grid gap-5 md:grid-cols-2">
                             <div>
                                 <label for="date_of_issue" class="mb-2 block text-sm font-semibold text-slate-700">Date of Issue</label>
-                                <input type="date" id="date_of_issue" name="date_of_issue" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
+                                <input type="date" id="date_of_issue" name="date_of_issue" value="<?php echo htmlspecialchars($old_data['date_of_issue'] ?? ''); ?>" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
                             </div>
 
                             <div>
@@ -367,7 +408,7 @@ if (!$embedMode) {
                         <div class="grid gap-5 md:grid-cols-2">
                             <div>
                                 <label for="cost" class="mb-2 block text-sm font-semibold text-slate-700">Amount per Item</label>
-                                <input type="number" id="cost" name="cost" step="0.01" placeholder="₹ Amount (optional)" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200">
+                                <input type="number" id="cost" name="cost" step="0.01" value="<?php echo htmlspecialchars($old_data['cost'] ?? ''); ?>" placeholder="₹ Amount (optional)" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200">
                             </div>
 
                             <div>
@@ -378,12 +419,12 @@ if (!$embedMode) {
 
                         <div>
                             <label for="remarks" class="mb-2 block text-sm font-semibold text-slate-700">Remarks</label>
-                            <textarea id="remarks" name="remarks" rows="3" placeholder="Enter any specific condition or notes..." class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200"></textarea>
+                            <textarea id="remarks" name="remarks" rows="3" placeholder="Enter any specific condition or notes..." class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200"><?php echo htmlspecialchars($old_data['remarks'] ?? ''); ?></textarea>
                         </div>
 
                         <div>
                             <label for="asset_no" class="mb-2 block text-sm font-semibold text-slate-700">Asset No</label>
-                            <textarea id="asset_no" name="asset_no" rows="4" placeholder="KDP/COMP/2026/EXP/P-12/I-10/1/3" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required></textarea>
+                            <textarea id="asset_no" name="asset_no" rows="4" placeholder="KDP/COMP/2026/EXP/P-12/I-10/1/3" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required><?php echo htmlspecialchars($old_data['asset_no'] ?? ''); ?></textarea>
                             <p class="mt-2 text-xs text-slate-500">Use the format KDP/COMP/YYYY/CATEGORY/P-PAGE/I-ITEM/SEQ/QTY.</p>
                         </div>
                     </div>
@@ -416,6 +457,10 @@ if (!$embedMode) {
     const assignedToSelect = document.getElementById('assigned_to');
     const locationStorageKey = 'kd_polytechnic_saved_locations';
     const suggestedPageNos = <?php echo json_encode($suggested_page_nos); ?>;
+    const suggestedItemNos = <?php echo json_encode($suggested_item_nos); ?>;
+    const oldLocation = <?php echo json_encode($old_data['location'] ?? ''); ?>;
+    const oldAssignedTo = <?php echo json_encode($old_data['assigned_to'] ?? ''); ?>;
+    const hasOldData = <?php echo !empty($old_data) ? 'true' : 'false'; ?>;
 
     function getCategoryCode(value) {
         const categoryMap = {
@@ -438,9 +483,8 @@ if (!$embedMode) {
         if (categoryCode) {
             const generatedNumbers = [];
             for (let index = 0; index < quantity; index++) {
-                const currentItemNo = startItemNo + index;
                 const pageSuffix = pageNo ? `P-${pageNo}` : 'P-';
-                generatedNumbers.push(`KDP/COMP/${year}/${categoryCode}/${pageSuffix}/I-${currentItemNo}/${index + 1}/${quantity}`);
+                generatedNumbers.push(`KDP/COMP/${year}/${categoryCode}/${pageSuffix}/I-${startItemNo}/${index + 1}/${quantity}`);
             }
             assetNoInput.value = generatedNumbers.join('\n');
         } else {
@@ -448,14 +492,21 @@ if (!$embedMode) {
         }
     }
 
-    function updateSuggestedPageNo() {
+    function updateCategoryDefaults() {
         const categoryValue = categoryInput.value;
         const suggestedPageNo = suggestedPageNos[categoryValue];
+        const suggestedItemNo = suggestedItemNos[categoryValue];
 
         if (suggestedPageNo) {
             document.getElementById('page_no').value = suggestedPageNo;
         } else {
             document.getElementById('page_no').value = '';
+        }
+
+        if (suggestedItemNo) {
+            itemNoInput.value = suggestedItemNo;
+        } else {
+            itemNoInput.value = '';
         }
 
         updateAssetNo();
@@ -537,9 +588,10 @@ if (!$embedMode) {
         
         locationSelect.innerHTML = optionsHTML;
 
-        if (currentValue && Array.from(locationSelect.options).some(option => option.value === currentValue)) {
-            locationSelect.value = currentValue;
-        } else if (currentValue === '__other__') {
+        const valueToSelect = currentValue || oldLocation;
+        if (valueToSelect && Array.from(locationSelect.options).some(option => option.value === valueToSelect)) {
+            locationSelect.value = valueToSelect;
+        } else if (valueToSelect === '__other__') {
             locationSelect.value = '__other__';
         }
     }
@@ -583,7 +635,12 @@ if (!$embedMode) {
     });
 
     document.getElementById('page_no').addEventListener('input', updateAssetNo);
-    categoryInput.addEventListener('change', updateSuggestedPageNo);
+    categoryInput.addEventListener('change', updateCategoryDefaults);
+
+    // Initial load check
+    if (categoryInput.value && !hasOldData) {
+        updateCategoryDefaults();
+    }
 
     locationSelect.addEventListener('change', toggleCustomLocationInput);
     addLocationButton.addEventListener('click', addCustomLocation);
@@ -656,6 +713,10 @@ if (!$embedMode) {
                 option.textContent = name;
                 assignedToSelect.appendChild(option);
             });
+
+            if (oldAssignedTo) {
+                assignedToSelect.value = oldAssignedTo;
+            }
         })
         .catch(() => {
             assignedToSelect.innerHTML = '<option value="">Could not load faculty list</option>';
@@ -729,14 +790,14 @@ if (!$embedMode) {
         ocrPrevBtn.disabled = idx === 0;
         ocrNextBtn.disabled = idx === ocrRows.length - 1;
 
-        // Step 1: Set category first (triggers default page suggestion)
+        // Step 1: Set category first (triggers default page and item no suggestion)
         if (row.category && String(row.category).trim() !== '') {
             const cat = row.category.toLowerCase();
             const categoryMap = { 'consumables': '2', 'consumable': '2', 'expandable': '1', 'deadstock': '3', 'dead stock': '3', 'furniture': '4' };
             const catValue = categoryMap[cat] || '';
             if (catValue) {
                 document.getElementById('category').value = catValue;
-                updateSuggestedPageNo();
+                updateCategoryDefaults();
             }
         }
 

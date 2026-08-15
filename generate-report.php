@@ -545,7 +545,7 @@ function getSelectedCols() {
     return Array.from(allCheckboxes).filter(cb => cb.checked).map(cb => cb.dataset.col);
 }
 
-// ── Render table ──
+// ── Render table (Excel-style: summary row + always-visible sub-rows) ──
 function renderTable(records, cols, container) {
     if (cols.length === 0) {
         container.innerHTML = '<p style="text-align:center;color:#9ca3af;padding:24px 0;font-size:.85rem;">No columns selected.</p>';
@@ -556,21 +556,72 @@ function renderTable(records, cols, container) {
         return;
     }
 
-    let html = '<table class="preview-table"><thead><tr><th>#</th>';
+    // Group records by item_no
+    const groups = {};
+    records.forEach(row => {
+        const item_no = row.item_no || 'Uncategorized';
+        if (!groups[item_no]) {
+            groups[item_no] = {
+                item_no: item_no,
+                asset_name: row.asset_name || '',
+                category_id: row.category_id,
+                page_no: row.page_no || '',
+                total_cost: 0,
+                total_quantity: 0,
+                rows: []
+            };
+        }
+        groups[item_no].rows.push(row);
+        groups[item_no].total_cost += parseFloat(row.cost || 0);
+        groups[item_no].total_quantity += parseFloat(row.quantity || 1);
+    });
+
+    let html = '<table class="preview-table"><thead><tr>'
+        + '<th style="width:36px;">#</th>';
     cols.forEach(col => { html += `<th>${COL_LABELS[col] || col}</th>`; });
     html += '</tr></thead><tbody>';
 
-    records.forEach((row, idx) => {
-        html += '<tr>';
-        html += `<td style="text-align:center;color:#9ca3af;min-width:36px;">${idx + 1}</td>`;
+    let idx = 1;
+    for (const item_no in groups) {
+        const grp = groups[item_no];
+
+        // ── Summary / parent row (bold, blue background) ──
+        html += `<tr style="font-weight:700; background:#dbeafe; border-top:2px solid #93c5fd;">`;
+        html += `<td style="text-align:center;color:#1d4ed8;min-width:36px;">${idx}</td>`;
         cols.forEach(col => {
-            let val = row[col] ?? '';
-            if (col === 'category_id') val = CATEGORIES[val] || val;
-            if (col === 'cost' && val !== '') val = '₹' + parseFloat(val).toLocaleString('en-IN', {minimumFractionDigits:2});
-            html += `<td>${String(val).replace(/\n/g,'<br>')}</td>`;
+            let val = '';
+            if (col === 'item_no')     val = item_no;
+            else if (col === 'asset_name')  val = grp.asset_name;
+            else if (col === 'category_id') val = CATEGORIES[grp.category_id] || grp.category_id;
+            else if (col === 'page_no')     val = grp.page_no;
+            else if (col === 'quantity')    val = `<span style="font-weight:800;">${grp.total_quantity} units</span>`;
+            else if (col === 'cost')        val = '₹' + grp.total_cost.toLocaleString('en-IN', {minimumFractionDigits:2});
+            else if (col === 'asset_no')    val = `<span style="color:#2563eb;font-size:0.75rem;">GROUP SUMMARY (${grp.rows.length} item${grp.rows.length !== 1 ? 's' : ''})</span>`;
+            else {
+                const uniques = [...new Set(grp.rows.map(r => r[col]).filter(Boolean))];
+                val = uniques.join(', ');
+                if (val.length > 50) val = val.substring(0, 47) + '...';
+            }
+            html += `<td>${String(val)}</td>`;
         });
         html += '</tr>';
-    });
+
+        // ── Child / sub-rows (italic, grey, ↳ prefix on asset_no) ──
+        grp.rows.forEach((row, subIdx) => {
+            html += `<tr style="background:#f8fafc; color:#475569; font-style:italic; border-bottom:1px solid #e2e8f0;">`;
+            html += `<td style="text-align:right;color:#cbd5e1;font-size:0.7rem;padding-right:6px;">↳</td>`;
+            cols.forEach(col => {
+                let val = row[col] ?? '';
+                if (col === 'category_id') val = CATEGORIES[val] || val;
+                if (col === 'asset_no')    val = `<span style="font-family:monospace;color:#2563eb;">↳ ${val}</span>`;
+                if (col === 'cost' && val !== '') val = '₹' + parseFloat(val).toLocaleString('en-IN', {minimumFractionDigits:2});
+                html += `<td style="color:#64748b;">${String(val).replace(/\n/g,'<br>')}</td>`;
+            });
+            html += '</tr>';
+        });
+
+        idx++;
+    }
 
     html += '</tbody></table>';
     container.innerHTML = html;

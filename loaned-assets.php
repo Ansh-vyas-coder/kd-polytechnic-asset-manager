@@ -546,61 +546,147 @@ $selected_assets = $loaned_assets[$selectedCategory] ?? [];
                 </div>
             </div>
         </div>
-        <div class="la-list-head">
+        <div class="la-list-head" style="display: grid; grid-template-columns: 50px 80px 2fr 1.5fr 2fr 120px; align-items: center; background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 10px 16px; font-size: 0.72rem; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.05em;">
             <div>Sr</div>
-            <div>Asset No</div>
-            <div>Asset Name</div>
-            <div>Loan To</div>
-            <div>Loan Date</div>
-            <div>Return Date</div>
-            <div>Action</div>
+            <div>Item No</div>
+            <div>Asset Name &amp; Loaned Qty</div>
+            <div>Loaned To</div>
+            <div>Loan/Return Dates</div>
+            <div class="text-right">Action</div>
         </div>
 
         <div>
             <?php if (empty($selected_assets)): ?>
                 <div class="la-empty py-10 text-center text-slate-500">No loaned assets found in this category.</div>
-            <?php else: ?>
-                <?php $sr_no = 1; ?>
-                <?php foreach ($selected_assets as $asset): ?>
-                    <?php
-                        $holder = $asset['assigned_to'] ?: ($asset['location'] ?: 'N/A');
-                    ?>
-                    <div class="la-list-row">
+            <?php else:
+                // Group by item_no
+                $grouped = [];
+                foreach ($selected_assets as $asset) {
+                    $item_no = $asset['item_no'] ?: 'Uncategorized';
+                    if (!isset($grouped[$item_no])) {
+                        $grouped[$item_no] = [
+                            'item_no' => $item_no,
+                            'asset_name' => $asset['asset_name'],
+                            'loan_recipients' => [],
+                            'loan_date_min' => $asset['loan_date'],
+                            'loan_date_max' => $asset['loan_date'],
+                            'return_date_min' => $asset['return_date'],
+                            'return_date_max' => $asset['return_date'],
+                            'items' => []
+                        ];
+                    }
+                    $grouped[$item_no]['items'][] = $asset;
+                    $recipient = $asset['loan_to'] ?: 'N/A';
+                    if (!in_array($recipient, $grouped[$item_no]['loan_recipients'])) {
+                        $grouped[$item_no]['loan_recipients'][] = $recipient;
+                    }
+                    if ($asset['loan_date']) {
+                        if (!$grouped[$item_no]['loan_date_min'] || strtotime($asset['loan_date']) < strtotime($grouped[$item_no]['loan_date_min'])) {
+                            $grouped[$item_no]['loan_date_min'] = $asset['loan_date'];
+                        }
+                        if (!$grouped[$item_no]['loan_date_max'] || strtotime($asset['loan_date']) > strtotime($grouped[$item_no]['loan_date_max'])) {
+                            $grouped[$item_no]['loan_date_max'] = $asset['loan_date'];
+                        }
+                    }
+                    if ($asset['return_date']) {
+                        if (!$grouped[$item_no]['return_date_min'] || strtotime($asset['return_date']) < strtotime($grouped[$item_no]['return_date_min'])) {
+                            $grouped[$item_no]['return_date_min'] = $asset['return_date'];
+                        }
+                        if (!$grouped[$item_no]['return_date_max'] || strtotime($asset['return_date']) > strtotime($grouped[$item_no]['return_date_max'])) {
+                            $grouped[$item_no]['return_date_max'] = $asset['return_date'];
+                        }
+                    }
+                }
+
+                $sr_no = 1;
+                foreach ($grouped as $item_no => $group):
+                    $items_count = count($group['items']);
+                    $recipients_summary = implode(', ', array_slice($group['loan_recipients'], 0, 2));
+                    if (count($group['loan_recipients']) > 2) {
+                        $recipients_summary .= ' (+' . (count($group['loan_recipients']) - 2) . ' more)';
+                    }
+                    $loan_dates = $group['loan_date_min'] ? date('d/m/Y', strtotime($group['loan_date_min'])) : 'N/A';
+                    if ($group['loan_date_min'] !== $group['loan_date_max']) {
+                        $loan_dates .= ' - ' . date('d/m/Y', strtotime($group['loan_date_max']));
+                    }
+            ?>
+                    <div class="la-list-row" style="display: grid; grid-template-columns: 50px 80px 2fr 1.5fr 2fr 120px; align-items: center; padding: 12px 16px; border-bottom: 1px solid #f1f5f9; background: #ffffff; font-size: 0.82rem;">
                         <div class="la-cell la-sr"><?php echo $sr_no; ?></div>
 
-                        <div class="la-cell la-mono">
-                            <?php echo htmlspecialchars($asset['asset_no'] ?: 'N/A'); ?>
+                        <div class="la-cell">
+                            <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100"><?php echo htmlspecialchars($item_no); ?></span>
                         </div>
 
                         <div class="la-cell">
-                            <div class="la-primary"><?php echo htmlspecialchars($asset['asset_name']); ?></div>
-                            <div class="la-secondary">Item No: <?php echo htmlspecialchars($asset['item_no'] ?: 'N/A'); ?></div>
+                            <div class="la-primary capitalize"><?php echo htmlspecialchars($group['asset_name']); ?></div>
+                            <div class="la-secondary font-bold text-blue-600"><?php echo $items_count; ?> unit<?php echo $items_count !== 1 ? 's' : ''; ?> on loan</div>
                         </div>
 
-                        <div class="la-cell la-location">
-                            <?php echo htmlspecialchars($asset['loan_to'] ?: 'N/A'); ?>
+                        <div class="la-cell la-location font-semibold">
+                            <?php echo htmlspecialchars($recipients_summary ?: 'N/A'); ?>
                         </div>
 
-                        <div class="la-cell la-meta">
-                            <?php echo $asset['loan_date'] ? date('d/m/Y', strtotime($asset['loan_date'])) : 'N/A'; ?>
+                        <div class="la-cell la-meta text-xs text-slate-500">
+                            <div>Loaned: <?php echo $loan_dates; ?></div>
                         </div>
 
-                        <div class="la-cell la-meta">
-                            <?php echo $asset['return_date'] ? date('d/m/Y', strtotime($asset['return_date'])) : 'N/A'; ?>
-                        </div>
-
-                        <div class="la-cell">
-                            <form method="POST" action="return-asset.php" class="return-asset-form" data-asset-id="<?php echo (int)$asset['id']; ?>" data-asset-name="<?php echo htmlspecialchars($asset['asset_name']); ?>">
-                                <input type="hidden" name="id" value="<?php echo (int)$asset['id']; ?>">
-                                <button type="submit" class="la-btn la-btn-success" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">
-                                    Return
-                                </button>
-                            </form>
+                        <div class="la-cell text-right">
+                            <button type="button" id="btn-toggle-loan-<?php echo $item_no; ?>" onclick="toggleLoanDetails('<?php echo $item_no; ?>')" class="la-btn la-btn-secondary text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition" style="padding: 6px 10px; font-weight: 600; color: #475569; background: #ffffff;">
+                                🔽 Details
+                            </button>
                         </div>
                     </div>
-                <?php $sr_no++; endforeach; ?>
+
+                    <!-- Accordion Sub-rows -->
+                    <div id="details-loan-<?php echo $item_no; ?>" class="hidden bg-slate-50 border-l-4 border-blue-500 px-6 py-4 space-y-3 shadow-inner no-print" style="margin-left: 20px; margin-right: 20px; border-radius: 0 0 8px 8px;">
+                        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Loaned Asset Details for Item No: <?php echo htmlspecialchars($item_no); ?></h4>
+                        <div class="space-y-2">
+                            <?php foreach ($group['items'] as $sub_asset):
+                                $sub_loan_date = $sub_asset['loan_date'] ? date('d/m/Y', strtotime($sub_asset['loan_date'])) : 'N/A';
+                                $sub_return_date = $sub_asset['return_date'] ? date('d/m/Y', strtotime($sub_asset['return_date'])) : 'N/A';
+                                $sub_cost = (float)$sub_asset['cost'];
+                            ?>
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-slate-200 rounded-lg p-3 gap-2">
+                                    <div class="flex flex-wrap items-center gap-4 text-xs">
+                                        <div>Asset No: <span class="font-mono text-blue-600 font-bold"><?php echo htmlspecialchars($sub_asset['asset_no'] ?: 'N/A'); ?></span></div>
+                                        <div>Loaned To: <span class="font-bold text-slate-700"><?php echo htmlspecialchars($sub_asset['loan_to'] ?: 'N/A'); ?></span></div>
+                                        <div>Loan Date: <span class="font-bold text-slate-700"><?php echo $sub_loan_date; ?></span></div>
+                                        <div>Expected Return: <span class="font-bold text-slate-700"><?php echo $sub_return_date; ?></span></div>
+                                        <div>Cost: <span class="font-bold text-slate-700">&#8377;<?php echo number_format($sub_cost, 2); ?></span></div>
+                                        <?php if (!empty($sub_asset['remarks'])): ?>
+                                            <div class="text-slate-400 italic">Remarks: "<?php echo htmlspecialchars($sub_asset['remarks']); ?>"</div>
+                                        <?php endif; ?>
+                                    </div>
+                                    <div>
+                                        <form method="POST" action="return-asset.php" class="return-asset-form" data-asset-id="<?php echo (int)$sub_asset['id']; ?>" data-asset-name="<?php echo htmlspecialchars($sub_asset['asset_name']); ?>">
+                                            <input type="hidden" name="id" value="<?php echo (int)$sub_asset['id']; ?>">
+                                            <button type="submit" class="la-btn la-btn-success text-xs font-semibold px-2.5 py-1.5" style="padding: 6px 12px; border-radius: 6px;">
+                                                Return
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+            <?php $sr_no++; endforeach; ?>
             <?php endif; ?>
         </div>
+
+        <script>
+            function toggleLoanDetails(itemNo) {
+                const el = document.getElementById('details-loan-' + itemNo);
+                const btn = document.getElementById('btn-toggle-loan-' + itemNo);
+                if (el.classList.contains('hidden')) {
+                    el.classList.remove('hidden');
+                    btn.innerHTML = '🔼 Hide';
+                } else {
+                    el.classList.add('hidden');
+                    btn.innerHTML = '🔽 Details';
+                }
+            }
+        </script>
+
     </div>
 </div>
 

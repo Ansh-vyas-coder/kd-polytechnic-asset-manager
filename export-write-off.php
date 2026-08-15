@@ -203,54 +203,135 @@ if ($use_phpspreadsheet) {
         $col++;
     }
 
+    // Group by item_no
+    $grouped_assets = [];
+    foreach ($assets as $asset) {
+        $item_no = $asset['item_no'] ?: 'Uncategorized';
+        if (!isset($grouped_assets[$item_no])) {
+            $grouped_assets[$item_no] = [
+                'item_no' => $item_no,
+                'asset_name' => $asset['asset_name'],
+                'category_id' => $asset['category_id'],
+                'page_no' => $asset['page_no'],
+                'date_of_issue_min' => $asset['date_of_issue'],
+                'date_of_issue_max' => $asset['date_of_issue'],
+                'total_cost' => 0,
+                'status' => $asset['status'] ?: ($is_history ? 'Retired' : 'Active'),
+                'locations' => [],
+                'items' => []
+            ];
+        }
+        $grouped_assets[$item_no]['items'][] = $asset;
+        $grouped_assets[$item_no]['total_cost'] += (float)$asset['cost'];
+        $loc = $asset['location'] ?: ($asset['assigned_to'] ?: 'N/A');
+        if (!in_array($loc, $grouped_assets[$item_no]['locations'])) {
+            $grouped_assets[$item_no]['locations'][] = $loc;
+        }
+        if (strtotime($asset['date_of_issue']) < strtotime($grouped_assets[$item_no]['date_of_issue_min'])) {
+            $grouped_assets[$item_no]['date_of_issue_min'] = $asset['date_of_issue'];
+        }
+        if (strtotime($asset['date_of_issue']) > strtotime($grouped_assets[$item_no]['date_of_issue_max'])) {
+            $grouped_assets[$item_no]['date_of_issue_max'] = $asset['date_of_issue'];
+        }
+    }
+
     // Data rows
     $rowIdx = 5;
     $srNo = 1;
     $today = new DateTime('today');
 
-    foreach ($assets as $asset) {
-        $cat_name = $category_names[$asset['category_id']] ?? 'Unknown';
-        $issue_time = strtotime($asset['date_of_issue']);
-        $issue_date_fmt = $issue_time ? date('d/m/Y', $issue_time) : 'N/A';
-        $retire_time = !empty($asset['retire_at']) ? strtotime($asset['retire_at']) : null;
-        $retire_date_fmt = $retire_time ? date('d/m/Y H:i', $retire_time) : 'N/A';
-        $age = $issue_time ? date_diff(date_create($asset['date_of_issue']), $today)->y : 0;
-        $holder = $asset['location'] ?: ($asset['assigned_to'] ?: 'N/A');
+    foreach ($grouped_assets as $item_no => $group) {
+        $cat_name = $category_names[$group['category_id']] ?? 'Unknown';
+        $items_count = count($group['items']);
+        $locations_str = implode(', ', $group['locations']);
+        $date_range_str = date('d/m/Y', strtotime($group['date_of_issue_min'])) . ' - ' . date('d/m/Y', strtotime($group['date_of_issue_max']));
 
+        // Write Group Summary Row
         if ($is_history) {
             $sheet->setCellValue('A' . $rowIdx, $srNo++);
             $sheet->setCellValue('B' . $rowIdx, $cat_name);
-            $sheet->setCellValueExplicit('C' . $rowIdx, (string)($asset['asset_no'] ?: 'N/A'), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-            $sheet->setCellValue('D' . $rowIdx, $asset['asset_name']);
-            $sheet->setCellValueExplicit('E' . $rowIdx, (string)($asset['item_no'] ?: 'N/A'), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-            $sheet->setCellValueExplicit('F' . $rowIdx, (string)($asset['page_no'] ?: 'N/A'), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-            $sheet->setCellValueExplicit('G' . $rowIdx, $issue_date_fmt, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-            $sheet->setCellValueExplicit('H' . $rowIdx, $retire_date_fmt, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-            $sheet->setCellValue('I' . $rowIdx, $age);
-            $sheet->setCellValue('J' . $rowIdx, (float)$asset['cost']);
-            $sheet->setCellValue('K' . $rowIdx, $holder);
-            $sheet->setCellValue('L' . $rowIdx, $asset['status'] ?: 'Retired');
-            $sheet->setCellValue('M' . $rowIdx, $asset['remarks'] ?: '');
+            $sheet->setCellValue('C' . $rowIdx, "GROUP SUMMARY (" . $items_count . " items)");
+            $sheet->setCellValue('D' . $rowIdx, $group['asset_name']);
+            $sheet->setCellValueExplicit('E' . $rowIdx, (string)$item_no, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValueExplicit('F' . $rowIdx, (string)$group['page_no'], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValueExplicit('G' . $rowIdx, $date_range_str, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValue('H' . $rowIdx, "N/A");
+            $sheet->setCellValue('I' . $rowIdx, "-");
+            $sheet->setCellValue('J' . $rowIdx, (float)$group['total_cost']);
+            $sheet->setCellValue('K' . $rowIdx, $locations_str);
+            $sheet->setCellValue('L' . $rowIdx, $group['status']);
+            $sheet->setCellValue('M' . $rowIdx, "All items under Item No: " . $item_no);
 
+            // Style summary row
+            $sheet->getStyle('A' . $rowIdx . ':M' . $rowIdx)->getFont()->setBold(true);
+            $sheet->getStyle('A' . $rowIdx . ':M' . $rowIdx)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('EFF6FF');
             $sheet->getStyle('J' . $rowIdx)->getNumberFormat()->setFormatCode('#,##0.00');
         } else {
             $sheet->setCellValue('A' . $rowIdx, $srNo++);
             $sheet->setCellValue('B' . $rowIdx, $cat_name);
-            $sheet->setCellValueExplicit('C' . $rowIdx, (string)($asset['asset_no'] ?: 'N/A'), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-            $sheet->setCellValue('D' . $rowIdx, $asset['asset_name']);
-            $sheet->setCellValueExplicit('E' . $rowIdx, (string)($asset['item_no'] ?: 'N/A'), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-            $sheet->setCellValueExplicit('F' . $rowIdx, (string)($asset['page_no'] ?: 'N/A'), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-            $sheet->setCellValueExplicit('G' . $rowIdx, $issue_date_fmt, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
-            $sheet->setCellValue('H' . $rowIdx, $age);
-            $sheet->setCellValue('I' . $rowIdx, (float)$asset['cost']);
-            $sheet->setCellValue('J' . $rowIdx, $holder);
-            $sheet->setCellValue('K' . $rowIdx, $asset['status'] ?: 'Active');
-            $sheet->setCellValue('L' . $rowIdx, $asset['remarks'] ?: '');
+            $sheet->setCellValue('C' . $rowIdx, "GROUP SUMMARY (" . $items_count . " items)");
+            $sheet->setCellValue('D' . $rowIdx, $group['asset_name']);
+            $sheet->setCellValueExplicit('E' . $rowIdx, (string)$item_no, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValueExplicit('F' . $rowIdx, (string)$group['page_no'], \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValueExplicit('G' . $rowIdx, $date_range_str, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+            $sheet->setCellValue('H' . $rowIdx, "-");
+            $sheet->setCellValue('I' . $rowIdx, (float)$group['total_cost']);
+            $sheet->setCellValue('J' . $rowIdx, $locations_str);
+            $sheet->setCellValue('K' . $rowIdx, $group['status']);
+            $sheet->setCellValue('L' . $rowIdx, "All items under Item No: " . $item_no);
 
+            // Style summary row
+            $sheet->getStyle('A' . $rowIdx . ':L' . $rowIdx)->getFont()->setBold(true);
+            $sheet->getStyle('A' . $rowIdx . ':L' . $rowIdx)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('EFF6FF');
             $sheet->getStyle('I' . $rowIdx)->getNumberFormat()->setFormatCode('#,##0.00');
         }
-
         $rowIdx++;
+
+        // Write Sub-rows for each detailed asset
+        foreach ($group['items'] as $sub_asset) {
+            $issue_time = strtotime($sub_asset['date_of_issue']);
+            $issue_date_fmt = $issue_time ? date('d/m/Y', $issue_time) : 'N/A';
+            $retire_time = !empty($sub_asset['retire_at']) ? strtotime($sub_asset['retire_at']) : null;
+            $retire_date_fmt = $retire_time ? date('d/m/Y H:i', $retire_time) : 'N/A';
+            $age = $issue_time ? date_diff(date_create($sub_asset['date_of_issue']), $today)->y : 0;
+            $holder = $sub_asset['location'] ?: ($sub_asset['assigned_to'] ?: 'N/A');
+
+            if ($is_history) {
+                $sheet->setCellValue('A' . $rowIdx, "");
+                $sheet->setCellValue('B' . $rowIdx, "");
+                $sheet->setCellValueExplicit('C' . $rowIdx, "  ↳ " . ($sub_asset['asset_no'] ?: 'N/A'), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                $sheet->setCellValue('D' . $rowIdx, "  [Sub-Item] " . $sub_asset['asset_name']);
+                $sheet->setCellValue('E' . $rowIdx, "");
+                $sheet->setCellValue('F' . $rowIdx, "");
+                $sheet->setCellValueExplicit('G' . $rowIdx, $issue_date_fmt, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                $sheet->setCellValueExplicit('H' . $rowIdx, $retire_date_fmt, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                $sheet->setCellValue('I' . $rowIdx, $age);
+                $sheet->setCellValue('J' . $rowIdx, (float)$sub_asset['cost']);
+                $sheet->setCellValue('K' . $rowIdx, $holder);
+                $sheet->setCellValue('L' . $rowIdx, $sub_asset['status'] ?: 'Retired');
+                $sheet->setCellValue('M' . $rowIdx, $sub_asset['remarks'] ?: '');
+
+                $sheet->getStyle('C' . $rowIdx . ':M' . $rowIdx)->getFont()->setItalic(true)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('64748B'));
+                $sheet->getStyle('J' . $rowIdx)->getNumberFormat()->setFormatCode('#,##0.00');
+            } else {
+                $sheet->setCellValue('A' . $rowIdx, "");
+                $sheet->setCellValue('B' . $rowIdx, "");
+                $sheet->setCellValueExplicit('C' . $rowIdx, "  ↳ " . ($sub_asset['asset_no'] ?: 'N/A'), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                $sheet->setCellValue('D' . $rowIdx, "  [Sub-Item] " . $sub_asset['asset_name']);
+                $sheet->setCellValue('E' . $rowIdx, "");
+                $sheet->setCellValue('F' . $rowIdx, "");
+                $sheet->setCellValueExplicit('G' . $rowIdx, $issue_date_fmt, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                $sheet->setCellValue('H' . $rowIdx, $age);
+                $sheet->setCellValue('I' . $rowIdx, (float)$sub_asset['cost']);
+                $sheet->setCellValue('J' . $rowIdx, $holder);
+                $sheet->setCellValue('K' . $rowIdx, $sub_asset['status'] ?: 'Active');
+                $sheet->setCellValue('L' . $rowIdx, $sub_asset['remarks'] ?: '');
+
+                $sheet->getStyle('C' . $rowIdx . ':L' . $rowIdx)->getFont()->setItalic(true)->setColor(new \PhpOffice\PhpSpreadsheet\Style\Color('64748B'));
+                $sheet->getStyle('I' . $rowIdx)->getNumberFormat()->setFormatCode('#,##0.00');
+            }
+            $rowIdx++;
+        }
     }
 
     // Auto-fit columns
@@ -332,32 +413,58 @@ if ($use_phpspreadsheet) {
 
     $srNo = 1;
     $today = new DateTime('today');
-    foreach ($assets as $asset) {
-        $cat_name = $category_names[$asset['category_id']] ?? 'Unknown';
-        $issue_time = strtotime($asset['date_of_issue']);
-        $issue_date_fmt = $issue_time ? date('d/m/Y', $issue_time) : 'N/A';
-        $retire_time = !empty($asset['retire_at']) ? strtotime($asset['retire_at']) : null;
-        $retire_date_fmt = $retire_time ? date('d/m/Y H:i', $retire_time) : 'N/A';
-        $age = $issue_time ? date_diff(date_create($asset['date_of_issue']), $today)->y : 0;
-        $holder = $asset['location'] ?: ($asset['assigned_to'] ?: 'N/A');
+    foreach ($grouped_assets as $item_no => $group) {
+        $cat_name = $category_names[$group['category_id']] ?? 'Unknown';
+        $items_count = count($group['items']);
+        $locations_str = implode(', ', $group['locations']);
+        $date_range_str = date('d/m/Y', strtotime($group['date_of_issue_min'])) . ' - ' . date('d/m/Y', strtotime($group['date_of_issue_max']));
 
-        echo '<tr>';
+        // Print Group Summary Row
+        echo '<tr style="font-weight:bold; background-color:#eff6ff;">';
         echo '<td style="text-align:center;">' . $srNo++ . '</td>';
         echo '<td>' . htmlspecialchars($cat_name) . '</td>';
-        echo '<td style="mso-number-format:\'\@\';">' . htmlspecialchars((string)$asset['asset_no']) . '</td>';
-        echo '<td>' . htmlspecialchars((string)$asset['asset_name']) . '</td>';
-        echo '<td style="text-align:center; mso-number-format:\'\@\';">' . htmlspecialchars((string)$asset['item_no']) . '</td>';
-        echo '<td style="text-align:center; mso-number-format:\'\@\';">' . htmlspecialchars((string)$asset['page_no']) . '</td>';
-        echo '<td style="text-align:center; mso-number-format:\'\@\';">' . htmlspecialchars($issue_date_fmt) . '</td>';
+        echo '<td style="font-weight:bold;">GROUP SUMMARY (' . $items_count . ' items)</td>';
+        echo '<td>' . htmlspecialchars((string)$group['asset_name']) . '</td>';
+        echo '<td style="text-align:center; mso-number-format:\'\@\';">' . htmlspecialchars((string)$item_no) . '</td>';
+        echo '<td style="text-align:center; mso-number-format:\'\@\';">' . htmlspecialchars((string)$group['page_no']) . '</td>';
+        echo '<td style="text-align:center; mso-number-format:\'\@\';">' . htmlspecialchars($date_range_str) . '</td>';
         if ($is_history) {
-            echo '<td style="text-align:center; mso-number-format:\'\@\';">' . htmlspecialchars($retire_date_fmt) . '</td>';
+            echo '<td style="text-align:center;">N/A</td>';
         }
-        echo '<td style="text-align:center;">' . $age . '</td>';
-        echo '<td style="text-align:right;">' . number_format((float)$asset['cost'], 2) . '</td>';
-        echo '<td>' . htmlspecialchars((string)$holder) . '</td>';
-        echo '<td>' . htmlspecialchars((string)($asset['status'] ?: ($is_history ? 'Retired' : 'Active'))) . '</td>';
-        echo '<td>' . htmlspecialchars((string)($asset['remarks'] ?: '')) . '</td>';
+        echo '<td style="text-align:center;">-</td>';
+        echo '<td style="text-align:right;">' . number_format((float)$group['total_cost'], 2) . '</td>';
+        echo '<td>' . htmlspecialchars((string)$locations_str) . '</td>';
+        echo '<td>' . htmlspecialchars((string)$group['status']) . '</td>';
+        echo '<td>All items under Item No: ' . htmlspecialchars((string)$item_no) . '</td>';
         echo '</tr>';
+
+        // Print Sub-rows for each detailed asset
+        foreach ($group['items'] as $sub_asset) {
+            $issue_time = strtotime($sub_asset['date_of_issue']);
+            $issue_date_fmt = $issue_time ? date('d/m/Y', $issue_time) : 'N/A';
+            $retire_time = !empty($sub_asset['retire_at']) ? strtotime($sub_asset['retire_at']) : null;
+            $retire_date_fmt = $retire_time ? date('d/m/Y H:i', $retire_time) : 'N/A';
+            $age = $issue_time ? date_diff(date_create($sub_asset['date_of_issue']), $today)->y : 0;
+            $holder = $sub_asset['location'] ?: ($sub_asset['assigned_to'] ?: 'N/A');
+
+            echo '<tr style="color:#64748b; font-style:italic;">';
+            echo '<td style="text-align:center;"></td>';
+            echo '<td></td>';
+            echo '<td style="mso-number-format:\'\@\'; font-family:monospace; padding-left:15px;">&nbsp;&nbsp;↳ ' . htmlspecialchars((string)$sub_asset['asset_no']) . '</td>';
+            echo '<td>&nbsp;&nbsp;[Sub-Item] ' . htmlspecialchars((string)$sub_asset['asset_name']) . '</td>';
+            echo '<td style="text-align:center;"></td>';
+            echo '<td style="text-align:center;"></td>';
+            echo '<td style="text-align:center; mso-number-format:\'\@\';">' . htmlspecialchars($issue_date_fmt) . '</td>';
+            if ($is_history) {
+                echo '<td style="text-align:center; mso-number-format:\'\@\';">' . htmlspecialchars($retire_date_fmt) . '</td>';
+            }
+            echo '<td style="text-align:center;">' . $age . '</td>';
+            echo '<td style="text-align:right;">' . number_format((float)$sub_asset['cost'], 2) . '</td>';
+            echo '<td>' . htmlspecialchars((string)$holder) . '</td>';
+            echo '<td>' . htmlspecialchars((string)($sub_asset['status'] ?: ($is_history ? 'Retired' : 'Active'))) . '</td>';
+            echo '<td>' . htmlspecialchars((string)($sub_asset['remarks'] ?: '')) . '</td>';
+            echo '</tr>';
+        }
     }
 
     echo '</table></body></html>';
