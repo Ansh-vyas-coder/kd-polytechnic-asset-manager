@@ -733,8 +733,8 @@ if (!function_exists('getInitials')) {
         </div>
 
         <!-- Edit Batch Modal -->
-        <div id="editModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-5 border w-full max-w-xl shadow-lg rounded-md bg-white">
+        <div id="editModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-gray-600 bg-opacity-50">
+            <div class="w-full max-w-xl mx-4 p-5 border shadow-lg rounded-md bg-white overflow-y-auto max-h-[90vh]">
                 <div class="flex justify-between items-center border-b pb-3 mb-5">
                     <h3 class="text-xl font-semibold text-gray-900">Edit Record Details</h3>
                     <button id="closeEditModalBtn" class="text-gray-400 hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center">
@@ -788,8 +788,8 @@ if (!function_exists('getInitials')) {
         </div>
 
         <!-- Edit Item Modal -->
-        <div id="itemEditModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-5 border w-full max-w-xl shadow-lg rounded-md bg-white">
+        <div id="itemEditModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-gray-600 bg-opacity-50">
+            <div class="w-full max-w-xl mx-4 p-5 border shadow-lg rounded-md bg-white overflow-y-auto max-h-[90vh]">
                 <div class="flex justify-between items-center border-b pb-3 mb-5">
                     <h3 class="text-xl font-semibold text-gray-900">Edit Item Details</h3>
                     <button id="closeItemEditModalBtn" class="text-gray-400 hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center">

@@ -590,7 +590,10 @@ $active_section = isset($_GET['section']) && in_array($_GET['section'], ['loaned
     }
 
     @media print {
-        .no-print { display: none !important; }
+        .no-print {
+            display: none !important;
+        }
+
         .la-list-head,
         .la-list-row {
             break-inside: avoid;
@@ -651,184 +654,185 @@ $active_section = isset($_GET['section']) && in_array($_GET['section'], ['loaned
             </a>
         </form>
 
-    <div class="la-tabs no-print">
-        <?php foreach ($category_names as $category_id => $category_name): ?>
-            <a href="<?php echo htmlspecialchars(build_loaned_url($category_id, $name_filter, $loan_to_filter, $loan_from, $loan_to, $active_section)); ?>"
-               class="<?php echo $selectedCategory === $category_id ? 'active-tab' : ''; ?>">
-                <?php echo htmlspecialchars($category_name); ?>
-                <span class="la-tab-count"><?php echo number_format($category_counts[$category_id]); ?></span>
-            </a>
-        <?php endforeach; ?>
-    </div>
+        <div class="la-tabs no-print">
+            <?php foreach ($category_names as $category_id => $category_name): ?>
+                <a href="<?php echo htmlspecialchars(build_loaned_url($category_id, $name_filter, $loan_to_filter, $loan_from, $loan_to, $active_section)); ?>"
+                    class="<?php echo $selectedCategory === $category_id ? 'active-tab' : ''; ?>">
+                    <?php echo htmlspecialchars($category_name); ?>
+                    <span class="la-tab-count"><?php echo number_format($category_counts[$category_id]); ?></span>
+                </a>
+            <?php endforeach; ?>
+        </div>
 
-    <div class="la-shell">
-        <div class="la-header-area">
-            <div class="la-title"><?php echo htmlspecialchars($selected_category_name); ?> Loaned List</div>
-            <div class="la-subtitle">Assets that have been loaned out.</div>
-            <div class="la-page-line">
-                <div>Total Loaned: <strong><?php echo number_format($total_loaned); ?></strong></div>
-                <div class="la-sheet-meta">
-                    <span class="la-pill">Category: <?php echo htmlspecialchars($selected_category_name); ?></span>
-                    <span class="la-pill">Rows: <?php echo number_format(count($selected_assets)); ?></span>
-                    <?php if ($name_filter !== ''): ?>
-                        <span class="la-pill">Name: <?php echo htmlspecialchars($name_filter); ?></span>
-                    <?php endif; ?>
-                    <?php if ($loan_to_filter !== ''): ?>
-                        <span class="la-pill">Loan To: <?php echo htmlspecialchars($loan_to_filter); ?></span>
-                    <?php endif; ?>
-                    <?php if ($loan_from !== '' || $loan_to !== ''): ?>
-                        <span class="la-pill">
-                            Date:
-                            <?php echo htmlspecialchars($loan_from !== '' ? date('d/m/Y', strtotime($loan_from)) : 'Any'); ?>
-                            -
-                            <?php echo htmlspecialchars($loan_to !== '' ? date('d/m/Y', strtotime($loan_to)) : 'Any'); ?>
-                        </span>
-                    <?php endif; ?>
+        <div class="la-shell">
+            <div class="la-header-area">
+                <div class="la-title"><?php echo htmlspecialchars($selected_category_name); ?> Loaned List</div>
+                <div class="la-subtitle">Assets that have been loaned out.</div>
+                <div class="la-page-line">
+                    <div>Total Loaned: <strong><?php echo number_format($total_loaned); ?></strong></div>
+                    <div class="la-sheet-meta">
+                        <span class="la-pill">Category: <?php echo htmlspecialchars($selected_category_name); ?></span>
+                        <span class="la-pill">Rows: <?php echo number_format(count($selected_assets)); ?></span>
+                        <?php if ($name_filter !== ''): ?>
+                            <span class="la-pill">Name: <?php echo htmlspecialchars($name_filter); ?></span>
+                        <?php endif; ?>
+                        <?php if ($loan_to_filter !== ''): ?>
+                            <span class="la-pill">Loan To: <?php echo htmlspecialchars($loan_to_filter); ?></span>
+                        <?php endif; ?>
+                        <?php if ($loan_from !== '' || $loan_to !== ''): ?>
+                            <span class="la-pill">
+                                Date:
+                                <?php echo htmlspecialchars($loan_from !== '' ? date('d/m/Y', strtotime($loan_from)) : 'Any'); ?>
+                                -
+                                <?php echo htmlspecialchars($loan_to !== '' ? date('d/m/Y', strtotime($loan_to)) : 'Any'); ?>
+                            </span>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="la-list-head" style="display: grid; grid-template-columns: 50px 80px 2fr 1.5fr 2fr 120px; align-items: center; background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 10px 16px; font-size: 0.72rem; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.05em;">
-            <div>Sr</div>
-            <div>Item No</div>
-            <div>Asset Name &amp; Loaned Qty</div>
-            <div>Loaned To</div>
-            <div>Loan/Return Dates</div>
-            <div class="text-right">Action</div>
-        </div>
+            <div class="la-list-head" style="display: grid; grid-template-columns: 50px 80px 2fr 1.5fr 2fr 120px; align-items: center; background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 10px 16px; font-size: 0.72rem; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.05em;">
+                <div>Sr</div>
+                <div>Item No</div>
+                <div>Asset Name &amp; Loaned Qty</div>
+                <div>Loaned To</div>
+                <div>Loan/Return Dates</div>
+                <div class="text-right">Action</div>
+            </div>
 
-        <div>
-            <?php if (empty($selected_assets)): ?>
-                <div class="la-empty py-10 text-center text-slate-500">No loaned assets found in this category.</div>
-            <?php else:
-                // Group by item_no
-                $grouped = [];
-                foreach ($selected_assets as $asset) {
-                    $item_no = $asset['item_no'] ?: 'Uncategorized';
-                    if (!isset($grouped[$item_no])) {
-                        $grouped[$item_no] = [
-                            'item_no' => $item_no,
-                            'asset_name' => $asset['asset_name'],
-                            'loan_recipients' => [],
-                            'loan_date_min' => $asset['loan_date'],
-                            'loan_date_max' => $asset['loan_date'],
-                            'return_date_min' => $asset['return_date'],
-                            'return_date_max' => $asset['return_date'],
-                            'items' => []
-                        ];
+            <div>
+                <?php if (empty($selected_assets)): ?>
+                    <div class="la-empty py-10 text-center text-slate-500">No loaned assets found in this category.</div>
+                    <?php else:
+                    // Group by item_no
+                    $grouped = [];
+                    foreach ($selected_assets as $asset) {
+                        $item_no = $asset['item_no'] ?: 'Uncategorized';
+                        if (!isset($grouped[$item_no])) {
+                            $grouped[$item_no] = [
+                                'item_no' => $item_no,
+                                'asset_name' => $asset['asset_name'],
+                                'loan_recipients' => [],
+                                'loan_date_min' => $asset['loan_date'],
+                                'loan_date_max' => $asset['loan_date'],
+                                'return_date_min' => $asset['return_date'],
+                                'return_date_max' => $asset['return_date'],
+                                'items' => []
+                            ];
+                        }
+                        $grouped[$item_no]['items'][] = $asset;
+                        $recipient = $asset['loan_to'] ?: 'N/A';
+                        if (!in_array($recipient, $grouped[$item_no]['loan_recipients'])) {
+                            $grouped[$item_no]['loan_recipients'][] = $recipient;
+                        }
+                        if ($asset['loan_date']) {
+                            if (!$grouped[$item_no]['loan_date_min'] || strtotime($asset['loan_date']) < strtotime($grouped[$item_no]['loan_date_min'])) {
+                                $grouped[$item_no]['loan_date_min'] = $asset['loan_date'];
+                            }
+                            if (!$grouped[$item_no]['loan_date_max'] || strtotime($asset['loan_date']) > strtotime($grouped[$item_no]['loan_date_max'])) {
+                                $grouped[$item_no]['loan_date_max'] = $asset['loan_date'];
+                            }
+                        }
+                        if ($asset['return_date']) {
+                            if (!$grouped[$item_no]['return_date_min'] || strtotime($asset['return_date']) < strtotime($grouped[$item_no]['return_date_min'])) {
+                                $grouped[$item_no]['return_date_min'] = $asset['return_date'];
+                            }
+                            if (!$grouped[$item_no]['return_date_max'] || strtotime($asset['return_date']) > strtotime($grouped[$item_no]['return_date_max'])) {
+                                $grouped[$item_no]['return_date_max'] = $asset['return_date'];
+                            }
+                        }
                     }
-                    $grouped[$item_no]['items'][] = $asset;
-                    $recipient = $asset['loan_to'] ?: 'N/A';
-                    if (!in_array($recipient, $grouped[$item_no]['loan_recipients'])) {
-                        $grouped[$item_no]['loan_recipients'][] = $recipient;
-                    }
-                    if ($asset['loan_date']) {
-                        if (!$grouped[$item_no]['loan_date_min'] || strtotime($asset['loan_date']) < strtotime($grouped[$item_no]['loan_date_min'])) {
-                            $grouped[$item_no]['loan_date_min'] = $asset['loan_date'];
+
+                    $sr_no = 1;
+                    foreach ($grouped as $item_no => $group):
+                        $items_count = count($group['items']);
+                        $recipients_summary = implode(', ', array_slice($group['loan_recipients'], 0, 2));
+                        if (count($group['loan_recipients']) > 2) {
+                            $recipients_summary .= ' (+' . (count($group['loan_recipients']) - 2) . ' more)';
                         }
-                        if (!$grouped[$item_no]['loan_date_max'] || strtotime($asset['loan_date']) > strtotime($grouped[$item_no]['loan_date_max'])) {
-                            $grouped[$item_no]['loan_date_max'] = $asset['loan_date'];
+                        $loan_dates = $group['loan_date_min'] ? date('d/m/Y', strtotime($group['loan_date_min'])) : 'N/A';
+                        if ($group['loan_date_min'] !== $group['loan_date_max']) {
+                            $loan_dates .= ' - ' . date('d/m/Y', strtotime($group['loan_date_max']));
                         }
-                    }
-                    if ($asset['return_date']) {
-                        if (!$grouped[$item_no]['return_date_min'] || strtotime($asset['return_date']) < strtotime($grouped[$item_no]['return_date_min'])) {
-                            $grouped[$item_no]['return_date_min'] = $asset['return_date'];
-                        }
-                        if (!$grouped[$item_no]['return_date_max'] || strtotime($asset['return_date']) > strtotime($grouped[$item_no]['return_date_max'])) {
-                            $grouped[$item_no]['return_date_max'] = $asset['return_date'];
-                        }
+                    ?>
+                        <div class="la-list-row" style="display: grid; grid-template-columns: 50px 80px 2fr 1.5fr 2fr 120px; align-items: center; padding: 12px 16px; border-bottom: 1px solid #f1f5f9; background: #ffffff; font-size: 0.82rem;">
+                            <div class="la-cell la-sr"><?php echo $sr_no; ?></div>
+
+                            <div class="la-cell">
+                                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100"><?php echo htmlspecialchars($item_no); ?></span>
+                            </div>
+
+                            <div class="la-cell">
+                                <div class="la-primary capitalize"><?php echo htmlspecialchars($group['asset_name']); ?></div>
+                                <div class="la-secondary font-bold text-blue-600"><?php echo $items_count; ?> unit<?php echo $items_count !== 1 ? 's' : ''; ?> on loan</div>
+                            </div>
+
+                            <div class="la-cell la-location font-semibold">
+                                <?php echo htmlspecialchars($recipients_summary ?: 'N/A'); ?>
+                            </div>
+
+                            <div class="la-cell la-meta text-xs text-slate-500">
+                                <div>Loaned: <?php echo $loan_dates; ?></div>
+                            </div>
+
+                            <div class="la-cell text-right">
+                                <button type="button" id="btn-toggle-loan-<?php echo $item_no; ?>" onclick="toggleLoanDetails('<?php echo $item_no; ?>')" class="la-btn la-btn-secondary text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition" style="padding: 6px 10px; font-weight: 600; color: #475569; background: #ffffff;">
+                                    🔽 Details
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Accordion Sub-rows -->
+                        <div id="details-loan-<?php echo $item_no; ?>" class="hidden bg-slate-50 border-l-4 border-blue-500 px-6 py-4 space-y-3 shadow-inner no-print" style="margin-left: 20px; margin-right: 20px; border-radius: 0 0 8px 8px;">
+                            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Loaned Asset Details for Item No: <?php echo htmlspecialchars($item_no); ?></h4>
+                            <div class="space-y-2">
+                                <?php foreach ($group['items'] as $sub_asset):
+                                    $sub_loan_date = $sub_asset['loan_date'] ? date('d/m/Y', strtotime($sub_asset['loan_date'])) : 'N/A';
+                                    $sub_return_date = $sub_asset['return_date'] ? date('d/m/Y', strtotime($sub_asset['return_date'])) : 'N/A';
+                                    $sub_cost = (float)$sub_asset['cost'];
+                                ?>
+                                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-slate-200 rounded-lg p-3 gap-2">
+                                        <div class="flex flex-wrap items-center gap-4 text-xs">
+                                            <div>Asset No: <span class="font-mono text-blue-600 font-bold"><?php echo htmlspecialchars($sub_asset['asset_no'] ?: 'N/A'); ?></span></div>
+                                            <div>Loaned To: <span class="font-bold text-slate-700"><?php echo htmlspecialchars($sub_asset['loan_to'] ?: 'N/A'); ?></span></div>
+                                            <div>Loan Date: <span class="font-bold text-slate-700"><?php echo $sub_loan_date; ?></span></div>
+                                            <div>Expected Return: <span class="font-bold text-slate-700"><?php echo $sub_return_date; ?></span></div>
+                                            <div>Cost: <span class="font-bold text-slate-700">&#8377;<?php echo number_format($sub_cost, 2); ?></span></div>
+                                            <?php if (!empty($sub_asset['remarks'])): ?>
+                                                <div class="text-slate-400 italic">Remarks: "<?php echo htmlspecialchars($sub_asset['remarks']); ?>"</div>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div>
+                                            <form method="POST" action="return-asset.php" class="return-asset-form" data-asset-id="<?php echo (int)$sub_asset['id']; ?>" data-asset-name="<?php echo htmlspecialchars($sub_asset['asset_name']); ?>">
+                                                <input type="hidden" name="id" value="<?php echo (int)$sub_asset['id']; ?>">
+                                                <button type="submit" class="la-btn la-btn-success text-xs font-semibold px-2.5 py-1.5" style="padding: 6px 12px; border-radius: 6px;">
+                                                    Return
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    <?php $sr_no++;
+                    endforeach; ?>
+                <?php endif; ?>
+            </div>
+
+            <script>
+                function toggleLoanDetails(itemNo) {
+                    const el = document.getElementById('details-loan-' + itemNo);
+                    const btn = document.getElementById('btn-toggle-loan-' + itemNo);
+                    if (el.classList.contains('hidden')) {
+                        el.classList.remove('hidden');
+                        btn.innerHTML = '🔼 Hide';
+                    } else {
+                        el.classList.add('hidden');
+                        btn.innerHTML = '🔽 Details';
                     }
                 }
+            </script>
 
-                $sr_no = 1;
-                foreach ($grouped as $item_no => $group):
-                    $items_count = count($group['items']);
-                    $recipients_summary = implode(', ', array_slice($group['loan_recipients'], 0, 2));
-                    if (count($group['loan_recipients']) > 2) {
-                        $recipients_summary .= ' (+' . (count($group['loan_recipients']) - 2) . ' more)';
-                    }
-                    $loan_dates = $group['loan_date_min'] ? date('d/m/Y', strtotime($group['loan_date_min'])) : 'N/A';
-                    if ($group['loan_date_min'] !== $group['loan_date_max']) {
-                        $loan_dates .= ' - ' . date('d/m/Y', strtotime($group['loan_date_max']));
-                    }
-            ?>
-                    <div class="la-list-row" style="display: grid; grid-template-columns: 50px 80px 2fr 1.5fr 2fr 120px; align-items: center; padding: 12px 16px; border-bottom: 1px solid #f1f5f9; background: #ffffff; font-size: 0.82rem;">
-                        <div class="la-cell la-sr"><?php echo $sr_no; ?></div>
-
-                        <div class="la-cell">
-                            <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100"><?php echo htmlspecialchars($item_no); ?></span>
-                        </div>
-
-                        <div class="la-cell">
-                            <div class="la-primary capitalize"><?php echo htmlspecialchars($group['asset_name']); ?></div>
-                            <div class="la-secondary font-bold text-blue-600"><?php echo $items_count; ?> unit<?php echo $items_count !== 1 ? 's' : ''; ?> on loan</div>
-                        </div>
-
-                        <div class="la-cell la-location font-semibold">
-                            <?php echo htmlspecialchars($recipients_summary ?: 'N/A'); ?>
-                        </div>
-
-                        <div class="la-cell la-meta text-xs text-slate-500">
-                            <div>Loaned: <?php echo $loan_dates; ?></div>
-                        </div>
-
-                        <div class="la-cell text-right">
-                            <button type="button" id="btn-toggle-loan-<?php echo $item_no; ?>" onclick="toggleLoanDetails('<?php echo $item_no; ?>')" class="la-btn la-btn-secondary text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition" style="padding: 6px 10px; font-weight: 600; color: #475569; background: #ffffff;">
-                                🔽 Details
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Accordion Sub-rows -->
-                    <div id="details-loan-<?php echo $item_no; ?>" class="hidden bg-slate-50 border-l-4 border-blue-500 px-6 py-4 space-y-3 shadow-inner no-print" style="margin-left: 20px; margin-right: 20px; border-radius: 0 0 8px 8px;">
-                        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Loaned Asset Details for Item No: <?php echo htmlspecialchars($item_no); ?></h4>
-                        <div class="space-y-2">
-                            <?php foreach ($group['items'] as $sub_asset):
-                                $sub_loan_date = $sub_asset['loan_date'] ? date('d/m/Y', strtotime($sub_asset['loan_date'])) : 'N/A';
-                                $sub_return_date = $sub_asset['return_date'] ? date('d/m/Y', strtotime($sub_asset['return_date'])) : 'N/A';
-                                $sub_cost = (float)$sub_asset['cost'];
-                            ?>
-                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-slate-200 rounded-lg p-3 gap-2">
-                                    <div class="flex flex-wrap items-center gap-4 text-xs">
-                                        <div>Asset No: <span class="font-mono text-blue-600 font-bold"><?php echo htmlspecialchars($sub_asset['asset_no'] ?: 'N/A'); ?></span></div>
-                                        <div>Loaned To: <span class="font-bold text-slate-700"><?php echo htmlspecialchars($sub_asset['loan_to'] ?: 'N/A'); ?></span></div>
-                                        <div>Loan Date: <span class="font-bold text-slate-700"><?php echo $sub_loan_date; ?></span></div>
-                                        <div>Expected Return: <span class="font-bold text-slate-700"><?php echo $sub_return_date; ?></span></div>
-                                        <div>Cost: <span class="font-bold text-slate-700">&#8377;<?php echo number_format($sub_cost, 2); ?></span></div>
-                                        <?php if (!empty($sub_asset['remarks'])): ?>
-                                            <div class="text-slate-400 italic">Remarks: "<?php echo htmlspecialchars($sub_asset['remarks']); ?>"</div>
-                                        <?php endif; ?>
-                                    </div>
-                                    <div>
-                                        <form method="POST" action="return-asset.php" class="return-asset-form" data-asset-id="<?php echo (int)$sub_asset['id']; ?>" data-asset-name="<?php echo htmlspecialchars($sub_asset['asset_name']); ?>">
-                                            <input type="hidden" name="id" value="<?php echo (int)$sub_asset['id']; ?>">
-                                            <button type="submit" class="la-btn la-btn-success text-xs font-semibold px-2.5 py-1.5" style="padding: 6px 12px; border-radius: 6px;">
-                                                Return
-                                            </button>
-                                        </form>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-            <?php $sr_no++; endforeach; ?>
-            <?php endif; ?>
         </div>
-
-        <script>
-            function toggleLoanDetails(itemNo) {
-                const el = document.getElementById('details-loan-' + itemNo);
-                const btn = document.getElementById('btn-toggle-loan-' + itemNo);
-                if (el.classList.contains('hidden')) {
-                    el.classList.remove('hidden');
-                    btn.innerHTML = '🔼 Hide';
-                } else {
-                    el.classList.add('hidden');
-                    btn.innerHTML = '🔽 Details';
-                }
-            }
-        </script>
-
-    </div>
 
     </div>
 
@@ -911,199 +915,203 @@ $active_section = isset($_GET['section']) && in_array($_GET['section'], ['loaned
                 </a>
             </form>
 
-        <div class="la-tabs no-print">
-            <?php foreach ($category_names as $category_id => $category_name): ?>
-                <a href="<?php echo htmlspecialchars(build_borrowed_url($category_id, $borrowed_name_filter, $borrowed_from_filter, $location_filter, $assigned_to_filter, 'borrowed')); ?>"
-                   class="<?php echo $selectedCategory === $category_id ? 'active-tab' : ''; ?>">
-                    <?php echo htmlspecialchars($category_name); ?>
-                    <span class="la-tab-count"><?php echo number_format($borrowed_category_counts[$category_id]); ?></span>
-                </a>
-            <?php endforeach; ?>
-        </div>
+            <div class="la-tabs no-print">
+                <?php foreach ($category_names as $category_id => $category_name): ?>
+                    <a href="<?php echo htmlspecialchars(build_borrowed_url($category_id, $borrowed_name_filter, $borrowed_from_filter, $location_filter, $assigned_to_filter, 'borrowed')); ?>"
+                        class="<?php echo $selectedCategory === $category_id ? 'active-tab' : ''; ?>">
+                        <?php echo htmlspecialchars($category_name); ?>
+                        <span class="la-tab-count"><?php echo number_format($borrowed_category_counts[$category_id]); ?></span>
+                    </a>
+                <?php endforeach; ?>
+            </div>
 
-        <div class="la-shell">
-            <div class="la-header-area">
-                <div class="la-title"><?php echo htmlspecialchars($selected_category_name); ?> Borrowed List</div>
-                <div class="la-subtitle">Assets borrowed from other departments.</div>
-                <div class="la-page-line">
-                    <div>Total Borrowed: <strong><?php echo number_format($total_borrowed); ?></strong></div>
-                    <div class="la-sheet-meta">
-                        <span class="la-pill">Category: <?php echo htmlspecialchars($selected_category_name); ?></span>
-                        <span class="la-pill">Rows: <?php echo number_format(count($selected_borrowed_assets)); ?></span>
+            <div class="la-shell">
+                <div class="la-header-area">
+                    <div class="la-title"><?php echo htmlspecialchars($selected_category_name); ?> Borrowed List</div>
+                    <div class="la-subtitle">Assets borrowed from other departments.</div>
+                    <div class="la-page-line">
+                        <div>Total Borrowed: <strong><?php echo number_format($total_borrowed); ?></strong></div>
+                        <div class="la-sheet-meta">
+                            <span class="la-pill">Category: <?php echo htmlspecialchars($selected_category_name); ?></span>
+                            <span class="la-pill">Rows: <?php echo number_format(count($selected_borrowed_assets)); ?></span>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class="la-list-head" style="display: grid; grid-template-columns: 50px 80px 2fr 1.5fr 1.5fr 1.5fr 100px; align-items: center; background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 10px 16px; font-size: 0.72rem; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.05em;">
-                <div>Sr</div>
-                <div>Item No</div>
-                <div>Asset Name</div>
-                <div>Asset No</div>
-                <div>Borrow From</div>
-                <div>Borrow / Return Dates</div>
-                <div class="text-right">Action</div>
-            </div>
+                <div class="la-list-head" style="display: grid; grid-template-columns: 50px 80px 2fr 1.5fr 1.5fr 1.5fr 100px; align-items: center; background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 10px 16px; font-size: 0.72rem; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <div>Sr</div>
+                    <div>Item No</div>
+                    <div>Asset Name</div>
+                    <div>Asset No</div>
+                    <div>Borrow From</div>
+                    <div>Borrow / Return Dates</div>
+                    <div class="text-right">Action</div>
+                </div>
 
-            <div>
-                <?php if (empty($selected_borrowed_assets)): ?>
-                    <div class="la-empty py-10 text-center text-slate-500">No borrowed assets found in this category.</div>
-                <?php else: ?>
-                    <?php
-                    $b_grouped = [];
-                    foreach ($selected_borrowed_assets as $asset) {
-                        $item_no = $asset['item_no'] ?: 'Uncategorized';
-                        if (!isset($b_grouped[$item_no])) {
-                            $b_grouped[$item_no] = [
-                                'item_no' => $item_no,
-                                'asset_name' => $asset['asset_name'],
-                                'borrow_from' => $asset['borrowed_from'],
-                                'borrow_date_min' => $asset['borrow_date'],
-                                'borrow_date_max' => $asset['borrow_date'],
-                                'return_date_min' => $asset['return_date'],
-                                'return_date_max' => $asset['return_date'],
-                                'items' => []
-                            ];
-                        }
-                        $b_grouped[$item_no]['items'][] = $asset;
-                        if ($asset['borrow_date']) {
-                            if (!$b_grouped[$item_no]['borrow_date_min'] || strtotime($asset['borrow_date']) < strtotime($b_grouped[$item_no]['borrow_date_min'])) {
-                                $b_grouped[$item_no]['borrow_date_min'] = $asset['borrow_date'];
+                <div>
+                    <?php if (empty($selected_borrowed_assets)): ?>
+                        <div class="la-empty py-10 text-center text-slate-500">No borrowed assets found in this category.</div>
+                    <?php else: ?>
+                        <?php
+                        $b_grouped = [];
+                        foreach ($selected_borrowed_assets as $asset) {
+                            $item_no = $asset['item_no'] ?: 'Uncategorized';
+                            if (!isset($b_grouped[$item_no])) {
+                                $b_grouped[$item_no] = [
+                                    'item_no' => $item_no,
+                                    'asset_name' => $asset['asset_name'],
+                                    'borrow_from' => $asset['borrowed_from'],
+                                    'borrow_date_min' => $asset['borrow_date'],
+                                    'borrow_date_max' => $asset['borrow_date'],
+                                    'return_date_min' => $asset['return_date'],
+                                    'return_date_max' => $asset['return_date'],
+                                    'items' => []
+                                ];
                             }
-                            if (!$b_grouped[$item_no]['borrow_date_max'] || strtotime($asset['borrow_date']) > strtotime($b_grouped[$item_no]['borrow_date_max'])) {
-                                $b_grouped[$item_no]['borrow_date_max'] = $asset['borrow_date'];
+                            $b_grouped[$item_no]['items'][] = $asset;
+                            if ($asset['borrow_date']) {
+                                if (!$b_grouped[$item_no]['borrow_date_min'] || strtotime($asset['borrow_date']) < strtotime($b_grouped[$item_no]['borrow_date_min'])) {
+                                    $b_grouped[$item_no]['borrow_date_min'] = $asset['borrow_date'];
+                                }
+                                if (!$b_grouped[$item_no]['borrow_date_max'] || strtotime($asset['borrow_date']) > strtotime($b_grouped[$item_no]['borrow_date_max'])) {
+                                    $b_grouped[$item_no]['borrow_date_max'] = $asset['borrow_date'];
+                                }
+                            }
+                            if ($asset['return_date']) {
+                                if (!$b_grouped[$item_no]['return_date_min'] || strtotime($asset['return_date']) < strtotime($b_grouped[$item_no]['return_date_min'])) {
+                                    $b_grouped[$item_no]['return_date_min'] = $asset['return_date'];
+                                }
+                                if (!$b_grouped[$item_no]['return_date_max'] || strtotime($asset['return_date']) > strtotime($b_grouped[$item_no]['return_date_max'])) {
+                                    $b_grouped[$item_no]['return_date_max'] = $asset['return_date'];
+                                }
                             }
                         }
-                        if ($asset['return_date']) {
-                            if (!$b_grouped[$item_no]['return_date_min'] || strtotime($asset['return_date']) < strtotime($b_grouped[$item_no]['return_date_min'])) {
-                                $b_grouped[$item_no]['return_date_min'] = $asset['return_date'];
+
+                        $b_sr_no = 1;
+                        foreach ($b_grouped as $item_no => $group):
+                            $b_items_count = count($group['items']);
+                            $borrow_dates = $group['borrow_date_min'] ? date('d/m/Y', strtotime($group['borrow_date_min'])) : 'N/A';
+                            if ($group['borrow_date_min'] !== $group['borrow_date_max']) {
+                                $borrow_dates .= ' - ' . date('d/m/Y', strtotime($group['borrow_date_max']));
                             }
-                            if (!$b_grouped[$item_no]['return_date_max'] || strtotime($asset['return_date']) > strtotime($b_grouped[$item_no]['return_date_max'])) {
-                                $b_grouped[$item_no]['return_date_max'] = $asset['return_date'];
+                            $return_dates = $group['return_date_min'] ? date('d/m/Y', strtotime($group['return_date_min'])) : 'N/A';
+                            if ($group['return_date_min'] !== $group['return_date_max']) {
+                                $return_dates .= ' - ' . date('d/m/Y', strtotime($group['return_date_max']));
                             }
-                        }
-                    }
+                        ?>
+                            <div class="la-list-row" style="display: grid; grid-template-columns: 50px 80px 2fr 1.5fr 1.5fr 1.5fr 100px; align-items: center; padding: 12px 16px; border-bottom: 1px solid #f1f5f9; background: #ffffff; font-size: 0.82rem;">
+                                <div class="la-cell la-sr"><?php echo $b_sr_no; ?></div>
 
-                    $b_sr_no = 1;
-                    foreach ($b_grouped as $item_no => $group):
-                        $b_items_count = count($group['items']);
-                        $borrow_dates = $group['borrow_date_min'] ? date('d/m/Y', strtotime($group['borrow_date_min'])) : 'N/A';
-                        if ($group['borrow_date_min'] !== $group['borrow_date_max']) {
-                            $borrow_dates .= ' - ' . date('d/m/Y', strtotime($group['borrow_date_max']));
-                        }
-                        $return_dates = $group['return_date_min'] ? date('d/m/Y', strtotime($group['return_date_min'])) : 'N/A';
-                        if ($group['return_date_min'] !== $group['return_date_max']) {
-                            $return_dates .= ' - ' . date('d/m/Y', strtotime($group['return_date_max']));
-                        }
-                ?>
-                        <div class="la-list-row" style="display: grid; grid-template-columns: 50px 80px 2fr 1.5fr 1.5fr 1.5fr 100px; align-items: center; padding: 12px 16px; border-bottom: 1px solid #f1f5f9; background: #ffffff; font-size: 0.82rem;">
-                            <div class="la-cell la-sr"><?php echo $b_sr_no; ?></div>
+                                <div class="la-cell">
+                                    <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-amber-50 text-amber-700 text-xs font-bold border border-amber-100"><?php echo htmlspecialchars($item_no); ?></span>
+                                </div>
 
-                            <div class="la-cell">
-                                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-amber-50 text-amber-700 text-xs font-bold border border-amber-100"><?php echo htmlspecialchars($item_no); ?></span>
+                                <div class="la-cell">
+                                    <div class="la-primary capitalize"><?php echo htmlspecialchars($group['asset_name']); ?></div>
+                                    <div class="la-secondary font-bold text-amber-600"><?php echo $b_items_count; ?> unit<?php echo $b_items_count !== 1 ? 's' : ''; ?> borrowed</div>
+                                </div>
+
+                                <div class="la-cell la-mono text-xs">
+                                    <?php echo htmlspecialchars($group['items'][0]['asset_no'] ?: 'N/A'); ?>
+                                </div>
+
+                                <div class="la-cell la-location font-semibold">
+                                    <?php echo htmlspecialchars($group['borrow_from'] ?: 'N/A'); ?>
+                                </div>
+
+                                <div class="la-cell la-meta text-xs text-slate-500">
+                                    <div>Borrowed: <?php echo $borrow_dates; ?></div>
+                                    <div>Return: <?php echo $return_dates; ?></div>
+                                </div>
+
+                                <div class="la-cell text-right">
+                                    <button type="button" id="btn-toggle-borrow-<?php echo $item_no; ?>" onclick="toggleBorrowDetails('<?php echo $item_no; ?>')" class="la-btn la-btn-secondary text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition" style="padding: 6px 10px; font-weight: 600; color: #475569; background: #ffffff;">
+                                        Details
+                                    </button>
+                                </div>
                             </div>
 
-                            <div class="la-cell">
-                                <div class="la-primary capitalize"><?php echo htmlspecialchars($group['asset_name']); ?></div>
-                                <div class="la-secondary font-bold text-amber-600"><?php echo $b_items_count; ?> unit<?php echo $b_items_count !== 1 ? 's' : ''; ?> borrowed</div>
-                            </div>
-
-                            <div class="la-cell la-mono text-xs">
-                                <?php echo htmlspecialchars($group['items'][0]['asset_no'] ?: 'N/A'); ?>
-                            </div>
-
-                            <div class="la-cell la-location font-semibold">
-                                <?php echo htmlspecialchars($group['borrow_from'] ?: 'N/A'); ?>
-                            </div>
-
-                            <div class="la-cell la-meta text-xs text-slate-500">
-                                <div>Borrowed: <?php echo $borrow_dates; ?></div>
-                                <div>Return: <?php echo $return_dates; ?></div>
-                            </div>
-
-                            <div class="la-cell text-right">
-                                <button type="button" id="btn-toggle-borrow-<?php echo $item_no; ?>" onclick="toggleBorrowDetails('<?php echo $item_no; ?>')" class="la-btn la-btn-secondary text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition" style="padding: 6px 10px; font-weight: 600; color: #475569; background: #ffffff;">
-                                    Details
-                                </button>
-                            </div>
-                        </div>
-
-                        <div id="details-borrow-<?php echo $item_no; ?>" class="hidden bg-slate-50 border-l-4 border-amber-500 px-6 py-4 space-y-3 shadow-inner no-print" style="margin-left: 20px; margin-right: 20px; border-radius: 0 0 8px 8px;">
-                            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Borrowed Asset Details for Item No: <?php echo htmlspecialchars($item_no); ?></h4>
-                            <div class="space-y-2">
-                                <?php foreach ($group['items'] as $sub_asset):
-                                    $sub_status = htmlspecialchars($sub_asset['status'] ?: 'N/A');
-                                ?>
-                                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-slate-200 rounded-lg p-3 gap-2">
-                                        <div class="flex items-center gap-3">
-                                            <input type="checkbox" class="borrowed-asset-checkbox h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" value="<?php echo (int)$sub_asset['id']; ?>" onchange="updateBulkActionBar()">
-                                            <div class="flex flex-wrap items-center gap-4 text-xs">
-                                                <div>Asset No: <span class="font-mono text-amber-600 font-bold"><?php echo htmlspecialchars($sub_asset['asset_no'] ?: 'N/A'); ?></span></div>
-                                                <div>Page No: <span class="font-bold text-slate-700"><?php echo htmlspecialchars($sub_asset['page_no'] ?: 'N/A'); ?></span></div>
-                                                <div>Location: <span class="font-bold text-slate-700"><?php echo htmlspecialchars($sub_asset['location'] ?: 'N/A'); ?></span></div>
-                                                <div>Assign to Faculty: <span class="font-bold text-slate-700"><?php echo htmlspecialchars($sub_asset['assigned_to'] ?: 'N/A'); ?></span></div>
-                                                <div>Status: <span class="font-bold text-slate-700"><?php echo $sub_status; ?></span></div>
-                                                <?php if (!empty($sub_asset['remarks'])): ?>
-                                                    <div class="text-slate-400 italic">Remarks: "<?php echo htmlspecialchars($sub_asset['remarks']); ?>"</div>
-                                                <?php endif; ?>
+                            <div id="details-borrow-<?php echo $item_no; ?>" class="hidden bg-slate-50 border-l-4 border-amber-500 px-6 py-4 space-y-3 shadow-inner no-print" style="margin-left: 20px; margin-right: 20px; border-radius: 0 0 8px 8px;">
+                                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Borrowed Asset Details for Item No: <?php echo htmlspecialchars($item_no); ?></h4>
+                                <div class="space-y-2">
+                                    <?php foreach ($group['items'] as $sub_asset):
+                                        $sub_status = htmlspecialchars($sub_asset['status'] ?: 'N/A');
+                                    ?>
+                                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-white border border-slate-200 rounded-lg p-3 gap-2">
+                                            <div class="flex items-center gap-3">
+                                                <input type="checkbox" class="borrowed-asset-checkbox h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" value="<?php echo (int)$sub_asset['id']; ?>" onchange="updateBulkActionBar()">
+                                                <div class="flex flex-wrap items-center gap-4 text-xs">
+                                                    <div>Asset No: <span class="font-mono text-amber-600 font-bold"><?php echo htmlspecialchars($sub_asset['asset_no'] ?: 'N/A'); ?></span></div>
+                                                    <div>Page No: <span class="font-bold text-slate-700"><?php echo htmlspecialchars($sub_asset['page_no'] ?: 'N/A'); ?></span></div>
+                                                    <div>Location: <span class="font-bold text-slate-700"><?php echo htmlspecialchars($sub_asset['location'] ?: 'N/A'); ?></span></div>
+                                                    <div>Assign to Faculty: <span class="font-bold text-slate-700"><?php echo htmlspecialchars($sub_asset['assigned_to'] ?: 'N/A'); ?></span></div>
+                                                    <div>Status: <span class="font-bold text-slate-700"><?php echo $sub_status; ?></span></div>
+                                                    <?php if (!empty($sub_asset['remarks'])): ?>
+                                                        <div class="text-slate-400 italic">Remarks: "<?php echo htmlspecialchars($sub_asset['remarks']); ?>"</div>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <form method="POST" action="return-borrowed-asset.php" class="return-borrowed-form" data-asset-id="<?php echo (int)$sub_asset['id']; ?>" data-asset-name="<?php echo htmlspecialchars($sub_asset['asset_name']); ?>">
+                                                    <input type="hidden" name="id" value="<?php echo (int)$sub_asset['id']; ?>">
+                                                    <button type="submit" class="la-btn la-btn-success text-xs font-semibold px-2.5 py-1.5" style="padding: 6px 12px; border-radius: 6px;">
+                                                        Return
+                                                    </button>
+                                                </form>
+                                                <button type="button"
+                                                    onclick="openEditModal(<?php echo (int)$sub_asset['id']; ?>, '<?php echo htmlspecialchars($sub_asset['location'] ?: ''); ?>', '<?php echo htmlspecialchars($sub_asset['assigned_to'] ?: ''); ?>', '<?php echo htmlspecialchars($sub_asset['status'] ?: 'active'); ?>', '<?php echo htmlspecialchars($sub_asset['remarks'] ?: ''); ?>')"
+                                                    class="la-btn la-btn-primary text-xs font-semibold px-2.5 py-1.5"
+                                                    style="padding: 6px 12px; border-radius: 6px;">
+                                                    Edit
+                                                </button>
                                             </div>
                                         </div>
-                                        <div class="flex items-center gap-2">
-                                            <form method="POST" action="return-borrowed-asset.php" class="return-borrowed-form" data-asset-id="<?php echo (int)$sub_asset['id']; ?>" data-asset-name="<?php echo htmlspecialchars($sub_asset['asset_name']); ?>">
-                                                <input type="hidden" name="id" value="<?php echo (int)$sub_asset['id']; ?>">
-                                                <button type="submit" class="la-btn la-btn-success text-xs font-semibold px-2.5 py-1.5" style="padding: 6px 12px; border-radius: 6px;">
-                                                    Return
-                                                </button>
-                                            </form>
-                                            <button type="button" onclick="openEditModal(<?php echo (int)$sub_asset['id']; ?>, '<?php echo htmlspecialchars($sub_asset['location'] ?: ''); ?>', '<?php echo htmlspecialchars($sub_asset['assigned_to'] ?: ''); ?>', '<?php echo htmlspecialchars($sub_asset['status'] ?: 'active'); ?>', '<?php echo htmlspecialchars($sub_asset['remarks'] ?: ''); ?>')" class="la-btn la-btn-secondary text-xs font-semibold px-2.5 py-1.5" style="padding: 6px 12px; border-radius: 6px;">
-                                                Edit
-                                            </button>
-                                        </div>
-                                    </div>
-                                <?php endforeach; ?>
+                                    <?php endforeach; ?>
+                                </div>
                             </div>
-                        </div>
-                <?php $b_sr_no++; endforeach; ?>
-                <?php endif; ?>
-            </div>
+                        <?php $b_sr_no++;
+                        endforeach; ?>
+                    <?php endif; ?>
+                </div>
 
-            <script>
-                function toggleBorrowDetails(itemNo) {
-                    const el = document.getElementById('details-borrow-' + itemNo);
-                    const btn = document.getElementById('btn-toggle-borrow-' + itemNo);
-                    if (el.classList.contains('hidden')) {
-                        el.classList.remove('hidden');
-                        btn.innerHTML = 'Hide';
-                    } else {
-                        el.classList.add('hidden');
-                        btn.innerHTML = 'Details';
+                <script>
+                    function toggleBorrowDetails(itemNo) {
+                        const el = document.getElementById('details-borrow-' + itemNo);
+                        const btn = document.getElementById('btn-toggle-borrow-' + itemNo);
+                        if (el.classList.contains('hidden')) {
+                            el.classList.remove('hidden');
+                            btn.innerHTML = 'Hide';
+                        } else {
+                            el.classList.add('hidden');
+                            btn.innerHTML = 'Details';
+                        }
                     }
-                }
-            </script>
+                </script>
 
+            </div>
         </div>
-    </div>
 
-    <div id="bulk-action-bar" class="hidden fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
-        <div class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3 shadow-xl">
-            <span class="text-sm font-semibold text-slate-700">Selected: <span id="selected-count">0</span></span>
-            <button type="button" onclick="openBulkEditModal()" class="la-btn la-btn-secondary text-xs font-semibold px-3 py-2" style="border-radius: 8px;">Edit</button>
-            <button type="button" onclick="bulkReturn()" class="la-btn la-btn-success text-xs font-semibold px-3 py-2" style="border-radius: 8px;">Return</button>
-            <button type="button" onclick="clearSelection()" class="la-btn la-btn-secondary text-xs font-semibold px-3 py-2" style="border-radius: 8px;">Cancel</button>
+        <div id="bulk-action-bar" class="hidden fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
+            <div class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3 shadow-xl">
+                <span class="text-sm font-semibold text-slate-700">Selected: <span id="selected-count">0</span></span>
+                <button type="button" onclick="openBulkEditModal()" class="la-btn la-btn-primary text-xs font-semibold px-3 py-2" style="border-radius: 8px;">Edit</button>
+                <button type="button" onclick="bulkReturn()" class="la-btn la-btn-success text-xs font-semibold px-3 py-2" style="border-radius: 8px;">Return</button>
+                <button type="button" onclick="clearSelection()" class="la-btn la-btn-secondary text-xs font-semibold px-3 py-2" style="border-radius: 8px;">Cancel</button>
+            </div>
         </div>
-    </div>
 
     </div>
 
 </div>
 
 <div id="edit-borrowed-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-    <div class="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8">
+    <div class="w-full max-w-2xl mx-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8 overflow-y-auto max-h-[90vh]">
         <div class="mb-6">
             <h2 class="text-xl font-bold tracking-tight text-slate-900">Edit Borrowed Asset</h2>
             <p class="mt-1 text-sm text-slate-500">Update location, assigned faculty, status, and remarks.</p>
         </div>
         <form id="editBorrowedForm" class="grid gap-5">
             <input type="hidden" name="id" id="edit-asset-id">
-            <div class="grid gap-5 md:grid-cols-2">
+            <div class="grid gap-5 md:grid-cols-1">
                 <div>
                     <label for="edit-location" class="mb-2 block text-sm font-semibold text-slate-700">Location</label>
                     <select id="edit-location" name="location" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200">
@@ -1124,7 +1132,7 @@ $active_section = isset($_GET['section']) && in_array($_GET['section'], ['loaned
                     </select>
                 </div>
             </div>
-            <div class="grid gap-5 md:grid-cols-2">
+            <div class="grid gap-5 md:grid-cols-1">
                 <div>
                     <label for="edit-status" class="mb-2 block text-sm font-semibold text-slate-700">Status</label>
                     <select id="edit-status" name="status" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200">
@@ -1162,22 +1170,22 @@ $active_section = isset($_GET['section']) && in_array($_GET['section'], ['loaned
             }
             const formData = new FormData(this);
             fetch('return-asset.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    alert(data.message || 'Asset returned successfully!');
-                    window.location.reload();
-                } else {
-                    alert('Error returning asset: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An unexpected error occurred. Please check the console for details.');
-            });
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert(data.message || 'Asset returned successfully!');
+                        window.location.reload();
+                    } else {
+                        alert('Error returning asset: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An unexpected error occurred. Please check the console for details.');
+                });
         });
     });
 
@@ -1191,22 +1199,22 @@ $active_section = isset($_GET['section']) && in_array($_GET['section'], ['loaned
             }
             const formData = new FormData(this);
             fetch('return-borrowed-asset.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    alert(data.message || 'Borrowed asset returned successfully!');
-                    window.location.reload();
-                } else {
-                    alert('Error returning borrowed asset: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An unexpected error occurred. Please check the console for details.');
-            });
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert(data.message || 'Borrowed asset returned successfully!');
+                        window.location.reload();
+                    } else {
+                        alert('Error returning borrowed asset: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An unexpected error occurred. Please check the console for details.');
+                });
         });
     });
 
@@ -1348,7 +1356,7 @@ $active_section = isset($_GET['section']) && in_array($_GET['section'], ['loaned
 
     editLocationSelect.addEventListener('change', toggleEditCustomLocationInput);
     editAddLocationButton.addEventListener('click', addEditCustomLocation);
-    editCustomLocationInput.addEventListener('keydown', function (event) {
+    editCustomLocationInput.addEventListener('keydown', function(event) {
         if (event.key === 'Enter') {
             event.preventDefault();
             addEditCustomLocation();
@@ -1364,23 +1372,23 @@ $active_section = isset($_GET['section']) && in_array($_GET['section'], ['loaned
             return;
         }
         fetch('update-borrowed-asset.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                alert(data.message || 'Borrowed asset updated successfully!');
-                closeEditModal();
-                window.location.reload();
-            } else {
-                alert('Error updating borrowed asset: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('An unexpected error occurred. Please check the console for details.');
-        });
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(data.message || 'Borrowed asset updated successfully!');
+                    closeEditModal();
+                    window.location.reload();
+                } else {
+                    alert('Error updating borrowed asset: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An unexpected error occurred. Please check the console for details.');
+            });
     });
 
     if (typeof lucide !== 'undefined') {
@@ -1389,7 +1397,7 @@ $active_section = isset($_GET['section']) && in_array($_GET['section'], ['loaned
 </script>
 
 <div id="bulk-edit-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-    <div class="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8">
+    <div class="w-full max-w-2xl mx-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8 overflow-y-auto max-h-[90vh]">
         <div class="mb-6">
             <h2 class="text-xl font-bold tracking-tight text-slate-900">Bulk Edit Borrowed Assets</h2>
             <p class="mt-1 text-sm text-slate-500">Update selected assets. Leave fields unchanged if not applicable.</p>
@@ -1480,22 +1488,22 @@ $active_section = isset($_GET['section']) && in_array($_GET['section'], ['loaned
         const formData = new FormData();
         selectedIds.forEach(id => formData.append('ids[]', id));
         fetch('return-multiple-borrowed-assets.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                alert(data.message || 'Borrowed assets returned successfully!');
-                window.location.reload();
-            } else {
-                alert('Error returning borrowed assets: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('An unexpected error occurred. Please check the console for details.');
-        });
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(data.message || 'Borrowed assets returned successfully!');
+                    window.location.reload();
+                } else {
+                    alert('Error returning borrowed assets: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An unexpected error occurred. Please check the console for details.');
+            });
     }
 
     const bulkEditModal = document.getElementById('bulk-edit-modal');
@@ -1626,7 +1634,7 @@ $active_section = isset($_GET['section']) && in_array($_GET['section'], ['loaned
 
     bulkEditLocationSelect.addEventListener('change', toggleBulkEditCustomLocationInput);
     bulkEditAddLocationButton.addEventListener('click', addBulkEditCustomLocation);
-    bulkEditCustomLocationInput.addEventListener('keydown', function (event) {
+    bulkEditCustomLocationInput.addEventListener('keydown', function(event) {
         if (event.key === 'Enter') {
             event.preventDefault();
             addBulkEditCustomLocation();
@@ -1642,24 +1650,24 @@ $active_section = isset($_GET['section']) && in_array($_GET['section'], ['loaned
             return;
         }
         fetch('update-multiple-borrowed-assets.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                alert(data.message || 'Borrowed assets updated successfully!');
-                closeBulkEditModal();
-                clearSelection();
-                window.location.reload();
-            } else {
-                alert('Error updating borrowed assets: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('An unexpected error occurred. Please check the console for details.');
-        });
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(data.message || 'Borrowed assets updated successfully!');
+                    closeBulkEditModal();
+                    clearSelection();
+                    window.location.reload();
+                } else {
+                    alert('Error updating borrowed assets: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An unexpected error occurred. Please check the console for details.');
+            });
     });
 
     if (typeof lucide !== 'undefined') {

@@ -316,7 +316,7 @@ if (!$embedMode) {
                         <div class="grid gap-5 md:grid-cols-2">
                             <div>
                                 <label for="borrowed_from" class="mb-2 block text-sm font-semibold text-slate-700">Department Name (Borrow From)</label>
-                                <input type="text" id="borrowed_from" name="borrowed_from" placeholder="e.g. Mech Dept" value="<?php echo htmlspecialchars($old_data['borrowed_from'] ?? ''); ?>" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
+                                <input type="text" id="borrowed_from" name="borrowed_from" placeholder="e.g. MECH" value="<?php echo htmlspecialchars($old_data['borrowed_from'] ?? ''); ?>" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
                             </div>
 
                             <div>
