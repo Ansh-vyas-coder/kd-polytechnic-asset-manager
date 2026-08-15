@@ -21,6 +21,7 @@ if ($_SESSION['role'] !== 'admin') {
   }
 }
 $showAddAsset = $pageView === 'add-asset';
+$showAddBorrowedAsset = $pageView === 'add-borrowed-asset';
 $showRegister = $pageView === 'register';
 $showGenerateReport = $pageView === 'generate-report';
 $showMyAssets = $pageView === 'my-assets';
@@ -521,6 +522,13 @@ $current_page = $pageView;
           }
           include 'transfer-assets.php';
           ?>
+        <?php elseif ($showAddBorrowedAsset): ?>
+          <?php
+          if (!defined('IS_EMBEDDED')) {
+            define('IS_EMBEDDED', true);
+          }
+          include 'add-borrowed-asset.php';
+          ?>
         <?php elseif ($showLoanedAssets): ?>
           <?php
           if (!defined('IS_EMBEDDED')) {
@@ -544,7 +552,7 @@ $current_page = $pageView;
             include 'audit-start.php';
             ?>
           </div>
-        <?php elseif (!$showAddAsset && !$showGenerateReport && !$showMyAssets && !$showWriteOffAssets && !$showTransferAssets && !$showAudit): ?>
+        <?php elseif (!$showAddAsset && !$showAddBorrowedAsset && !$showGenerateReport && !$showMyAssets && !$showWriteOffAssets && !$showTransferAssets && !$showAudit): ?>
           <div id="dashboardView">
             <div class="flex items-start sm:items-center justify-between flex-wrap gap-3">
               <div>

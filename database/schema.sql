@@ -155,4 +155,32 @@ CREATE TABLE IF NOT EXISTS register_page_notes (
     created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uq_cat_page (category_id, page_no)
-);
+);
+
+-- 11. Borrowed Assets Table and queries
+
+CREATE TABLE IF NOT EXISTS borrowed_assets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    asset_name VARCHAR(255) NOT NULL,
+    category_id INT NOT NULL,
+    quantity INT DEFAULT 1,
+    unit VARCHAR(20) DEFAULT 'pcs',
+    item_no INT NOT NULL,
+    asset_no VARCHAR(255) DEFAULT NULL,
+    page_no VARCHAR(100) DEFAULT NULL,
+    location VARCHAR(100) DEFAULT NULL,
+    assigned_to VARCHAR(100) DEFAULT NULL,
+    date_of_issue DATE NOT NULL,
+    remarks TEXT DEFAULT NULL,
+    borrowed_from VARCHAR(100) NOT NULL,
+    borrow_date DATE NOT NULL,
+    return_date DATE DEFAULT NULL,
+    status VARCHAR(50) DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_borrowed_category (category_id),
+    INDEX idx_borrowed_status (status),
+    INDEX idx_borrowed_from (borrowed_from),
+    INDEX idx_borrow_date (borrow_date)
+);
+
