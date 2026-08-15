@@ -663,15 +663,15 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
                     $item_no = $asset['item_no'] ?: 'Uncategorized';
                     if (!isset($grouped[$item_no])) {
                         $grouped[$item_no] = [
-                            'item_no'           => $item_no,
-                            'asset_name'        => $asset['asset_name'],
-                            'page_no'           => $asset['page_no'],
+                            'item_no' => $item_no,
+                            'asset_name' => $asset['asset_name'],
+                            'page_no' => $asset['page_no'],
                             'date_of_issue_min' => $asset['date_of_issue'],
-                            'retire_at_max'     => $asset['retire_at'] ?? null,
-                            'total_cost'        => 0,
-                            'status'            => $asset['status'] ?: ($active_tab === 'history' ? 'Retired' : 'Active'),
-                            'locations'         => [],
-                            'items'             => []
+                            'date_of_issue_max' => $asset['date_of_issue'],
+                            'total_cost' => 0,
+                            'status' => $asset['status'] ?: ($active_tab === 'history' ? 'Retired' : 'Active'),
+                            'locations' => [],
+                            'items' => []
                         ];
                     }
                     $grouped[$item_no]['items'][] = $asset;
@@ -680,15 +680,13 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
                     if (!in_array($loc, $grouped[$item_no]['locations'])) {
                         $grouped[$item_no]['locations'][] = $loc;
                     }
-                    if (!empty($asset['date_of_issue']) && strtotime($asset['date_of_issue']) < strtotime($grouped[$item_no]['date_of_issue_min'])) {
+                    if (strtotime($asset['date_of_issue']) < strtotime($grouped[$item_no]['date_of_issue_min'])) {
                         $grouped[$item_no]['date_of_issue_min'] = $asset['date_of_issue'];
                     }
-                    // Track latest retire_at for history tab
-                    if (!empty($asset['retire_at'])) {
-                        if (empty($grouped[$item_no]['retire_at_max']) || strtotime($asset['retire_at']) > strtotime($grouped[$item_no]['retire_at_max'])) {
-                            $grouped[$item_no]['retire_at_max'] = $asset['retire_at'];
-                        }
+                    if (strtotime($asset['date_of_issue']) > strtotime($grouped[$item_no]['date_of_issue_max'])) {
+                        $grouped[$item_no]['date_of_issue_max'] = $asset['date_of_issue'];
                     }
+                }
 
                 $sr_no = 1;
                 foreach ($grouped as $item_no => $group):
@@ -713,17 +711,7 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
                                 <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100"><?php echo htmlspecialchars($item_no); ?></span>
                                 <div class="wo-primary capitalize"><?php echo htmlspecialchars($group['asset_name']); ?></div>
                             </div>
-                            <?php
-                                $date_from = $group['date_of_issue_min'] ? date('d/m/Y', strtotime($group['date_of_issue_min'])) : 'N/A';
-                                if ($active_tab === 'history') {
-                                    $date_to_label = 'Written Off';
-                                    $date_to = !empty($group['retire_at_max']) ? date('d/m/Y', strtotime($group['retire_at_max'])) : 'N/A';
-                                } else {
-                                    $date_to_label = 'Today';
-                                    $date_to = date('d/m/Y');
-                                }
-                            ?>
-                            <div class="wo-secondary mt-1">Page No: <?php echo htmlspecialchars($group['page_no'] ?: 'N/A'); ?> | Issued: <?php echo $date_from; ?> → <?php echo $date_to_label; ?>: <strong><?php echo $date_to; ?></strong></div>
+                            <div class="wo-secondary mt-1">Page No: <?php echo htmlspecialchars($group['page_no'] ?: 'N/A'); ?> | Date Range: <?php echo date('d/m/Y', strtotime($group['date_of_issue_min'])); ?> - <?php echo date('d/m/Y', strtotime($group['date_of_issue_max'])); ?></div>
                         </div>
 
                         <div class="wo-cell">
