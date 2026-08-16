@@ -77,13 +77,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $bind_params = array_merge([$writeoff_reason], $asset_ids);
             $bind_types  = 's' . $types;
             $refs = [$bind_types];
-            foreach ($bind_params as &$v) { $refs[] = &$v; }
+            foreach ($bind_params as &$v) {
+                $refs[] = &$v;
+            }
             call_user_func_array([$stmt, 'bind_param'], $refs);
         } else {
             $sql = "UPDATE assets SET retire_at = NOW(), status = 'Retired' WHERE id IN ($placeholders) AND retire_at IS NULL";
             $stmt = $conn->prepare($sql);
             $refs = [$types];
-            foreach ($asset_ids as &$v) { $refs[] = &$v; }
+            foreach ($asset_ids as &$v) {
+                $refs[] = &$v;
+            }
             call_user_func_array([$stmt, 'bind_param'], $refs);
         }
         if ($stmt->execute()) {
@@ -463,14 +467,33 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
         text-decoration: none;
     }
 
-    .wo-btn-primary { background: #2563eb; color: #fff; }
-    .wo-btn-primary:hover { background: #1d4ed8; }
+    .wo-btn-primary {
+        background: #2563eb;
+        color: #fff;
+    }
 
-    .wo-btn-secondary { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
-    .wo-btn-secondary:hover { background: #e2e8f0; }
+    .wo-btn-primary:hover {
+        background: #1d4ed8;
+    }
 
-    .wo-btn-danger { background: #dc2626; color: #fff; }
-    .wo-btn-danger:hover { background: #b91c1c; }
+    .wo-btn-secondary {
+        background: #f1f5f9;
+        color: #475569;
+        border: 1px solid #cbd5e1;
+    }
+
+    .wo-btn-secondary:hover {
+        background: #e2e8f0;
+    }
+
+    .wo-btn-danger {
+        background: #dc2626;
+        color: #fff;
+    }
+
+    .wo-btn-danger:hover {
+        background: #b91c1c;
+    }
 
     .wo-list-head {
         display: grid;
@@ -495,13 +518,35 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
         transition: background 0.15s;
     }
 
-    .wo-list-row:hover { background: #f8fafc; }
-    .wo-list-row:last-child { border-bottom: none; }
+    .wo-list-row:hover {
+        background: #f8fafc;
+    }
 
-    .wo-mono { font-family: ui-monospace, monospace; font-size: 0.78rem; font-weight: 700; color: #2563eb; }
-    .wo-primary { font-weight: 700; color: #0f172a; }
-    .wo-secondary { font-size: 0.75rem; color: #64748b; }
-    .wo-meta { font-weight: 600; color: #334155; }
+    .wo-list-row:last-child {
+        border-bottom: none;
+    }
+
+    .wo-mono {
+        font-family: ui-monospace, monospace;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #2563eb;
+    }
+
+    .wo-primary {
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .wo-secondary {
+        font-size: 0.75rem;
+        color: #64748b;
+    }
+
+    .wo-meta {
+        font-weight: 600;
+        color: #334155;
+    }
 
     .wo-status {
         display: inline-block;
@@ -510,9 +555,21 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
         font-size: 0.7rem;
         font-weight: 700;
     }
-    .wo-status-active { background: #dcfce7; color: #15803d; }
-    .wo-status-maintenance { background: #fef3c7; color: #b45309; }
-    .wo-status-retired { background: #fee2e2; color: #b91c1c; }
+
+    .wo-status-active {
+        background: #dcfce7;
+        color: #15803d;
+    }
+
+    .wo-status-maintenance {
+        background: #fef3c7;
+        color: #b45309;
+    }
+
+    .wo-status-retired {
+        background: #fee2e2;
+        color: #b91c1c;
+    }
 
     .wo-subnav {
         display: flex;
@@ -573,11 +630,11 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
     <!-- Sub Navigation Tabs (Candidates vs History) -->
     <div class="wo-subnav no-print">
         <a href="<?php echo htmlspecialchars(build_writeoff_url($selectedCategory, 'candidates', $name_filter, $issue_from, $issue_to)); ?>"
-           class="wo-subnav-btn <?php echo $active_tab === 'candidates' ? 'active' : ''; ?>">
+            class="wo-subnav-btn <?php echo $active_tab === 'candidates' ? 'active' : ''; ?>">
             <span>📋 Write-Off Candidates (5+ Yrs Old)</span>
         </a>
         <a href="<?php echo htmlspecialchars(build_writeoff_url($selectedCategory, 'history', $name_filter, $issue_from, $issue_to)); ?>"
-           class="wo-subnav-btn <?php echo $active_tab === 'history' ? 'active' : ''; ?>">
+            class="wo-subnav-btn <?php echo $active_tab === 'history' ? 'active' : ''; ?>">
             <span>📜 Written-Off Assets Archive</span>
         </a>
     </div>
@@ -612,7 +669,7 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
     <div class="wo-tabs no-print">
         <?php foreach ($category_names as $category_id => $category_name): ?>
             <a href="<?php echo htmlspecialchars(build_writeoff_url($category_id, $active_tab, $name_filter, $issue_from, $issue_to)); ?>"
-               class="<?php echo $selectedCategory === $category_id ? 'active-tab' : ''; ?>">
+                class="<?php echo $selectedCategory === $category_id ? 'active-tab' : ''; ?>">
                 <?php echo htmlspecialchars($category_name); ?>
                 <span class="wo-tab-count"><?php echo number_format($category_counts[$category_id]); ?></span>
             </a>
@@ -656,7 +713,7 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
                 <div class="wo-empty py-12 text-center text-slate-500">
                     <?php echo $active_tab === 'history' ? 'No written-off assets found in this category.' : 'No 5+ years old write-off candidate assets found in this category.'; ?>
                 </div>
-            <?php else:
+                <?php else:
                 // Group by item_no
                 $grouped = [];
                 foreach ($selected_assets as $asset) {
@@ -702,7 +759,7 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
                     } elseif (stripos($status, 'retire') !== false || stripos($status, 'write') !== false || $active_tab === 'history') {
                         $statusClass = 'wo-status-retired';
                     }
-            ?>
+                ?>
                     <div class="wo-list-row" style="background: #ffffff; border-bottom: 1px solid #e2e8f0;">
                         <div class="wo-cell wo-sr"><?php echo $sr_no; ?></div>
 
@@ -743,20 +800,20 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
                     <div id="details-item-<?php echo $item_no; ?>" class="hidden bg-slate-50 border-l-4 border-blue-500 shadow-inner no-print" style="margin-left: 20px; margin-right: 20px; border-radius: 0 0 8px 8px; overflow: hidden;">
 
                         <?php if ($active_tab === 'candidates'): ?>
-                        <!-- Bulk action header -->
-                        <div class="flex items-center justify-between px-5 py-3 bg-slate-100 border-b border-slate-200">
-                            <label class="flex items-center gap-2 cursor-pointer select-none">
-                                <input type="checkbox" id="selectAll-<?php echo $item_no; ?>" onchange="toggleSelectAll('<?php echo $item_no; ?>', this.checked)" class="w-4 h-4 rounded border-slate-400 accent-red-600 cursor-pointer">
-                                <span class="text-xs font-bold text-slate-600 uppercase tracking-wide">Select All (<?php echo $items_count; ?> assets)</span>
-                            </label>
-                            <button type="button" id="bulkWriteOffBtn-<?php echo $item_no; ?>" onclick="openBulkWriteOffModal('<?php echo $item_no; ?>', '<?php echo htmlspecialchars(addslashes($group['asset_name'])); ?>')" class="hidden wo-btn wo-btn-danger text-xs px-3 py-1.5 rounded-lg" style="padding: 6px 14px;">
-                                🗑️ Write Off Selected (<span id="bulkCount-<?php echo $item_no; ?>">0</span>)
-                            </button>
-                        </div>
+                            <!-- Bulk action header -->
+                            <div class="flex items-center justify-between px-5 py-3 bg-slate-100 border-b border-slate-200">
+                                <label class="flex items-center gap-2 cursor-pointer select-none">
+                                    <input type="checkbox" id="selectAll-<?php echo $item_no; ?>" onchange="toggleSelectAll('<?php echo $item_no; ?>', this.checked)" class="w-4 h-4 rounded border-slate-400 accent-red-600 cursor-pointer">
+                                    <span class="text-xs font-bold text-slate-600 uppercase tracking-wide">Select All (<?php echo $items_count; ?> assets)</span>
+                                </label>
+                                <button type="button" id="bulkWriteOffBtn-<?php echo $item_no; ?>" onclick="openBulkWriteOffModal('<?php echo $item_no; ?>', '<?php echo htmlspecialchars(addslashes($group['asset_name'])); ?>')" class="hidden wo-btn wo-btn-danger text-xs px-3 py-1.5 rounded-lg" style="padding: 6px 14px;">
+                                    🗑️ Write Off Selected (<span id="bulkCount-<?php echo $item_no; ?>">0</span>)
+                                </button>
+                            </div>
                         <?php else: ?>
-                        <div class="px-5 py-3 bg-slate-100 border-b border-slate-200">
-                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Asset Details — Item No: <?php echo htmlspecialchars($item_no); ?></span>
-                        </div>
+                            <div class="px-5 py-3 bg-slate-100 border-b border-slate-200">
+                                <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Asset Details — Item No: <?php echo htmlspecialchars($item_no); ?></span>
+                            </div>
                         <?php endif; ?>
 
                         <div class="px-5 py-3 space-y-2">
@@ -769,12 +826,12 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
                             ?>
                                 <div class="flex items-center gap-3 bg-white border border-slate-200 rounded-lg p-3 transition hover:border-blue-300">
                                     <?php if ($active_tab === 'candidates'): ?>
-                                    <input type="checkbox"
-                                        class="asset-cb-<?php echo $item_no; ?> w-4 h-4 rounded border-slate-300 accent-red-600 cursor-pointer shrink-0"
-                                        value="<?php echo (int)$sub_asset['id']; ?>"
-                                        onchange="updateBulkBtn('<?php echo $item_no; ?>')">
+                                        <input type="checkbox"
+                                            class="asset-cb-<?php echo $item_no; ?> w-4 h-4 rounded border-slate-300 accent-red-600 cursor-pointer shrink-0"
+                                            value="<?php echo (int)$sub_asset['id']; ?>"
+                                            onchange="updateBulkBtn('<?php echo $item_no; ?>')">
                                     <?php else: ?>
-                                    <span class="w-4 shrink-0"></span>
+                                        <span class="w-4 shrink-0"></span>
                                     <?php endif; ?>
 
                                     <div class="flex flex-wrap items-center gap-x-4 gap-y-1 flex-1 text-xs">
@@ -793,7 +850,8 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
                             <?php endforeach; ?>
                         </div>
                     </div>
-            <?php $sr_no++; endforeach; ?>
+                <?php $sr_no++;
+                endforeach; ?>
             <?php endif; ?>
         </div>
     </div>
@@ -920,44 +978,58 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
             <input type="hidden" name="issue_from" value="<?php echo htmlspecialchars($issue_from); ?>">
             <input type="hidden" name="issue_to" value="<?php echo htmlspecialchars($issue_to); ?>">
 
-                <div class="border-t border-slate-100 pt-2 space-y-2">
-                    <!-- Checkbox 1: Expandable -->
-                    <label class="flex items-center gap-3 p-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer transition text-sm text-slate-700 font-semibold">
-                        <input type="checkbox" name="categories[]" value="1" checked onchange="updateWriteOffSelectAllState()" class="writeoff-cat-checkbox h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+            <!-- Categories -->
+            <div class="border-t border-slate-100 pt-4">
+                <div class="space-y-2.5">
+
+                    <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer transition text-sm text-slate-700 font-semibold">
+                        <input type="checkbox" name="categories[]" value="1" checked
+                            onchange="updateWriteOffSelectAllState()"
+                            class="writeoff-cat-checkbox h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
                         <span>Expandable Register</span>
                     </label>
 
-                    <!-- Checkbox 2: Consumables -->
-                    <label class="flex items-center gap-3 p-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer transition text-sm text-slate-700 font-semibold">
-                        <input type="checkbox" name="categories[]" value="2" checked onchange="updateWriteOffSelectAllState()" class="writeoff-cat-checkbox h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                    <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer transition text-sm text-slate-700 font-semibold">
+                        <input type="checkbox" name="categories[]" value="2" checked
+                            onchange="updateWriteOffSelectAllState()"
+                            class="writeoff-cat-checkbox h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
                         <span>Consumables Register</span>
                     </label>
 
-                    <!-- Checkbox 3: Deadstock -->
-                    <label class="flex items-center gap-3 p-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer transition text-sm text-slate-700 font-semibold">
-                        <input type="checkbox" name="categories[]" value="3" checked onchange="updateWriteOffSelectAllState()" class="writeoff-cat-checkbox h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                    <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer transition text-sm text-slate-700 font-semibold">
+                        <input type="checkbox" name="categories[]" value="3" checked
+                            onchange="updateWriteOffSelectAllState()"
+                            class="writeoff-cat-checkbox h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
                         <span>Deadstock Register</span>
                     </label>
 
-                    <!-- Checkbox 4: Furniture -->
-                    <label class="flex items-center gap-3 p-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer transition text-sm text-slate-700 font-semibold">
-                        <input type="checkbox" name="categories[]" value="4" checked onchange="updateWriteOffSelectAllState()" class="writeoff-cat-checkbox h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                    <label class="flex items-center gap-3 p-3 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer transition text-sm text-slate-700 font-semibold">
+                        <input type="checkbox" name="categories[]" value="4" checked
+                            onchange="updateWriteOffSelectAllState()"
+                            class="writeoff-cat-checkbox h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
                         <span>Furniture Register</span>
                     </label>
                 </div>
             </div>
 
             <!-- Error alert -->
-            <div id="writeoffExportError" class="hidden mb-4 rounded-lg bg-red-50 p-2.5 text-xs text-red-600 font-semibold border border-red-200">
+            <div id="writeoffExportError"
+                class="hidden mt-4 rounded-lg bg-red-50 p-3 text-xs text-red-600 font-semibold border border-red-200">
                 ⚠️ Please select at least one category to download.
             </div>
 
             <!-- Actions -->
-            <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-                <button type="button" onclick="closeWriteOffExportModal()" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition">
+            <div class="mt-5 pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                <button
+                    type="button"
+                    onclick="closeWriteOffExportModal()"
+                    class="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition">
                     Cancel
                 </button>
-                <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-md hover:bg-emerald-700 transition">
+
+                <button
+                    type="submit"
+                    class="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:bg-emerald-700 transition">
                     📥 Download Excel
                 </button>
             </div>
@@ -1059,7 +1131,7 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
     // ── Toggle accordion detail panel ──
     function toggleGroupDetails(itemNo) {
         const panel = document.getElementById('details-item-' + itemNo);
-        const btn   = document.getElementById('btn-toggle-' + itemNo);
+        const btn = document.getElementById('btn-toggle-' + itemNo);
         if (!panel) return;
         if (panel.classList.contains('hidden')) {
             panel.classList.remove('hidden');
@@ -1082,15 +1154,18 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
     function updateBulkBtn(itemNo) {
         const cbs = document.querySelectorAll('.asset-cb-' + itemNo);
         const checked = Array.from(cbs).filter(cb => cb.checked);
-        const btn  = document.getElementById('bulkWriteOffBtn-' + itemNo);
+        const btn = document.getElementById('bulkWriteOffBtn-' + itemNo);
         const span = document.getElementById('bulkCount-' + itemNo);
         const allCb = document.getElementById('selectAll-' + itemNo);
 
-        if (span)  span.textContent = checked.length;
-        if (btn)   btn.classList.toggle('hidden', checked.length === 0);
+        if (span) span.textContent = checked.length;
+        if (btn) btn.classList.toggle('hidden', checked.length === 0);
         if (allCb) allCb.indeterminate = (checked.length > 0 && checked.length < cbs.length);
         if (allCb && checked.length === cbs.length) allCb.checked = true;
-        if (allCb && checked.length === 0) { allCb.checked = false; allCb.indeterminate = false; }
+        if (allCb && checked.length === 0) {
+            allCb.checked = false;
+            allCb.indeterminate = false;
+        }
     }
 
     // ── Open bulk write-off modal ──
@@ -1115,7 +1190,7 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
         if (reasonEl) reasonEl.value = '';
 
         const modal = document.getElementById('bulkWriteOffModal');
-        const mc    = document.getElementById('bulkWriteOffModalContainer');
+        const mc = document.getElementById('bulkWriteOffModalContainer');
         modal.classList.remove('hidden');
         setTimeout(() => {
             mc.classList.remove('scale-95', 'opacity-0');
@@ -1126,7 +1201,7 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
     // ── Close bulk write-off modal ──
     function closeBulkWriteOffModal() {
         const modal = document.getElementById('bulkWriteOffModal');
-        const mc    = document.getElementById('bulkWriteOffModalContainer');
+        const mc = document.getElementById('bulkWriteOffModalContainer');
         mc.classList.remove('scale-100', 'opacity-100');
         mc.classList.add('scale-95', 'opacity-0');
         setTimeout(() => modal.classList.add('hidden'), 200);

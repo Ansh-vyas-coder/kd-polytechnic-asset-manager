@@ -16,6 +16,7 @@ if (!isset($_SESSION['user_id'])) {
 // Get parameters from URL
 $category_id  = isset($_GET['category_id']) ? (int)$_GET['category_id'] : 0;
 $group_filter = isset($_GET['group']) ? strtolower(trim($_GET['group'])) : ''; // e.g. "mouse"
+$group_display = ''; // default to avoid undefined variable warnings
 $search_query = isset($_GET['search']) ? trim($_GET['search']) : '';
 
 // Define categories
@@ -272,7 +273,11 @@ if (!function_exists('getInitials')) {
                         <a href="<?php echo $gLink; ?>" class="text-indigo-600 hover:text-indigo-900" onclick="event.stopPropagation()">Browse</a>
                       </td>
                     </tr>
-                    <?php endforeach; ?>
+                    <?php endforeach; 
+                        if (isset($batch_lookup_stmt) && $batch_lookup_stmt instanceof mysqli_stmt) {
+                          $batch_lookup_stmt->close();
+                        }
+                    ?>
                   <?php endif; ?>
                 </tbody>
               </table>
@@ -304,11 +309,28 @@ if (!function_exists('getInitials')) {
                       </td>
                     </tr>
                   <?php else: ?>
-                    <?php foreach ($rows as $asset):
-                      $item_no = (int)$asset['item_no'];
-                      $link = "view-asset-details.php?category_id={$category_id}&asset_name=" . urlencode($asset['asset_name']) . "&item_no={$item_no}&group=" . urlencode($group_filter);
-                    ?>
-                    <tr class="clickable-row transition-colors duration-150" data-href="<?php echo $link; ?>">
+                            <?php
+                            // Prepare statement to find a representative batch_id for each item_no
+                            $batch_lookup_stmt = $conn->prepare("SELECT batch_id, id FROM assets WHERE category_id = ? AND asset_name = ? AND item_no = ? AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL) ORDER BY date_of_issue DESC LIMIT 1");
+                            foreach ($rows as $asset):
+                              $item_no = (int)$asset['item_no'];
+                              $batch_id_for_link = '';
+                              if ($batch_lookup_stmt) {
+                                $batch_lookup_stmt->bind_param('isi', $category_id, $asset['asset_name'], $item_no);
+                                $batch_lookup_stmt->execute();
+                                $batch_res = $batch_lookup_stmt->get_result();
+                                if ($batch_res && ($br = $batch_res->fetch_assoc())) {
+                                  if (!empty($br['batch_id'])) {
+                                    $batch_id_for_link = $br['batch_id'];
+                                  } else {
+                                    // use uncategorized id marker expected by view-batch-details
+                                    $batch_id_for_link = 'batch_uncategorized_' . (int)$br['id'];
+                                  }
+                                }
+                              }
+                              $link = "view-batch-details.php?category_id={$category_id}&asset_name=" . urlencode($asset['asset_name']) . "&batch_id=" . urlencode($batch_id_for_link) . "&group=" . urlencode($group_filter);
+                            ?>
+                            <tr class="clickable-row transition-colors duration-150" data-href="<?php echo $link; ?>">
                       <td class="px-6 py-4 whitespace-nowrap">
                         <span class="inline-flex items-center justify-center w-9 h-9 rounded-full bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100"><?php echo $item_no; ?></span>
                       </td>
