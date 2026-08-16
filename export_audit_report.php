@@ -11,8 +11,8 @@ use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 // Security check: ensure user is logged in and is an admin
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
-    header("HTTP/1.1 403 Forbidden");
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'staff'])) {
+    header("HTTP/1.1 403 Forbidden"); // User not logged in or not a valid role
     exit("Access denied.");
 }
 
@@ -24,7 +24,7 @@ if ($audit_id <= 0) {
 
 // --- Fetch main audit details ---
 $audit_stmt = $conn->prepare(
-    "SELECT a.id, a.location_id, a.audit_date, a.status, u.full_name as audited_by
+    "SELECT a.id, a.location_id, a.audit_date, a.status, a.audited_by_user_id, u.full_name as audited_by
      FROM audits a
      JOIN users u ON a.audited_by_user_id = u.id
      WHERE a.id = ?"
@@ -40,6 +40,12 @@ $audit_stmt->close();
 
 if (!$audit_details) {
     exit("Audit report not found.");
+}
+
+// Security check: Staff can only export their own audit results
+if ($_SESSION['role'] === 'staff' && $audit_details['audited_by_user_id'] != $_SESSION['user_id']) {
+    header("HTTP/1.1 403 Forbidden");
+    exit("Access denied. You can only export your own audit reports.");
 }
 
 // --- Fetch all audit items ---
@@ -208,16 +214,20 @@ if (!empty($missing_items_by_category_and_name)) {
             $row++;
 
             $sheet->setCellValue('A'.$row, 'Asset No.');
-            $sheet->setCellValue('B'.$row, 'Expected Location');
-            $sheet->getStyle('A'.$row.':B'.$row)->applyFromArray($headerStyle);
-            $sheet->mergeCells('B'.$row.':D'.$row);
+            $sheet->setCellValue('B'.$row, 'Expected At');
+            $sheet->setCellValue('C'.$row, 'Found At');
+            $sheet->setCellValue('D'.$row, 'Note');
+            $sheet->getStyle('A'.$row.':D'.$row)->applyFromArray($headerStyle);
             $row++;
+
 
             foreach ($items as $item) {
                 $sheet->setCellValue('A'.$row, htmlspecialchars($item['asset_no']));
                 $sheet->setCellValue('B'.$row, htmlspecialchars($item['expected_location_id']));
                 $sheet->mergeCells('B'.$row.':D'.$row);
                 $row++;
+                $sheet->setCellValue('C'.$row, htmlspecialchars($item['scanned_location_id'] ?: 'N/A'));
+                $sheet->setCellValue('D'.$row, htmlspecialchars($item['note'] ?: '-'));
             }
             $row++; // Blank row after each asset name group
         }

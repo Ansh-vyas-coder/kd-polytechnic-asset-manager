@@ -3,14 +3,34 @@ session_start();
 require 'db.php';
 
 // Security check: ensure user is logged in and is an admin
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
-    // Redirect to login or show an error
-    header("Location: login.html");
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'staff'])) {
+    header("Location: login.html"); // User not logged in or not a valid role
     exit();
 }
 
 // Check if the request is a POST request
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $audit_id_to_start = isset($_POST['audit_id']) ? (int)$_POST['audit_id'] : 0;
+    $current_user_id = $_SESSION['user_id'];
+
+    // --- Logic to start an ASSIGNED audit ---
+    if ($audit_id_to_start > 0) {
+        // Security check: make sure this user is assigned to this audit.
+        $stmt = $conn->prepare("UPDATE audits SET status = 'In Progress', audit_date = NOW() WHERE id = ? AND audited_by_user_id = ? AND status = 'Assigned'");
+        $stmt->bind_param("ii", $audit_id_to_start, $current_user_id);
+        
+        if ($stmt->execute() && $stmt->affected_rows > 0) {
+            $stmt->close();
+            header("Location: audit_session.php?id=" . $audit_id_to_start);
+            exit();
+        } else {
+            $stmt->close();
+            header("Location: dashboard.php?view=audit&status=error&message=" . urlencode("Could not start the assigned audit. It may have been started already or you are not assigned to it."));
+            exit();
+        }
+    }
+
+    // --- Logic to create a NEW audit from scratch ---
     // Validate that location_id is provided
     if (!isset($_POST['location_id']) || empty(trim($_POST['location_id']))) {
         // Handle error: location not provided

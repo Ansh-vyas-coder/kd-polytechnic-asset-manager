@@ -1,9 +1,9 @@
 <?php
 // This file is included in dashboard.php, so $conn and session are available.
-// The $locations variable is also fetched in dashboard.php.
+// The variables $locations, $staff_users, $assigned_audits are also fetched in dashboard.php.
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
-    exit('Access Denied.');
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'staff'])) {
+    exit('Access Denied.'); // Only admins and staff can see the audit dashboard
 }
 ?>
 
@@ -39,7 +39,132 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
             </div>
         </form>
     </div>
-    
+
+    <?php if ($_SESSION['role'] === 'admin'): ?>
+    <!-- NEW: Assign Audit Section -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-bold text-gray-900 mb-1">Assign an Audit</h2>
+        <p class="text-sm text-gray-500 mb-4">Delegate an audit for a specific location to a staff member.</p>
+        <form action="assign_audit.php" method="POST">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <div class="md:col-span-1">
+                    <label for="assign_location_id" class="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                    <select id="assign_location_id" name="location_id" required class="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                        <option value="">Select a location</option>
+                        <?php foreach ($locations as $location): ?>
+                            <option value="<?php echo htmlspecialchars($location); ?>"><?php echo htmlspecialchars($location); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="md:col-span-1">
+                    <label for="assign_to_user_id" class="block text-sm font-medium text-gray-700 mb-1">Assign To</label>
+                    <select id="assign_to_user_id" name="assign_to_user_id" required class="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50">
+                        <option value="">Select a staff member</option>
+                        <?php foreach ($staff_users as $staff): ?>
+                            <option value="<?php echo $staff['id']; ?>"><?php echo htmlspecialchars($staff['full_name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="md:col-span-1">
+                    <button type="submit" class="w-full inline-flex justify-center items-center gap-2 px-4 py-2 border border-transparent text-sm font-semibold rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 transition-colors">
+                        <i data-lucide="send" style="width:16px;height:16px"></i>
+                        Assign Audit
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+    <?php endif; ?>
+
+    <!-- NEW: Assigned Audits Section -->
+    <?php if (!empty($assigned_audits)): ?>
+    <?php
+        $total_assigned = count($assigned_audits);
+        $audits_to_show = ($total_assigned > 5) ? array_slice($assigned_audits, 0, 5) : $assigned_audits;
+    ?>
+    <div class="space-y-4">
+        <?php if ($_SESSION['role'] === 'admin'): ?>
+            <h2 class="text-xl font-bold text-gray-800 tracking-tight">Delegated Audits</h2>
+        <?php else: ?>
+            <h2 class="text-xl font-bold text-gray-800 tracking-tight">Your Assigned Audits</h2>
+        <?php endif; ?>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50">
+                    <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
+                        <th class="px-6 py-3 font-medium">Location</th>
+                        <?php if ($_SESSION['role'] === 'admin'): ?>
+                            <th class="px-6 py-3 font-medium">Assigned By</th>
+                        <?php endif; ?>
+                        <?php if ($_SESSION['role'] === 'admin'): ?>
+                            <th class="px-6 py-3 font-medium">Status</th>
+                        <?php endif; ?>
+                        <th class="px-6 py-3 font-medium">Assigned To</th>
+                        <th class="px-6 py-3 font-medium">Date Assigned</th>
+                        <th class="px-6 py-3 font-medium text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    <?php foreach ($audits_to_show as $audit): ?>
+                        <tr>
+                            <td class="px-6 py-4 font-semibold text-gray-800"><?php echo htmlspecialchars($audit['location_id']); ?></td>
+                            <?php if ($_SESSION['role'] === 'admin'): ?>
+                                <td class="px-6 py-4 text-gray-600"><?php echo htmlspecialchars($audit['assigned_by_name'] ?? 'System'); ?></td>
+                            <?php endif; ?>
+                            <?php if ($_SESSION['role'] === 'admin'): ?>
+                                <td class="px-6 py-4">
+                                    <?php
+                                        $status_color = 'gray';
+                                        if ($audit['status'] === 'Assigned') $status_color = 'yellow';
+                                        if ($audit['status'] === 'In Progress') $status_color = 'blue';
+                                        if ($audit['status'] === 'Completed') $status_color = 'green';
+                                    ?>
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-<?php echo $status_color; ?>-100 text-<?php echo $status_color; ?>-800">
+                                        <?php echo htmlspecialchars($audit['status']); ?>
+                                    </span>
+                                </td>
+                            <?php endif; ?>
+                            <td class="px-6 py-4 text-gray-600"><?php echo htmlspecialchars($audit['assigned_to_name']); ?></td>
+                            <td class="px-6 py-4 text-gray-500"><?php echo date('M d, Y', strtotime($audit['audit_date'])); ?></td>
+                            <td class="px-6 py-4 text-right">
+                                <?php if ($_SESSION['role'] === 'admin'): ?>
+                                    <?php if ($audit['status'] === 'In Progress'): ?>
+                                        <a href="audit_session.php?id=<?php echo $audit['id']; ?>" class="inline-flex items-center justify-center gap-2 rounded-md bg-blue-100 px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-sm transition hover:bg-blue-200">
+                                            View Progress
+                                        </a>
+                                    <?php elseif ($audit['status'] === 'Completed'): ?>
+                                        <a href="audit_results.php?id=<?php echo $audit['id']; ?>" class="inline-flex items-center justify-center gap-2 rounded-md bg-green-100 px-3 py-1.5 text-xs font-semibold text-green-700 shadow-sm transition hover:bg-green-200">
+                                            View Report
+                                        </a>
+                                    <?php else: ?>
+                                        <span class="text-xs text-gray-400">Pending staff action</span>
+                                    <?php endif; ?>
+                                <?php elseif ($_SESSION['user_name'] === $audit['assigned_to_name'] && $audit['status'] === 'Assigned'): ?>
+                                    <form action="start_audit.php" method="POST" class="inline">
+                                        <input type="hidden" name="audit_id" value="<?php echo $audit['id']; ?>">
+                                        <input type="hidden" name="location_id" value="<?php echo htmlspecialchars($audit['location_id']); ?>">
+                                        <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-md bg-green-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-green-700">
+                                            <i data-lucide="play" style="width:14px;height:14px"></i>
+                                            Start Audit
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php if ($total_assigned > 5): ?>
+                <div class="p-4 bg-gray-50 border-t border-gray-200 text-center">
+                    <a href="all_delegated_audits.php" class="text-sm font-medium text-blue-600 hover:text-blue-800">
+                        View All <?php echo $total_assigned; ?> Audits
+                    </a>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <?php if (isset($_GET['status']) && $_GET['status'] === 'error'): ?>
         <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-6" role="alert">
             <strong class="font-bold">Error:</strong>

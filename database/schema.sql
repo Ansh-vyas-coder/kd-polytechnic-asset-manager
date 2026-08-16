@@ -120,8 +120,9 @@ CREATE TABLE IF NOT EXISTS audits (
     id INT AUTO_INCREMENT PRIMARY KEY,
     location_id VARCHAR(100) NOT NULL,
     audited_by_user_id INT NOT NULL,
+    assigned_by_user_id INT NULL DEFAULT NULL,
     audit_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    status ENUM('In Progress', 'Completed') NOT NULL DEFAULT 'In Progress',
+    status ENUM('In Progress', 'Completed', 'Assigned') NOT NULL DEFAULT 'In Progress',
     FOREIGN KEY (audited_by_user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -183,4 +184,3 @@ CREATE TABLE IF NOT EXISTS borrowed_assets (
     INDEX idx_borrowed_from (borrowed_from),
     INDEX idx_borrow_date (borrow_date)
 );
-

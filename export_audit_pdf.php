@@ -4,8 +4,8 @@ require 'db.php';
 require 'vendor/autoload.php';
 
 // Security check: ensure user is logged in and is an admin
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
-    header("HTTP/1.1 403 Forbidden");
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'staff'])) {
+    header("HTTP/1.1 403 Forbidden"); // User not logged in or not a valid role
     exit("Access denied.");
 }
 
@@ -17,7 +17,7 @@ if ($audit_id <= 0) {
 
 // --- Fetch main audit details ---
 $audit_stmt = $conn->prepare(
-    "SELECT a.id, a.location_id, a.audit_date, a.status, u.full_name as audited_by
+    "SELECT a.id, a.location_id, a.audit_date, a.status, a.audited_by_user_id, u.full_name as audited_by
      FROM audits a
      JOIN users u ON a.audited_by_user_id = u.id
      WHERE a.id = ?"
@@ -33,6 +33,12 @@ $audit_stmt->close();
 
 if (!$audit_details) {
     exit("Audit report not found.");
+}
+
+// Security check: Staff can only export their own audit results
+if ($_SESSION['role'] === 'staff' && $audit_details['audited_by_user_id'] != $_SESSION['user_id']) {
+    header("HTTP/1.1 403 Forbidden");
+    exit("Access denied. You can only export your own audit reports.");
 }
 
 // --- Fetch all audit items ---
@@ -203,12 +209,14 @@ ob_start();
             <?php foreach ($asset_names_in_category as $asset_name => $items): ?>
                 <h4 style="border-left-color: #EF9A9A;"><?php echo htmlspecialchars($asset_name); ?> (<?php echo count($items); ?>)</h4>
                 <table>
-                    <thead><tr><th>Asset No.</th><th>Expected Location</th></tr></thead>
+                    <thead><tr><th>Asset No.</th><th>Expected At</th><th>Found At</th><th>Note</th></tr></thead>
                     <tbody>
                         <?php foreach ($items as $item): ?>
                         <tr>
                             <td><?php echo htmlspecialchars($item['asset_no']); ?></td>
                             <td><?php echo htmlspecialchars($item['expected_location_id']); ?></td>
+                            <td><?php echo htmlspecialchars($item['scanned_location_id'] ?: 'N/A'); ?></td>
+                            <td><?php echo htmlspecialchars($item['note'] ?: '-'); ?></td>
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -224,12 +232,11 @@ ob_start();
             <?php foreach ($asset_names_in_category as $asset_name => $items): ?>
                 <h4 style="border-left-color: #FFD54F;"><?php echo htmlspecialchars($asset_name); ?> (<?php echo count($items); ?>)</h4>
                 <table>
-                    <thead><tr><th>Asset No.</th><th>Found At</th><th>Expected At</th></tr></thead>
+                    <thead><tr><th>Asset No.</th><th>Expected Location</th></tr></thead>
                     <tbody>
                         <?php foreach ($items as $item): ?>
                         <tr>
                             <td><?php echo htmlspecialchars($item['asset_no']); ?></td>
-                            <td><?php echo htmlspecialchars($item['scanned_location_id']); ?></td>
                             <td><?php echo htmlspecialchars($item['expected_location_id']); ?></td>
                         </tr>
                         <?php endforeach; ?>

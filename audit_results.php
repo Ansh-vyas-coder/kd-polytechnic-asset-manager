@@ -3,8 +3,8 @@ session_start();
 require 'db.php';
 
 // Security check: ensure user is logged in and is an admin
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
-    header("Location: login.html");
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'staff'])) {
+    header("Location: login.html"); // User not logged in or not a valid role
     exit();
 }
 
@@ -17,7 +17,7 @@ if ($audit_id <= 0) {
 
 // --- Fetch main audit details ---
 $audit_stmt = $conn->prepare(
-    "SELECT a.id, a.location_id, a.audit_date, a.status, u.full_name as audited_by
+    "SELECT a.id, a.location_id, a.audit_date, a.status, a.audited_by_user_id, u.full_name as audited_by
      FROM audits a
      JOIN users u ON a.audited_by_user_id = u.id
      WHERE a.id = ?"
@@ -33,6 +33,12 @@ $audit_stmt->close();
 
 if (!$audit_details) {
     header("Location: dashboard.php?view=audit&status=error&message=" . urlencode("Audit report not found."));
+    exit();
+}
+
+// Security check: Staff can only view their own audit results
+if ($_SESSION['role'] === 'staff' && $audit_details['audited_by_user_id'] != $_SESSION['user_id']) {
+    header("Location: dashboard.php?view=audit&status=error&message=" . urlencode("You are not authorized to view this audit report."));
     exit();
 }
 
@@ -273,7 +279,8 @@ $current_page = 'audit';
                                                     <thead class="bg-gray-50">
                                                         <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
                                                             <th class="px-6 py-3 font-medium">Asset No.</th>
-                                                            <th class="px-6 py-3 font-medium">Expected Location</th>
+                                                            <th class="px-6 py-3 font-medium">Expected At</th>
+                                                            <th class="px-6 py-3 font-medium">Note</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody class="divide-y divide-gray-100">
@@ -281,6 +288,7 @@ $current_page = 'audit';
                                                         <tr>
                                                             <td class="px-6 py-4 font-mono text-xs text-gray-600"><?php echo htmlspecialchars($item['asset_no']); ?></td>
                                                             <td class="px-6 py-4 text-gray-600"><?php echo htmlspecialchars($item['expected_location_id']); ?></td>
+                                                            <td class="px-6 py-4 text-gray-600 text-xs"><?php echo htmlspecialchars($item['note'] ?: '-'); ?></td>
                                                         </tr>
                                                         <?php endforeach; ?>
                                                     </tbody>

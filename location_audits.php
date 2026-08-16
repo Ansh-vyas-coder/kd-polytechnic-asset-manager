@@ -3,8 +3,8 @@ session_start();
 require 'db.php';
 
 // Security check: ensure user is logged in and is an admin
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
-    header("Location: login.html");
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'staff'])) {
+    header("Location: login.html"); // User not logged in or not a valid role
     exit();
 }
 
@@ -17,15 +17,26 @@ if (empty($location_id)) {
 
 // Fetch all completed audits for the specified location
 $all_audits = [];
-$stmt = $conn->prepare("
-    SELECT a.id, a.audit_date, u.full_name as audited_by
-    FROM audits a
-    JOIN users u ON a.audited_by_user_id = u.id
-    WHERE a.location_id = ? AND a.status = 'Completed'
-    ORDER BY a.audit_date DESC
-");
-if ($stmt) {
+$user_id = $_SESSION['user_id'];
+
+if ($_SESSION['role'] === 'admin') {
+    $stmt = $conn->prepare("
+        SELECT a.id, a.audit_date, u.full_name as audited_by
+        FROM audits a JOIN users u ON a.audited_by_user_id = u.id
+        WHERE a.location_id = ? AND a.status = 'Completed'
+        ORDER BY a.audit_date DESC
+    ");
     $stmt->bind_param("s", $location_id);
+} else { // Staff can only see their own audits
+    $stmt = $conn->prepare("
+        SELECT a.id, a.audit_date, u.full_name as audited_by
+        FROM audits a JOIN users u ON a.audited_by_user_id = u.id
+        WHERE a.location_id = ? AND a.status = 'Completed' AND a.audited_by_user_id = ?
+        ORDER BY a.audit_date DESC
+    ");
+    $stmt->bind_param("si", $location_id, $user_id);
+}
+if ($stmt) {
     $stmt->execute();
     $result = $stmt->get_result();
     $all_audits = $result->fetch_all(MYSQLI_ASSOC);

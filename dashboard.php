@@ -16,12 +16,11 @@ if (!isset($_SESSION['user_id'])) {
 
 $pageView = isset($_GET['view']) ? $_GET['view'] : 'dashboard';
 if ($_SESSION['role'] !== 'admin') {
-  if ($pageView !== 'my-assets') {
+  if (!in_array($pageView, ['my-assets', 'audit', 'dashboard'])) {
     $pageView = 'dashboard';
   }
 }
 $showAddAsset = $pageView === 'add-asset';
-$showAddBorrowedAsset = $pageView === 'add-borrowed-asset';
 $showRegister = $pageView === 'register';
 $showGenerateReport = $pageView === 'generate-report';
 $showMyAssets = $pageView === 'my-assets';
@@ -287,18 +286,55 @@ $recentMonthGrouped_modal = get_grouped_assets($conn, 'month');
 
 // Fetch all unique locations for the audit dropdown
 $locations = [];
+$loc_result = $conn->query("SELECT DISTINCT location FROM assets WHERE location IS NOT NULL AND location != '' ORDER BY location ASC");
+if ($loc_result) {
+    while ($loc_row = $loc_result->fetch_assoc()) {
+        $locations[] = $loc_row['location'];
+    }
+    $loc_result->free();
+}
+
+// NEW: Fetch staff users for assignment dropdown
+$staff_users = [];
 if ($_SESSION['role'] === 'admin') {
-    $loc_result = $conn->query("SELECT DISTINCT location FROM assets WHERE location IS NOT NULL AND location != '' ORDER BY location ASC");
-    if ($loc_result) {
-        while ($loc_row = $loc_result->fetch_assoc()) {
-            $locations[] = $loc_row['location'];
-        }
-        $loc_result->free();
+    $staff_result = $conn->query("SELECT id, full_name FROM users WHERE role = 'staff' ORDER BY full_name ASC");
+    if ($staff_result) {
+        $staff_users = $staff_result->fetch_all(MYSQLI_ASSOC);
     }
 }
 
+// NEW: Fetch assigned audits
+$assigned_audits = [];
+if ($_SESSION['role'] === 'admin') {
+    // Admins can see all assigned audits
+    $assigned_audits_result = $conn->query("
+        SELECT a.id, a.location_id, a.audit_date, a.status, u.full_name as assigned_to_name, assigner.full_name as assigned_by_name
+        FROM audits a
+        JOIN users u ON a.audited_by_user_id = u.id
+        LEFT JOIN users assigner ON a.assigned_by_user_id = assigner.id
+        WHERE a.assigned_by_user_id IS NOT NULL
+        ORDER BY FIELD(a.status, 'Assigned', 'In Progress', 'Completed'), a.audit_date DESC
+    ");
+} else { // Staff can only see audits assigned TO them
+    $assigned_audits_stmt = $conn->prepare("
+        SELECT a.id, a.location_id, a.audit_date, u.full_name as assigned_to_name
+        FROM audits a
+        JOIN users u ON a.audited_by_user_id = u.id
+        WHERE a.status = 'Assigned' AND a.audited_by_user_id = ?
+        ORDER BY a.audit_date DESC
+    ");
+    $assigned_audits_stmt->bind_param("i", $_SESSION['user_id']);
+    $assigned_audits_stmt->execute();
+    $assigned_audits_result = $assigned_audits_stmt->get_result();
+}
+if ($assigned_audits_result) {
+    $assigned_audits = $assigned_audits_result->fetch_all(MYSQLI_ASSOC);
+}
+if (isset($assigned_audits_stmt)) $assigned_audits_stmt->close();
+
 // Fetch ongoing audits for the audit page
 $ongoing_audits = [];
+$user_id = $_SESSION['user_id'];
 if ($_SESSION['role'] === 'admin') {
     $ongoing_audits_result = $conn->query("
         SELECT a.id, a.location_id, a.audit_date, u.full_name
@@ -307,25 +343,46 @@ if ($_SESSION['role'] === 'admin') {
         WHERE a.status = 'In Progress'
         ORDER BY a.audit_date DESC
     ");
-    if ($ongoing_audits_result) {
-        $ongoing_audits = $ongoing_audits_result->fetch_all(MYSQLI_ASSOC);
-    }
+} else { // Staff can only see their own
+    $ongoing_audits_stmt = $conn->prepare("
+        SELECT a.id, a.location_id, a.audit_date, u.full_name
+        FROM audits a
+        JOIN users u ON a.audited_by_user_id = u.id
+        WHERE a.status = 'In Progress' AND a.audited_by_user_id = ?
+        ORDER BY a.audit_date DESC
+    ");
+    $ongoing_audits_stmt->bind_param("i", $user_id);
+    $ongoing_audits_stmt->execute();
+    $ongoing_audits_result = $ongoing_audits_stmt->get_result();
 }
+if ($ongoing_audits_result) {
+    $ongoing_audits = $ongoing_audits_result->fetch_all(MYSQLI_ASSOC);
+}
+if (isset($ongoing_audits_stmt)) $ongoing_audits_stmt->close();
 
 // Fetch completed audits for the audit page
 $completed_audits = [];
 if ($_SESSION['role'] === 'admin') {
     $completed_audits_result = $conn->query("
-        SELECT a.id, a.location_id, a.audit_date, u.full_name
-        FROM audits a
-        JOIN users u ON a.audited_by_user_id = u.id
-        WHERE a.status = 'Completed'
-        ORDER BY a.audit_date DESC
-        LIMIT 10
+        SELECT a.id, a.location_id, a.audit_date, u.full_name FROM audits a JOIN users u ON a.audited_by_user_id = u.id WHERE a.status = 'Completed' ORDER BY a.audit_date DESC LIMIT 10
     ");
-    if ($completed_audits_result) {
-        $completed_audits = $completed_audits_result->fetch_all(MYSQLI_ASSOC);
-    }
+} else { // Staff can only see their own
+    $completed_audits_stmt = $conn->prepare("
+        SELECT a.id, a.location_id, a.audit_date, u.full_name FROM audits a JOIN users u ON a.audited_by_user_id = u.id WHERE a.status = 'Completed' AND a.audited_by_user_id = ? ORDER BY a.audit_date DESC LIMIT 10
+    ");
+    $completed_audits_stmt->bind_param("i", $user_id);
+    $completed_audits_stmt->execute();
+    $completed_audits_result = $completed_audits_stmt->get_result();
+}
+if ($completed_audits_result) {
+    $completed_audits = $completed_audits_result->fetch_all(MYSQLI_ASSOC);
+}
+if (isset($completed_audits_stmt)) $completed_audits_stmt->close();
+
+// NEW: Count for sidebar notification badge
+$assigned_to_me_count = 0;
+if ($_SESSION['role'] === 'staff') {
+    $assigned_to_me_count = count($assigned_audits);
 }
 
 // Maximum value for chart scaling
@@ -522,13 +579,6 @@ $current_page = $pageView;
           }
           include 'transfer-assets.php';
           ?>
-        <?php elseif ($showAddBorrowedAsset): ?>
-          <?php
-          if (!defined('IS_EMBEDDED')) {
-            define('IS_EMBEDDED', true);
-          }
-          include 'add-borrowed-asset.php';
-          ?>
         <?php elseif ($showLoanedAssets): ?>
           <?php
           if (!defined('IS_EMBEDDED')) {
@@ -552,7 +602,7 @@ $current_page = $pageView;
             include 'audit-start.php';
             ?>
           </div>
-        <?php elseif (!$showAddAsset && !$showAddBorrowedAsset && !$showGenerateReport && !$showMyAssets && !$showWriteOffAssets && !$showTransferAssets && !$showAudit): ?>
+        <?php elseif (!$showAddAsset && !$showGenerateReport && !$showMyAssets && !$showWriteOffAssets && !$showTransferAssets && !$showAudit): ?>
           <div id="dashboardView">
             <div class="flex items-start sm:items-center justify-between flex-wrap gap-3">
               <div>
@@ -1221,6 +1271,7 @@ $current_page = $pageView;
     const searchSpinner = document.getElementById('search-spinner');
     const searchButton = document.getElementById('searchButton');
     let searchTimeout;
+    
 
     function performSearch() {
       const query = searchInput.value.trim();

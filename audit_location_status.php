@@ -3,8 +3,8 @@ session_start();
 require 'db.php';
 
 // Security check: ensure user is logged in and is an admin
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
-    header("Location: login.html");
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'staff'])) {
+    header("Location: login.html"); // User not logged in or not a valid role
     exit();
 }
 
@@ -19,24 +19,45 @@ if (empty($selected_location_id)) {
 }
 
 // Fetch the most recent completed audit for the selected location
-$audit_stmt = $conn->prepare("
-    SELECT a.id, a.audit_date, u.full_name as audited_by
-    FROM audits a
-    JOIN users u ON a.audited_by_user_id = u.id
-    WHERE a.location_id = ? AND a.status = 'Completed'
-    ORDER BY a.audit_date DESC
-    LIMIT 1
-");
-$audit_stmt->bind_param("s", $selected_location_id);
-$audit_stmt->execute();
-$audit_result = $audit_stmt->get_result();
-$recent_completed_audit = $audit_result->fetch_assoc();
-$audit_stmt->close();
+$user_id = $_SESSION['user_id'];
+
+if ($_SESSION['role'] === 'admin') {
+    $audit_stmt = $conn->prepare("
+        SELECT a.id, a.audit_date, u.full_name as audited_by
+        FROM audits a
+        JOIN users u ON a.audited_by_user_id = u.id
+        WHERE a.location_id = ? AND a.status = 'Completed'
+        ORDER BY a.audit_date DESC
+        LIMIT 1
+    ");
+    $audit_stmt->bind_param("s", $selected_location_id);
+} else { // Staff can only see the status if they were the last one to audit it.
+    $audit_stmt = $conn->prepare("
+        SELECT a.id, a.audit_date, u.full_name as audited_by
+        FROM audits a
+        JOIN users u ON a.audited_by_user_id = u.id
+        WHERE a.location_id = ? AND a.status = 'Completed' AND a.audited_by_user_id = ?
+        ORDER BY a.audit_date DESC
+        LIMIT 1
+    ");
+    $audit_stmt->bind_param("si", $selected_location_id, $user_id);
+}
+if ($audit_stmt) {
+    $audit_stmt->execute();
+    $audit_result = $audit_stmt->get_result();
+    $recent_completed_audit = $audit_result->fetch_assoc();
+    $audit_stmt->close();
+}
 
 // Also fetch the total count of completed audits for this location
-$count_stmt = $conn->prepare("SELECT COUNT(id) as total FROM audits WHERE location_id = ? AND status = 'Completed'");
-if ($count_stmt) {
+if ($_SESSION['role'] === 'admin') {
+    $count_stmt = $conn->prepare("SELECT COUNT(id) as total FROM audits WHERE location_id = ? AND status = 'Completed'");
     $count_stmt->bind_param("s", $selected_location_id);
+} else {
+    $count_stmt = $conn->prepare("SELECT COUNT(id) as total FROM audits WHERE location_id = ? AND status = 'Completed' AND audited_by_user_id = ?");
+    $count_stmt->bind_param("si", $selected_location_id, $user_id);
+}
+if ($count_stmt) {
     $count_stmt->execute();
     $count_result = $count_stmt->get_result();
     $total_audits_count = (int)($count_result->fetch_assoc()['total'] ?? 0);

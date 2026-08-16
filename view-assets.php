@@ -52,9 +52,12 @@ if ($group_filter === '') {
   $types  = "i";
 
   if (!empty($search_query)) {
-    $base_where .= " AND asset_name LIKE ?";
-    $params[]    = "%" . $search_query . "%";
-    $types      .= "s";
+    $base_where .= " AND (asset_name LIKE ? OR item_no LIKE ? OR location LIKE ?)";
+    $search_term = "%" . $search_query . "%";
+    $params[] = $search_term;
+    $params[] = $search_term;
+    $params[] = $search_term;
+    $types .= "sss";
   }
 
   $sql = "
@@ -90,9 +93,13 @@ else {
   $types  = "is";
 
   if (!empty($search_query)) {
-    $base_where .= " AND asset_name LIKE ?";
-    $params[]    = "%" . $search_query . "%";
-    $types      .= "s";
+    $base_where .= " AND (asset_name LIKE ? OR item_no LIKE ? OR location LIKE ? OR date_of_issue LIKE ?)";
+    $search_term = "%" . $search_query . "%";
+    $params[] = $search_term;
+    $params[] = $search_term;
+    $params[] = $search_term;
+    $params[] = $search_term;
+    $types .= "ssss";
   }
 
   $sql = "
@@ -101,7 +108,8 @@ else {
       asset_name,
       SUM(quantity)      AS total_quantity,
       COUNT(*)           AS total_records,
-      MIN(date_of_issue) AS first_issue_date
+      MIN(date_of_issue) AS first_issue_date,
+      GROUP_CONCAT(DISTINCT location ORDER BY location SEPARATOR ', ') AS locations
     FROM assets
     WHERE {$base_where}
     GROUP BY item_no, asset_name
@@ -264,7 +272,7 @@ if (!function_exists('getInitials')) {
                       $gname = getGroupDisplay($gk);
                       $gLink = "view-assets.php?category_id={$category_id}&group=" . urlencode($gk);
                     ?>
-                    <tr class="clickable-row transition-colors duration-150" data-href="<?php echo $gLink; ?>">
+                    <tr class="clickable-row transition-colors duration-150" onclick="window.location.href='<?php echo $gLink; ?>'">
                       <td class="px-6 py-4 whitespace-nowrap font-semibold text-gray-900 capitalize"><?php echo htmlspecialchars($gname); ?></td>
                       <td class="px-6 py-4 whitespace-nowrap text-gray-600"><?php echo $grp['total_item_nos']; ?> item no<?php echo $grp['total_item_nos'] != 1 ? 's' : ''; ?></td>
                       <td class="px-6 py-4 whitespace-nowrap text-gray-700 font-bold"><?php echo $grp['total_quantity']; ?></td>
@@ -297,15 +305,17 @@ if (!function_exists('getInitials')) {
                     <th class="px-6 py-3 font-medium">Asset Name</th>
                     <th class="px-6 py-3 font-medium">Total Qty</th>
                     <th class="px-6 py-3 font-medium">First Added</th>
+                    <th class="px-6 py-3 font-medium">Location(s)</th>
                     <th class="px-6 py-3 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                   <?php if (empty($rows)): ?>
                     <tr>
-                      <td colspan="5" class="text-center py-16 text-gray-500">
+                      <td colspan="6" class="text-center py-16 text-gray-500">
                         <h3 class="font-semibold text-gray-800">No assets found</h3>
-                        <p class="text-sm mt-1"><?php echo !empty($search_query) ? 'No results for &quot;' . htmlspecialchars($search_query) . '&quot;.' : 'Nothing in this group yet.'; ?></p>
+                        <p class="text-sm mt-1"><?php echo !empty($search_query) ? 'No results for &quot;' . htmlspecialchars($search_query) . '&quot;.' : 'Nothing in this group yet.'; ?>
+                        </p>
                       </td>
                     </tr>
                   <?php else: ?>
@@ -330,7 +340,7 @@ if (!function_exists('getInitials')) {
                               }
                               $link = "view-batch-details.php?category_id={$category_id}&asset_name=" . urlencode($asset['asset_name']) . "&batch_id=" . urlencode($batch_id_for_link) . "&group=" . urlencode($group_filter);
                             ?>
-                            <tr class="clickable-row transition-colors duration-150" data-href="<?php echo $link; ?>">
+                            <tr class="clickable-row transition-colors duration-150" onclick="window.location.href='<?php echo $link; ?>'">
                       <td class="px-6 py-4 whitespace-nowrap">
                         <span class="inline-flex items-center justify-center w-9 h-9 rounded-full bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100"><?php echo $item_no; ?></span>
                       </td>
@@ -340,6 +350,7 @@ if (!function_exists('getInitials')) {
                         <span class="text-xs font-normal text-gray-400">(<?php echo $asset['total_records']; ?> record<?php echo $asset['total_records'] != 1 ? 's' : ''; ?>)</span>
                       </td>
                       <td class="px-6 py-4 whitespace-nowrap text-gray-500"><?php echo date('M d, Y', strtotime($asset['first_issue_date'])); ?></td>
+                      <td class="px-6 py-4 whitespace-nowrap text-gray-500 text-xs"><?php echo htmlspecialchars($asset['locations'] ?? 'N/A'); ?></td>
                       <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <a href="<?php echo $link; ?>" class="text-indigo-600 hover:text-indigo-900" onclick="event.stopPropagation()">View Assets</a>
                       </td>
@@ -364,45 +375,4 @@ if (!function_exists('getInitials')) {
     document.addEventListener('DOMContentLoaded', function() {
       const sidebar = document.getElementById('sidebar');
       const mainContent = document.getElementById('mainContent');
-      const userMenuBtn = document.getElementById('userMenuBtn');
-      const userMenuDropdown = document.getElementById('userMenuDropdown');
-      const menuBtn = document.getElementById('menuBtn');
-      const sidebarOverlay = document.getElementById('sidebarOverlay');
-
-      function toggleSidebar() {
-          if (!sidebar) return;
-
-          if (window.innerWidth < 1024) {
-              // Mobile: Toggle the class that hides the sidebar and show/hide the overlay.
-              sidebar.classList.toggle('-translate-x-full');
-              if (sidebarOverlay) sidebarOverlay.classList.toggle('hidden');
-          } else {
-              // Desktop: Toggle the responsive class that shows the sidebar and adjust main content margin.
-              sidebar.classList.toggle('lg:translate-x-0');
-              if (mainContent) mainContent.classList.toggle('lg:ml-64');
-          }
-      }
-
-      if (menuBtn) menuBtn.addEventListener('click', toggleSidebar);
-      if (sidebarOverlay) sidebarOverlay.addEventListener('click', toggleSidebar);
-
-      if (userMenuDropdown) {
-          userMenuBtn.addEventListener('click', () => userMenuDropdown.classList.toggle('hidden'));
-      }
-      if (userMenuDropdown) {
-          document.addEventListener('click', (event) => { if (!userMenuBtn.contains(event.target) && !userMenuDropdown.contains(event.target)) { userMenuDropdown.classList.add('hidden'); } });
-      }
-
-      const rows = document.querySelectorAll('.clickable-row');
-      rows.forEach(row => {
-        row.addEventListener('click', () => {
-          window.location.href = row.dataset.href;
-        });
-      });
-    });
-  </script>
-  <script src="loader/loader.js"></script>
-
-</body>
-
-</html>
+      const userMenuBtn = document.getElementById('userMenuB

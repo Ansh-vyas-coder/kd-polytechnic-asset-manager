@@ -3,8 +3,8 @@ session_start();
 require 'db.php';
 
 // Security check: ensure user is logged in and is an admin
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
-    header("Location: login.html");
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'staff'])) {
+    header("Location: login.html"); // User not logged in or not a valid role
     exit();
 }
 
@@ -16,7 +16,7 @@ if ($audit_id <= 0) {
 }
 
 // Fetch audit session details
-$audit_stmt = $conn->prepare("SELECT location_id, status FROM audits WHERE id = ?");
+$audit_stmt = $conn->prepare("SELECT location_id, status, audited_by_user_id FROM audits WHERE id = ?");
 if (!$audit_stmt) {
     die("Database error preparing to fetch audit.");
 }
@@ -28,6 +28,12 @@ $audit_stmt->close();
 
 if (!$audit_session) {
     header("Location: dashboard.php?view=audit&status=error&message=" . urlencode("Audit session not found."));
+    exit();
+}
+
+// Security check: Staff can only access their own audits
+if ($_SESSION['role'] === 'staff' && $audit_session['audited_by_user_id'] != $_SESSION['user_id']) {
+    header("Location: dashboard.php?view=audit&status=error&message=" . urlencode("You are not authorized to access this audit session."));
     exit();
 }
 
