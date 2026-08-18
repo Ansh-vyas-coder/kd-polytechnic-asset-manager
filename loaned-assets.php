@@ -653,6 +653,107 @@ $active_section = isset($_GET['section']) && in_array($_GET['section'], ['loaned
         font-weight: 700;
     }
 
+    @media (max-width: 640px) {
+        .la-wrap {
+            padding: 0 0.25rem;
+        }
+
+        .la-header-area {
+            padding: 16px 14px 12px;
+        }
+
+        .la-title {
+            font-size: 1.1rem;
+        }
+
+        .la-page-line {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .la-sheet-meta {
+            justify-content: flex-start;
+        }
+
+        .la-filter-bar {
+            grid-template-columns: 1fr;
+        }
+
+        .la-tabs {
+            display: flex;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .la-tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .la-tabs a {
+            white-space: nowrap;
+            flex: 0 0 auto;
+        }
+
+        .la-btn {
+            width: 100%;
+        }
+
+        .la-list-head {
+            display: none !important;
+        }
+
+        .la-list-row {
+            display: block !important;
+            padding: 14px 12px !important;
+        }
+
+        .la-list-row > .la-cell {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+            width: 100%;
+            padding: 5px 0;
+            min-height: auto;
+        }
+
+        .la-list-row > .la-cell:last-child {
+            justify-content: flex-start;
+        }
+
+        .la-list-row > .la-cell .la-primary,
+        .la-list-row > .la-cell .la-secondary,
+        .la-list-row > .la-cell .la-meta,
+        .la-list-row > .la-cell .la-location,
+        .la-list-row > .la-cell .la-sr,
+        .la-list-row > .la-cell .la-mono {
+            width: 100%;
+        }
+
+        .la-list-row > .la-cell > span,
+        .la-list-row > .la-cell > div,
+        .la-list-row > .la-cell > button {
+            width: 100%;
+        }
+
+        [id^="details-loan-"] {
+            margin: 0 8px 12px !important;
+            padding: 12px 12px !important;
+        }
+
+        [id^="details-borrow-"] {
+            margin: 0 8px 12px !important;
+            padding: 12px 12px !important;
+        }
+
+        .la-list-row .la-btn {
+            width: auto;
+            min-width: 110px;
+        }
+    }
+
     @media print {
         .no-print {
             display: none !important;

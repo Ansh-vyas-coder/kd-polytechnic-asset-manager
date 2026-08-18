@@ -23,7 +23,7 @@ $item_no_filter = isset($_GET['item_no']) ? (int)$_GET['item_no'] : 0;
 $group_filter   = isset($_GET['group']) ? strtolower(trim($_GET['group'])) : '';
 function vbdGroupDisplay(string $k): string { return ucfirst(strtolower($k)); }
 $group_display = $group_filter !== '' ? vbdGroupDisplay($group_filter) : '';
-$valid_filters = ['all', 'active', 'under maintenance', 'not working', 'retired'];
+$valid_filters = ['all', 'active', 'under maintenance', 'not working', 'loaned'];
 if (!in_array($filter_status, $valid_filters, true)) {
     $filter_status = 'all';
 }
@@ -250,13 +250,9 @@ if (strpos($batch_id, 'batch_uncategorized_') === 0) {
     $params = ["sis", $batch_id, $category_id, $asset_name_raw];
 }
 
-if ($filter_status === 'retired') {
-     $sql .= " AND retire_at IS NOT NULL";
-  } else {
-      $sql .= " AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)";
-  }
+$sql .= " AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)";
 
-if ($filter_status !== 'all' && $filter_status !== 'retired') {
+if ($filter_status !== 'all') {
     $sql .= " AND LOWER(status) = ?";
     $params[0] .= "s";
     $params[] = $filter_status;
@@ -332,6 +328,43 @@ if (!function_exists('getInitials')) {
         body {
             font-family: 'Inter', sans-serif;
         }
+
+        .batch-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem 1.5rem;
+        }
+
+        @media (min-width: 768px) {
+            .batch-summary-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .batch-summary-grid {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+        }
+
+        .record-table-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .record-table-wrap table {
+            min-width: 780px;
+        }
+
+        @media (max-width: 767px) {
+            .record-row-actions {
+                min-width: 130px;
+            }
+
+            .record-summary-title {
+                font-size: 1.25rem;
+            }
+        }
     </style>
 
     <link rel="stylesheet" href="loader/loader.css" />
@@ -393,8 +426,8 @@ if (!function_exists('getInitials')) {
                             <span class="text-gray-900">Record of <?php echo date('M d, Y', strtotime($batch_details['date_of_issue'])); ?></span>
                         </nav>
                         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                            <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Record Details</h1>
-                            <form action="view-batch-details.php" method="GET" class="flex items-center gap-2">
+                            <h1 class="record-summary-title text-2xl font-bold text-gray-900 tracking-tight">Record Details</h1>
+                            <form action="view-batch-details.php" method="GET" class="flex w-full max-w-xl items-center gap-2 sm:w-auto">
                                 <input type="hidden" name="category_id" value="<?php echo $category_id; ?>">
                                 <input type="hidden" name="asset_name" value="<?php echo htmlspecialchars($asset_name_raw); ?>">
                                 <input type="hidden" name="batch_id" value="<?php echo htmlspecialchars($batch_id); ?>">
@@ -407,7 +440,7 @@ if (!function_exists('getInitials')) {
                                     </button>
                                 </div>
                                 <?php if (!empty($search_query)): ?>
-                                    <a href="view-batch-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset_name_raw); ?>&batch_id=<?php echo urlencode($batch_id); ?>" class="px-4 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200">Clear</a>
+                                    <a href="view-batch-details.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset_name_raw); ?>&batch_id=<?php echo urlencode($batch_id); ?>" class="px-4 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-full hover:bg-gray-200 whitespace-nowrap">Clear</a>
                                 <?php endif; ?>
                             </form>
                         </div>
@@ -418,7 +451,7 @@ if (!function_exists('getInitials')) {
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="text-lg font-semibold text-gray-900">Record Summary</h2>
                         </div>
-                        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-5 text-sm">
+                        <div class="batch-summary-grid text-sm">
                             <div>
                                 <p class="text-gray-500">Location</p>
                                 <p class="font-semibold text-gray-800"><?php echo htmlspecialchars($batch_details['location'] ?: 'N/A'); ?></p>
@@ -461,7 +494,7 @@ if (!function_exists('getInitials')) {
                             </div>
                         </div>
                         <!-- Action buttons -->
-                        <?php if ($is_admin && $filter_status !== 'retired'): ?>
+                        <?php if ($is_admin): ?>
                             <div class="flex justify-end mt-6 space-x-3">
                                 <button id="openEditModalBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                     Edit
@@ -488,7 +521,7 @@ if (!function_exists('getInitials')) {
                                     'active' => 'Active',
                                     'under maintenance' => 'Under Maintenance',
                                     'not working' => 'Not Working',
-                                    'retired' => 'Retired'
+                                    'loaned' => 'Loaned'
                                 ];
                                 $base_params = $_GET;
                                 foreach ($filter_options as $value => $label):
@@ -514,7 +547,7 @@ if (!function_exists('getInitials')) {
 
                     <!-- Items Table -->
                     <div class="bg-white rounded-xl shadow-sm border border-gray-100">
-                        <div class="overflow-x-auto">
+                        <div class="record-table-wrap">
                             <table class="w-full text-sm">
                                 <thead class="bg-gray-50">
                                     <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
@@ -527,7 +560,7 @@ if (!function_exists('getInitials')) {
                                         <th class="px-6 py-3 font-medium">Location</th>
                                         <th class="px-6 py-3 font-medium">Status</th>
                                         <th class="px-6 py-3 font-medium">Remarks</th>
-                                        <?php if ($show_actions_column && $filter_status !== 'retired'): ?>
+                                        <?php if ($show_actions_column): ?>
                                             <th class="px-6 py-3 font-medium">Actions</th>
                                         <?php endif; ?>
                                     </tr>
@@ -570,8 +603,8 @@ if (!function_exists('getInitials')) {
                                                     <?php endif; ?>
                                                 </td>
                                                 <td class="px-6 py-4 text-xs"><?php echo htmlspecialchars($item['remarks'] ?: 'None'); ?></td>
-                                                <?php if ($show_actions_column && $filter_status !== 'retired'): ?>
-                                                    <td class="px-6 py-4 text-sm whitespace-nowrap">
+                                                <?php if ($show_actions_column): ?>
+                                                    <td class="record-row-actions px-6 py-4 text-sm whitespace-nowrap">
                                                         <?php if ($is_admin): ?>
 <button type="button"
     class="edit-item-btn text-blue-600 hover:text-blue-800 font-medium mr-2"
