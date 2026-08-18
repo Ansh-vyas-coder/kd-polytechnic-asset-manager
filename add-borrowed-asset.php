@@ -183,13 +183,28 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
     }
 
     if ($inserted) {
+        $notif_link = "dashboard.php?view=loaned-assets";
+        $borrowed_total = max(1, $asset_count);
+        $asset_name_list = [$asset_name];
+        if ($borrowed_total > 1) {
+            $asset_name_list = array_values(array_unique(array_fill(0, $borrowed_total, $asset_name)));
+        }
+        $asset_names_label = implode(', ', array_map(function ($name) {
+            return "'" . htmlspecialchars((string)$name) . "'";
+        }, $asset_name_list));
+
+        $admin_message = $borrowed_total === 1
+            ? "New borrowed asset {$asset_names_label} was added by " . htmlspecialchars($_SESSION['user_name'] ?? 'System') . "."
+            : "{$borrowed_total} borrowed assets ({$asset_names_label}) were added by " . htmlspecialchars($_SESSION['user_name'] ?? 'System') . ".";
+        create_admin_notification($conn, $admin_message, $notif_link, $_SESSION['user_id'] ?? null);
+
         if (isset($_SESSION['role']) && $assigned_to !== null) {
             $faculty_user_id = get_user_id_by_name($conn, $assigned_to);
             if ($faculty_user_id !== null) {
-                $notified_user = htmlspecialchars($assigned_to);
-                $notif_message = "New borrowed asset '" . htmlspecialchars($asset_name) . "' assigned to you by " . htmlspecialchars($_SESSION['user_name']) . ".";
-                $notif_link = "dashboard.php?view=loaned-assets";
-                create_notification($conn, $faculty_user_id, $notif_message, $notif_link);
+                $faculty_message = $borrowed_total === 1
+                    ? "New borrowed asset {$asset_names_label} assigned to you by " . htmlspecialchars($_SESSION['user_name']) . "."
+                    : "{$borrowed_total} borrowed assets ({$asset_names_label}) assigned to you by " . htmlspecialchars($_SESSION['user_name']) . ".";
+                create_notification($conn, $faculty_user_id, $faculty_message, $notif_link);
             }
         }
 

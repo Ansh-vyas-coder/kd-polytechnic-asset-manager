@@ -202,6 +202,70 @@ $borrowed_assets = [];
 $borrowed_category_counts = array_fill_keys(array_keys($category_names), 0);
 $total_borrowed = 0;
 
+function notify_due_borrowed_assets(mysqli $conn, int $exclude_user_id = null): void {
+    $today = date('Y-m-d');
+    $due_stmt = $conn->prepare("SELECT id, asset_name, asset_no, assigned_to, borrowed_from, return_date FROM borrowed_assets WHERE status = 'active' AND return_date IS NOT NULL AND return_date <= ? ORDER BY return_date ASC");
+    if (!$due_stmt) {
+        return;
+    }
+
+    $due_stmt->bind_param('s', $today);
+    $due_stmt->execute();
+    $due_result = $due_stmt->get_result();
+    if (!$due_result) {
+        $due_stmt->close();
+        return;
+    }
+
+    $due_count = 0;
+    while ($due_result->fetch_assoc()) {
+        $due_count++;
+    }
+    $due_result->free();
+    $due_stmt->close();
+
+    if ($due_count <= 0) {
+        return;
+    }
+
+    $link = "dashboard.php?view=loaned-assets&section=borrowed";
+    $due_stmt = $conn->prepare("SELECT asset_name FROM borrowed_assets WHERE status = 'active' AND return_date IS NOT NULL AND return_date <= ? ORDER BY return_date ASC");
+    if ($due_stmt) {
+        $due_stmt->bind_param('s', $today);
+        $due_stmt->execute();
+        $due_assets = $due_stmt->get_result();
+        $asset_names = [];
+        if ($due_assets) {
+            while ($row = $due_assets->fetch_assoc()) {
+                $name = trim((string)($row['asset_name'] ?? ''));
+                if ($name !== '') {
+                    $asset_names[] = $name;
+                }
+            }
+        }
+        $due_stmt->close();
+        $asset_names = array_values(array_unique($asset_names));
+        $asset_names_label = implode(', ', array_map(function ($name) {
+            return "'" . htmlspecialchars((string)$name) . "'";
+        }, $asset_names));
+
+        $message = $due_count === 1
+            ? "1 borrowed asset ({$asset_names_label}) is due for return today."
+            : "{$due_count} borrowed assets ({$asset_names_label}) are due for return today.";
+
+        create_admin_notification($conn, $message, $link, $exclude_user_id);
+        return;
+    }
+
+    $message = $due_count === 1
+        ? "1 borrowed asset is due for return today."
+        : "{$due_count} borrowed assets are due for return today.";
+
+    create_admin_notification($conn, $message, $link, $exclude_user_id);
+}
+
+notify_due_borrowed_assets($conn, $_SESSION['user_id'] ?? null);
+
 $borrowed_from_options = [];
 $borrowed_result = $conn->query("SELECT DISTINCT borrowed_from FROM borrowed_assets WHERE borrowed_from IS NOT NULL AND borrowed_from <> '' ORDER BY borrowed_from ASC");
 if ($borrowed_result) {

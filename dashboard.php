@@ -21,6 +21,7 @@ if ($_SESSION['role'] !== 'admin') {
   }
 }
 $showAddAsset = $pageView === 'add-asset';
+$showAddBorrowedAsset = $pageView === 'add-borrowed-asset';
 $showRegister = $pageView === 'register';
 $showGenerateReport = $pageView === 'generate-report';
 $showMyAssets = $pageView === 'my-assets';
@@ -317,7 +318,7 @@ if ($_SESSION['role'] === 'admin') {
     ");
 } else { // Staff can only see audits assigned TO them
     $assigned_audits_stmt = $conn->prepare("
-        SELECT a.id, a.location_id, a.audit_date, u.full_name as assigned_to_name
+        SELECT a.id, a.location_id, a.audit_date, a.status, u.full_name as assigned_to_name
         FROM audits a
         JOIN users u ON a.audited_by_user_id = u.id
         WHERE a.status = 'Assigned' AND a.audited_by_user_id = ?
@@ -578,6 +579,13 @@ $current_page = $pageView;
             define('IS_EMBEDDED', true);
           }
           include 'transfer-assets.php';
+          ?>
+        <?php elseif ($showAddBorrowedAsset): ?>
+          <?php
+          if (!defined('IS_EMBEDDED')) {
+            define('IS_EMBEDDED', true);
+          }
+          include 'add-borrowed-asset.php';
           ?>
         <?php elseif ($showLoanedAssets): ?>
           <?php

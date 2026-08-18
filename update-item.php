@@ -165,10 +165,23 @@ if ($stmt->execute()) {
                     create_notification($conn, $new_user_id, "Asset '{$original_asset_name}' has been assigned to you.", $link);
                 }
             }
-            // 2. Notify admins about location changes by non-admins
-            elseif (!$is_admin_editor && $old_asset_data['location'] !== $location) {
-                 $message = "Location for '{$original_asset_name}' was updated to " . htmlspecialchars($location) . " by {$editor_name}.";
-                 create_admin_notification($conn, $message, $link, $_SESSION['user_id'] ?? null);
+            // 2. Notify about location changes
+            elseif ($old_asset_data['location'] !== $location) {
+                // Notify admins
+                $message = "Location for '{$original_asset_name}' was updated to " . htmlspecialchars($location) . " by {$editor_name}.";
+                create_admin_notification($conn, $message, $link, $_SESSION['user_id'] ?? null);
+                
+                // Notify assigned faculty if location changed by admin
+                if ($is_admin_editor && !empty($assigned_to)) {
+                    $faculty_user_id = get_user_id_by_name($conn, $assigned_to);
+                    if ($faculty_user_id && $faculty_user_id != $_SESSION['user_id']) {
+                        $old_location = htmlspecialchars($old_asset_data['location'] ?? 'Unknown');
+                        $new_location = htmlspecialchars($location);
+                        $asset_no = htmlspecialchars($old_asset_data['asset_no'] ?? $old_asset_data['asset_name']);
+                        $faculty_message = "{$editor_name} changed location of {$asset_no} from {$old_location} to {$new_location}";
+                        create_notification($conn, $faculty_user_id, $faculty_message, $link);
+                    }
+                }
             }
         }
     }
