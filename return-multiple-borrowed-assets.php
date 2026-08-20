@@ -1,6 +1,7 @@
 <?php
 session_start();
 require 'db.php';
+require_once 'notification_utils.php';
 
 header('Content-Type: application/json');
 
@@ -66,6 +67,40 @@ try {
     }
 
     $count = $stmt->affected_rows;
+    $editor_name = htmlspecialchars($_SESSION['user_name'] ?? 'System');
+    $link = "dashboard.php?view=loaned-assets&section=borrowed";
+
+    $asset_names_stmt = $conn->prepare("SELECT asset_name FROM borrowed_assets WHERE id IN ($placeholders) ORDER BY id");
+    if ($asset_names_stmt) {
+        $bindParamsForNames = $refValues($params);
+        if (call_user_func_array([$asset_names_stmt, 'bind_param'], $bindParamsForNames)) {
+            $asset_names_stmt->execute();
+            $asset_names_result = $asset_names_stmt->get_result();
+            $asset_names = [];
+            while ($row = $asset_names_result->fetch_assoc()) {
+                $name = trim((string)($row['asset_name'] ?? ''));
+                if ($name !== '') {
+                    $asset_names[] = $name;
+                }
+            }
+            $asset_names = array_values(array_unique($asset_names));
+            $asset_names_label = implode(', ', array_map(function ($name) {
+                return "'" . htmlspecialchars((string)$name) . "'";
+            }, $asset_names));
+            $admin_message = $count === 1
+                ? "Borrowed asset {$asset_names_label} was returned by {$editor_name}."
+                : "{$count} borrowed assets ({$asset_names_label}) were returned by {$editor_name}.";
+            create_admin_notification($conn, $admin_message, $link, $_SESSION['user_id'] ?? null);
+            $asset_names_stmt->close();
+        } else {
+            $admin_message = "$count borrowed asset(s) were returned by {$editor_name}.";
+            create_admin_notification($conn, $admin_message, $link, $_SESSION['user_id'] ?? null);
+        }
+    } else {
+        $admin_message = "$count borrowed asset(s) were returned by {$editor_name}.";
+        create_admin_notification($conn, $admin_message, $link, $_SESSION['user_id'] ?? null);
+    }
+
     echo json_encode(['status' => 'success', 'message' => "$count borrowed asset(s) returned successfully."]);
 } catch (Exception $e) {
     echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);

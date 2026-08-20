@@ -347,6 +347,32 @@ if ($updated_count > 0) {
         }
     }
 
+    if ($location !== null) {
+        foreach ($old_data as $data_id => $data) {
+            $old_location = trim((string)($data['location'] ?? ''));
+            if ($old_location === '' || $old_location === $location) {
+                continue;
+            }
+
+            $assigned_name = trim((string)($data['assigned_to'] ?? ''));
+            if ($assigned_name === '') {
+                continue;
+            }
+
+            $faculty_user_id = get_user_id_by_name($conn, $assigned_name);
+            if (!$faculty_user_id || $faculty_user_id == ($_SESSION['user_id'] ?? -1)) {
+                continue;
+            }
+
+            $asset_no = htmlspecialchars($data['asset_no'] ?? $data['asset_name']);
+            $old_loc = htmlspecialchars($old_location);
+            $new_loc = htmlspecialchars($location);
+            $link = "view-batch-details.php?category_id=" . (int)($data['category_id'] ?? 0) . "&asset_name=" . urlencode($data['asset_name'] ?? '') . "&batch_id=" . urlencode($data['batch_id'] ?? '');
+            $faculty_message = "{$editor_name} changed location of {$asset_no} from {$old_loc} to {$new_loc}";
+            create_notification($conn, $faculty_user_id, $faculty_message, $link);
+        }
+    }
+
     if (!empty($loan_to)) {
         $loan_days = max(1, $loan_time);
         $affected_assets = [];

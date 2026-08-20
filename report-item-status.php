@@ -32,7 +32,7 @@ if ($id <= 0 || $category_id <= 0 || $asset_name === '' || $batch_id === '' || !
     exit();
 }
 
-$stmt = $conn->prepare("SELECT id, asset_name, assigned_to, category_id, batch_id, status FROM assets WHERE id = ? AND category_id = ? AND asset_name = ? AND batch_id = ? AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)");
+$stmt = $conn->prepare("SELECT id, asset_no, asset_name, assigned_to, location, category_id, batch_id, status FROM assets WHERE id = ? AND category_id = ? AND asset_name = ? AND batch_id = ? AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)");
 if (!$stmt) {
     header("Location: view-batch-details.php?category_id=" . $category_id . "&asset_name=" . urlencode($asset_name) . "&batch_id=" . urlencode($batch_id) . "&status=error&message=" . urlencode("Database error."));
     exit();
@@ -99,6 +99,15 @@ if ($update->execute()) {
         );
         $report_stmt->execute();
         $report_stmt->close();
+    }
+
+    // Notify all admins when staff reports missing or not working assets
+    if ($role === 'staff' && in_array($status, ['Not Working', 'Missing'], true)) {
+        $asset_no = trim((string)($asset['asset_no'] ?? $asset_name));
+        $asset_location = trim((string)($asset['location'] ?? 'Unknown'));
+        $notification_message = "{$reporter_name} marked {$asset_no} as {$status} at {$asset_location}";
+        $notification_link = "view-batch-details.php?category_id={$category_id}&asset_name=" . urlencode($asset_name) . "&batch_id=" . urlencode($batch_id);
+        create_admin_notification($conn, $notification_message, $notification_link, $_SESSION['user_id'] ?? null);
     }
 
     $update->close();

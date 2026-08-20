@@ -448,6 +448,97 @@ $selected_assets = $transfer_assets[$selectedCategory] ?? [];
         font-weight: 700;
     }
 
+    @media (max-width: 640px) {
+        .wo-wrap {
+            padding: 0 0.25rem;
+        }
+
+        .wo-header-area {
+            padding: 16px 14px 12px;
+        }
+
+        .wo-title {
+            font-size: 1.1rem;
+        }
+
+        .wo-page-line {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .wo-sheet-meta {
+            justify-content: flex-start;
+        }
+
+        .wo-filter-bar {
+            grid-template-columns: 1fr;
+        }
+
+        .wo-tabs {
+            display: flex;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .wo-tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .wo-tabs a {
+            white-space: nowrap;
+            flex: 0 0 auto;
+        }
+
+        .wo-btn {
+            width: 100%;
+        }
+
+        .wo-list-head {
+            display: none !important;
+        }
+
+        .wo-list-row {
+            display: block !important;
+            padding: 14px 12px !important;
+        }
+
+        .wo-list-row > .wo-cell {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+            width: 100%;
+            padding: 5px 0;
+            min-height: auto;
+        }
+
+        .wo-list-row > .wo-cell:last-child {
+            justify-content: flex-start;
+        }
+
+        .wo-list-row > .wo-cell .wo-primary,
+        .wo-list-row > .wo-cell .wo-secondary,
+        .wo-list-row > .wo-cell .wo-meta,
+        .wo-list-row > .wo-cell .wo-location,
+        .wo-list-row > .wo-cell .wo-sr,
+        .wo-list-row > .wo-cell .wo-mono {
+            width: 100%;
+        }
+
+        .wo-list-row > .wo-cell > span,
+        .wo-list-row > .wo-cell > div,
+        .wo-list-row > .wo-cell > button {
+            width: 100%;
+        }
+
+        [id^="details-transfer-"] {
+            margin: 0 8px 12px !important;
+            padding: 12px 12px !important;
+        }
+    }
+
     @media print {
         .no-print { display: none !important; }
         .wo-list-head,

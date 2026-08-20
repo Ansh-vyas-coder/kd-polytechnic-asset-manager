@@ -202,6 +202,70 @@ $borrowed_assets = [];
 $borrowed_category_counts = array_fill_keys(array_keys($category_names), 0);
 $total_borrowed = 0;
 
+function notify_due_borrowed_assets(mysqli $conn, int $exclude_user_id = null): void {
+    $today = date('Y-m-d');
+    $due_stmt = $conn->prepare("SELECT id, asset_name, asset_no, assigned_to, borrowed_from, return_date FROM borrowed_assets WHERE status = 'active' AND return_date IS NOT NULL AND return_date <= ? ORDER BY return_date ASC");
+    if (!$due_stmt) {
+        return;
+    }
+
+    $due_stmt->bind_param('s', $today);
+    $due_stmt->execute();
+    $due_result = $due_stmt->get_result();
+    if (!$due_result) {
+        $due_stmt->close();
+        return;
+    }
+
+    $due_count = 0;
+    while ($due_result->fetch_assoc()) {
+        $due_count++;
+    }
+    $due_result->free();
+    $due_stmt->close();
+
+    if ($due_count <= 0) {
+        return;
+    }
+
+    $link = "dashboard.php?view=loaned-assets&section=borrowed";
+    $due_stmt = $conn->prepare("SELECT asset_name FROM borrowed_assets WHERE status = 'active' AND return_date IS NOT NULL AND return_date <= ? ORDER BY return_date ASC");
+    if ($due_stmt) {
+        $due_stmt->bind_param('s', $today);
+        $due_stmt->execute();
+        $due_assets = $due_stmt->get_result();
+        $asset_names = [];
+        if ($due_assets) {
+            while ($row = $due_assets->fetch_assoc()) {
+                $name = trim((string)($row['asset_name'] ?? ''));
+                if ($name !== '') {
+                    $asset_names[] = $name;
+                }
+            }
+        }
+        $due_stmt->close();
+        $asset_names = array_values(array_unique($asset_names));
+        $asset_names_label = implode(', ', array_map(function ($name) {
+            return "'" . htmlspecialchars((string)$name) . "'";
+        }, $asset_names));
+
+        $message = $due_count === 1
+            ? "1 borrowed asset ({$asset_names_label}) is due for return today."
+            : "{$due_count} borrowed assets ({$asset_names_label}) are due for return today.";
+
+        create_admin_notification($conn, $message, $link, $exclude_user_id);
+        return;
+    }
+
+    $message = $due_count === 1
+        ? "1 borrowed asset is due for return today."
+        : "{$due_count} borrowed assets are due for return today.";
+
+    create_admin_notification($conn, $message, $link, $exclude_user_id);
+}
+
+notify_due_borrowed_assets($conn, $_SESSION['user_id'] ?? null);
+
 $borrowed_from_options = [];
 $borrowed_result = $conn->query("SELECT DISTINCT borrowed_from FROM borrowed_assets WHERE borrowed_from IS NOT NULL AND borrowed_from <> '' ORDER BY borrowed_from ASC");
 if ($borrowed_result) {
@@ -587,6 +651,107 @@ $active_section = isset($_GET['section']) && in_array($_GET['section'], ['loaned
         color: inherit;
         font-size: 0.72rem;
         font-weight: 700;
+    }
+
+    @media (max-width: 640px) {
+        .la-wrap {
+            padding: 0 0.25rem;
+        }
+
+        .la-header-area {
+            padding: 16px 14px 12px;
+        }
+
+        .la-title {
+            font-size: 1.1rem;
+        }
+
+        .la-page-line {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .la-sheet-meta {
+            justify-content: flex-start;
+        }
+
+        .la-filter-bar {
+            grid-template-columns: 1fr;
+        }
+
+        .la-tabs {
+            display: flex;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .la-tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .la-tabs a {
+            white-space: nowrap;
+            flex: 0 0 auto;
+        }
+
+        .la-btn {
+            width: 100%;
+        }
+
+        .la-list-head {
+            display: none !important;
+        }
+
+        .la-list-row {
+            display: block !important;
+            padding: 14px 12px !important;
+        }
+
+        .la-list-row > .la-cell {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+            width: 100%;
+            padding: 5px 0;
+            min-height: auto;
+        }
+
+        .la-list-row > .la-cell:last-child {
+            justify-content: flex-start;
+        }
+
+        .la-list-row > .la-cell .la-primary,
+        .la-list-row > .la-cell .la-secondary,
+        .la-list-row > .la-cell .la-meta,
+        .la-list-row > .la-cell .la-location,
+        .la-list-row > .la-cell .la-sr,
+        .la-list-row > .la-cell .la-mono {
+            width: 100%;
+        }
+
+        .la-list-row > .la-cell > span,
+        .la-list-row > .la-cell > div,
+        .la-list-row > .la-cell > button {
+            width: 100%;
+        }
+
+        [id^="details-loan-"] {
+            margin: 0 8px 12px !important;
+            padding: 12px 12px !important;
+        }
+
+        [id^="details-borrow-"] {
+            margin: 0 8px 12px !important;
+            padding: 12px 12px !important;
+        }
+
+        .la-list-row .la-btn {
+            width: auto;
+            min-width: 110px;
+        }
     }
 
     @media print {

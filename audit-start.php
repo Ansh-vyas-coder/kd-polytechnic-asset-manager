@@ -5,6 +5,11 @@
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'staff'])) {
     exit('Access Denied.'); // Only admins and staff can see the audit dashboard
 }
+
+// Initialize variables to prevent undefined warnings (these are populated by dashboard.php)
+$locations = $locations ?? [];
+$staff_users = $staff_users ?? [];
+$assigned_audits = $assigned_audits ?? [];
 ?>
 
 <div class="max-w-7xl mx-auto space-y-6">
@@ -128,18 +133,18 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'staf
                             <td class="px-6 py-4 text-gray-500"><?php echo date('M d, Y', strtotime($audit['audit_date'])); ?></td>
                             <td class="px-6 py-4 text-right">
                                 <?php if ($_SESSION['role'] === 'admin'): ?>
-                                    <?php if ($audit['status'] === 'In Progress'): ?>
+                                    <?php if (isset($audit['status']) && $audit['status'] === 'In Progress'): ?>
                                         <a href="audit_session.php?id=<?php echo $audit['id']; ?>" class="inline-flex items-center justify-center gap-2 rounded-md bg-blue-100 px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-sm transition hover:bg-blue-200">
                                             View Progress
                                         </a>
-                                    <?php elseif ($audit['status'] === 'Completed'): ?>
+                                    <?php elseif (isset($audit['status']) && $audit['status'] === 'Completed'): ?>
                                         <a href="audit_results.php?id=<?php echo $audit['id']; ?>" class="inline-flex items-center justify-center gap-2 rounded-md bg-green-100 px-3 py-1.5 text-xs font-semibold text-green-700 shadow-sm transition hover:bg-green-200">
                                             View Report
                                         </a>
                                     <?php else: ?>
                                         <span class="text-xs text-gray-400">Pending staff action</span>
                                     <?php endif; ?>
-                                <?php elseif ($_SESSION['user_name'] === $audit['assigned_to_name'] && $audit['status'] === 'Assigned'): ?>
+                                <?php elseif (isset($audit['status']) && $_SESSION['user_name'] === $audit['assigned_to_name'] && $audit['status'] === 'Assigned'): ?>
                                     <form action="start_audit.php" method="POST" class="inline">
                                         <input type="hidden" name="audit_id" value="<?php echo $audit['id']; ?>">
                                         <input type="hidden" name="location_id" value="<?php echo htmlspecialchars($audit['location_id']); ?>">
@@ -148,6 +153,8 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'staf
                                             Start Audit
                                         </button>
                                     </form>
+                                <?php else: ?>
+                                    <span class="text-xs text-gray-400">No actions available</span>
                                 <?php endif; ?>
                             </td>
                         </tr>
@@ -168,12 +175,12 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'staf
     <?php if (isset($_GET['status']) && $_GET['status'] === 'error'): ?>
         <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-6" role="alert">
             <strong class="font-bold">Error:</strong>
-            <span class="block sm:inline"><?php echo htmlspecialchars($_GET['message']); ?></span>
+            <span class="block sm:inline"><?php echo htmlspecialchars($_GET['message'] ?? ''); ?></span>
         </div>
     <?php elseif (isset($_GET['status']) && $_GET['status'] === 'success'): ?>
         <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg relative mb-6" role="alert">
             <strong class="font-bold">Success:</strong>
-            <span class="block sm:inline"><?php echo htmlspecialchars($_GET['message']); ?></span>
+            <span class="block sm:inline"><?php echo htmlspecialchars($_GET['message'] ?? ''); ?></span>
         </div>
     <?php endif; ?>
 </div>

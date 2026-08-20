@@ -146,6 +146,19 @@ try {
     $update_audit_stmt->execute();
     $update_audit_stmt->close();
 
+    // 5. Notify all admins that the audit has been completed
+    $staff_name_stmt = $conn->prepare("SELECT full_name FROM users WHERE id = ?");
+    $staff_name_stmt->bind_param("i", $audit_session['audited_by_user_id']);
+    $staff_name_stmt->execute();
+    $staff_result = $staff_name_stmt->get_result();
+    $staff_row = $staff_result->fetch_assoc();
+    $staff_name = $staff_row['full_name'] ?? 'Unknown';
+    $staff_name_stmt->close();
+
+    $notification_message = "{$staff_name} has completed the audit for {$location_id}";
+    $notification_link = "audit_results.php?id={$audit_id}";
+    create_admin_notification($conn, $notification_message, $notification_link);
+
     $conn->commit();
     // Redirect to the results page upon successful completion
     header("Location: audit_results.php?id={$audit_id}&status=completed");
