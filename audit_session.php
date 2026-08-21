@@ -45,16 +45,31 @@ if ($audit_session['status'] === 'Completed') {
 
 $location_id = $audit_session['location_id'];
 
-// Fetch all assets that are expected to be in this location
-$assets_stmt = $conn->prepare("SELECT id, asset_name, asset_no, category_id FROM assets WHERE location = ? AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL) ORDER BY asset_name ASC");
+// Fetch all assets that are expected to be in this location (department assets + borrowed assets)
+$expected_assets = [];
+
+$assets_stmt = $conn->prepare("SELECT id, asset_name, asset_no, category_id, 'assets' AS source FROM assets WHERE location = ? AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL) ORDER BY asset_name ASC");
 if (!$assets_stmt) {
     die("Database error preparing to fetch assets.");
 }
 $assets_stmt->bind_param("s", $location_id);
 $assets_stmt->execute();
 $assets_result = $assets_stmt->get_result();
-$expected_assets = $assets_result->fetch_all(MYSQLI_ASSOC);
+while ($row = $assets_result->fetch_assoc()) {
+    $expected_assets[] = $row;
+}
 $assets_stmt->close();
+
+$borrowed_stmt = $conn->prepare("SELECT id, asset_name, asset_no, category_id, 'borrowed' AS source FROM borrowed_assets WHERE location = ? AND (status IS NULL OR status <> 'Returned') ORDER BY asset_name ASC");
+if ($borrowed_stmt) {
+    $borrowed_stmt->bind_param("s", $location_id);
+    $borrowed_stmt->execute();
+    $borrowed_result = $borrowed_stmt->get_result();
+    while ($row = $borrowed_result->fetch_assoc()) {
+        $expected_assets[] = $row;
+    }
+    $borrowed_stmt->close();
+}
 
 // Get unique asset names for the filter dropdown
 $unique_asset_names = [];
@@ -196,21 +211,29 @@ $current_page = 'audit'; // for sidebar active state
                                         <li class="p-6 text-center text-gray-500">No assets are assigned to this location.</li>
                                     <?php else: ?>
                                         <?php foreach ($expected_assets as $asset): ?>
+                                            <?php
+                                                $is_borrowed = ($asset['source'] ?? '') === 'borrowed';
+                                                $name_prefix = $is_borrowed ? 'borrowed_assets' : 'assets';
+                                                $id_suffix   = $is_borrowed ? 'b' . $asset['id'] : $asset['id'];
+                                            ?>
                                             <li class="p-4 sm:p-5" data-asset-name="<?php echo htmlspecialchars($asset['asset_name']); ?>">
                                                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                                                     <!-- Left side: Asset Info -->
                                                     <div class="min-w-0 flex-1">
                                                         <p class="font-semibold text-gray-800 truncate"><?php echo htmlspecialchars($asset['asset_name']); ?></p>
                                                         <p class="text-xs text-gray-500 mt-1 font-mono"><?php echo htmlspecialchars($asset['asset_no'] ?: 'No Asset No.'); ?></p>
+                                                        <?php if ($is_borrowed): ?>
+                                                            <span class="inline-flex items-center rounded-full bg-purple-50 px-2 py-0.5 mt-1 text-[10px] font-semibold text-purple-700 border border-purple-100">Borrowed</span>
+                                                        <?php endif; ?>
                                                     </div>
 
                                                     <!-- Right side: Controls -->
                                                     <div class="flex items-center gap-x-4 gap-y-3 flex-wrap sm:flex-nowrap justify-end">
                                                         <!-- Checkbox for 'Present' -->
-                                                        <label for="asset_present_<?php echo $asset['id']; ?>" class="flex items-center gap-2 cursor-pointer flex-shrink-0">
+                                                        <label for="asset_present_<?php echo $id_suffix; ?>" class="flex items-center gap-2 cursor-pointer flex-shrink-0">
                                                             <input type="checkbox" 
-                                                                   id="asset_present_<?php echo $asset['id']; ?>" 
-                                                                   name="assets[<?php echo $asset['id']; ?>][status]" 
+                                                                   id="asset_present_<?php echo $id_suffix; ?>" 
+                                                                   name="<?php echo $name_prefix; ?>[<?php echo $asset['id']; ?>][status]" 
                                                                    value="Present" 
                                                                    class="asset-checkbox h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                                                             <span class="text-sm font-medium text-gray-700">Present</span>
@@ -218,7 +241,7 @@ $current_page = 'audit'; // for sidebar active state
 
                                                         <!-- Condition Dropdown -->
                                                         <div class="w-full sm:w-36 flex-shrink-0">
-                                                            <select name="assets[<?php echo $asset['id']; ?>][condition]" class="w-full text-sm bg-gray-50 border-gray-200 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                                                            <select name="<?php echo $name_prefix; ?>[<?php echo $asset['id']; ?>][condition]" class="w-full text-sm bg-gray-50 border-gray-200 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
                                                                 <option value="Good" selected>Good</option>
                                                                 <option value="Needs Repair">Needs Repair</option>
                                                                 <option value="Broken">Broken</option>
@@ -229,7 +252,7 @@ $current_page = 'audit'; // for sidebar active state
                                                         <!-- Note Input -->
                                                         <div class="w-full sm:w-48 flex-shrink-0">
                                                             <input type="text" 
-                                                                   name="assets[<?php echo $asset['id']; ?>][note]" 
+                                                                   name="<?php echo $name_prefix; ?>[<?php echo $asset['id']; ?>][note]" 
                                                                    placeholder="Add a note..." 
                                                                    class="w-full text-sm bg-gray-50 border-gray-200 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
                                                         </div>
@@ -274,10 +297,13 @@ $current_page = 'audit'; // for sidebar active state
         // --- Save Functions ---
         function saveAssetState(assetId) {
             const presentCheckbox = document.getElementById(`asset_present_${assetId}`);
-            const conditionSelect = document.querySelector(`select[name="assets[${assetId}][condition]"]`);
-            const noteInput = document.querySelector(`input[name="assets[${assetId}][note]"]`);
-
             if (!presentCheckbox) return;
+
+            const nameMatch = presentCheckbox.name.match(/^([\w]+)\[\d+\]\[status\]$/);
+            const prefix = nameMatch ? nameMatch[1] : 'assets';
+
+            const conditionSelect = document.querySelector(`select[name="${prefix}[${assetId}][condition]"]`);
+            const noteInput = document.querySelector(`input[name="${prefix}[${assetId}][note]"]`);
 
             const data = {
                 present: presentCheckbox.checked,
@@ -299,15 +325,18 @@ $current_page = 'audit'; // for sidebar active state
             console.log('Loading state from storage for audit ID:', auditId);
             document.querySelectorAll('ul.divide-y > li').forEach(li => { // Iterate over list items, not just checkboxes
                 const checkbox = li.querySelector('.asset-checkbox');
+                if (!checkbox) return;
                 const assetId = checkbox.id.replace('asset_present_', '');
+                const nameMatch = checkbox.name.match(/^([\w]+)\[\d+\]\[status\]$/);
+                const prefix = nameMatch ? nameMatch[1] : 'assets';
                 const key = getAssetStorageKey(assetId);
                 const savedData = localStorage.getItem(key);
 
                 if (savedData) {
                     try {
                         const data = JSON.parse(savedData);
-                        const conditionSelect = document.querySelector(`select[name="assets[${assetId}][condition]"]`);
-                        const noteInput = document.querySelector(`input[name="assets[${assetId}][note]"]`);
+                        const conditionSelect = document.querySelector(`select[name="${prefix}[${assetId}][condition]"]`);
+                        const noteInput = document.querySelector(`input[name="${prefix}[${assetId}][note]"]`);
 
                         checkbox.checked = data.present || false;
                         if (conditionSelect) conditionSelect.value = data.condition || 'Good'; // Default to 'Good' if not saved
