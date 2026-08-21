@@ -370,9 +370,9 @@ $categories = [
                   <?php else: ?>
                   <?php foreach ($items as $item): ?>
                        <?php
-                         $row_href = !empty($item['source']) && $item['source'] === 'borrowed'
-                             ? 'loaned-assets.php'
-                             : 'view-asset-details.php?category_id=' . $item['category_id'] . '&asset_name=' . urlencode($item['asset_name']);
+                        $row_href = !empty($item['source']) && $item['source'] === 'borrowed'
+                            ? 'dashboard.php?view=loaned-assets&section=borrowed'
+                            : 'view-asset-details.php?category_id=' . $item['category_id'] . '&asset_name=' . urlencode($item['asset_name']);
                        ?>
                        <tr class="clickable-row" data-href="<?php echo htmlspecialchars($row_href); ?>">
                          <td class="px-6 py-4 whitespace-nowrap font-semibold text-gray-900"><?php echo htmlspecialchars($item['asset_name']); ?></td>
