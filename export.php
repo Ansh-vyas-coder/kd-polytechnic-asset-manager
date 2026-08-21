@@ -31,8 +31,7 @@ if ($_SESSION['role'] === 'staff') {
 $allowed_columns = [
     'asset_name', 'category_id', 'item_no', 'asset_no', 'quantity',
     'cost', 'location', 'date_of_issue', 'assigned_to', 'remarks',
-    'page_no', 'gem_order_no', 'gem_invoice_no', 'gpr_no', 'pr_page_no', 'gpr_item_no',
-    'borrowed_from'
+    'page_no', 'gem_order_no', 'gem_invoice_no', 'gpr_no', 'pr_page_no', 'gpr_item_no'
 ];
 
 // Filter to only allow whitelisted columns
@@ -49,6 +48,8 @@ if (empty($selected_columns)) {
 $sql_columns = implode(", ", array_map(function ($col) {
     return "`" . $col . "`";
 }, $selected_columns));
+
+$sql = "SELECT " . $sql_columns . " FROM assets";
 
 $where_clauses = [];
 $params = [];
@@ -94,44 +95,11 @@ if (!empty($end_date)) {
     $params[] = $end_date;
 }
 
-// Map selected columns onto each table separately (borrowed_assets lacks cost / GeM / borrowed_from)
-$dept_available = ['asset_name', 'category_id', 'item_no', 'asset_no', 'quantity', 'cost', 'location', 'date_of_issue', 'assigned_to', 'remarks', 'page_no', 'gem_order_no', 'gem_invoice_no', 'gpr_no', 'pr_page_no', 'gpr_item_no'];
-$borrowed_available = ['asset_name', 'category_id', 'item_no', 'asset_no', 'quantity', 'location', 'date_of_issue', 'assigned_to', 'remarks', 'page_no', 'borrowed_from'];
-
-function build_report_columns(array $selected_columns, array $available): array {
-    $out = [];
-    foreach ($selected_columns as $col) {
-        if ($col === 'cost') {
-            $out[] = in_array('cost', $available, true) ? "`cost`" : "0 AS `cost`";
-        } elseif (in_array($col, $available, true)) {
-            $out[] = "`" . $col . "`";
-        } else {
-            $out[] = "NULL AS `" . $col . "`";
-        }
-    }
-    return $out;
+if (!empty($where_clauses)) {
+    $sql .= " WHERE " . implode(" AND ", $where_clauses);
 }
 
-$dept_col_sql     = build_report_columns($selected_columns, $dept_available);
-$borrowed_col_sql = build_report_columns($selected_columns, $borrowed_available);
-
-// "Borrowed From" column option doubles as the include-borrowed toggle
-$include_borrowed = in_array('borrowed_from', $selected_columns, true);
-
-$where_text = !empty($where_clauses) ? " WHERE " . implode(" AND ", $where_clauses) : "";
-$dept_sql = "SELECT " . implode(", ", $dept_col_sql) . " FROM assets" . $where_text;
-
-if ($include_borrowed) {
-    $borrowed_where_text = " WHERE " . implode(" AND ", array_merge(["(status IS NULL OR status <> 'Returned')"], $where_clauses));
-    $borrowed_sql = "SELECT " . implode(", ", $borrowed_col_sql) . " FROM borrowed_assets" . $borrowed_where_text;
-
-    $sql = "(" . $dept_sql . ") UNION ALL (" . $borrowed_sql . ") ORDER BY date_of_issue DESC, asset_name ASC";
-    // Parameters apply to both UNION sides, so duplicate them
-    $types  = $types . $types;
-    $params = array_merge($params, $params);
-} else {
-    $sql = $dept_sql . " ORDER BY date_of_issue DESC, asset_name ASC";
-}
+$sql .= " ORDER BY date_of_issue DESC, asset_name ASC";
 
 $stmt = $conn->prepare($sql);
 if (!empty($params)) {

@@ -60,17 +60,6 @@ for ($category_id = 1; $category_id <= 4; $category_id++) {
     }
 }
 
-$departments = [];
-$dept_stmt = $conn->prepare("SELECT DISTINCT borrowed_from FROM borrowed_assets WHERE TRIM(COALESCE(borrowed_from, '')) <> '' ORDER BY borrowed_from ASC");
-if ($dept_stmt) {
-    $dept_stmt->execute();
-    $dept_result = $dept_stmt->get_result();
-    while ($dept_row = $dept_result->fetch_assoc()) {
-        $departments[] = $dept_row['borrowed_from'];
-    }
-    $dept_stmt->close();
-}
-
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['action'] === 'add_borrowed_asset') {
     $_SESSION['add_borrowed_asset_old_data'] = $_POST;
 
@@ -81,7 +70,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
     $item_number = (int)$_POST['item_no'];
     $location = trim($_POST['location']);
     $borrow_date = $_POST['borrow_date'];
-    $return_date = !empty($_POST['return_date']) ? $_POST['return_date'] : null;
+    $return_date = $_POST['return_date'];
     $date_of_issue = $borrow_date;
     $assigned_to = !empty($_POST['assigned_to']) ? trim($_POST['assigned_to']) : null;
     $remarks = !empty($_POST['remarks']) ? trim($_POST['remarks']) : null;
@@ -95,6 +84,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
 
     if (empty($borrow_date)) {
         header("Location: dashboard.php?view=loaned-assets&status=error&message=" . urlencode('Borrow Date is required.'));
+        exit();
+    }
+
+    if (empty($return_date)) {
+        header("Location: dashboard.php?view=loaned-assets&status=error&message=" . urlencode('Return Date is required.'));
         exit();
     }
 
@@ -329,21 +323,15 @@ if (!$embedMode) {
                             </div>
 
                             <div>
-                                <label for="return_date" class="mb-2 block text-sm font-semibold text-slate-700">Return Date <span class="text-xs font-normal text-slate-400"></span></label>
-                                <input type="date" id="return_date" name="return_date" value="<?php echo htmlspecialchars($old_data['return_date'] ?? ''); ?>" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200">
+                                <label for="return_date" class="mb-2 block text-sm font-semibold text-slate-700">Return Date</label>
+                                <input type="date" id="return_date" name="return_date" value="<?php echo htmlspecialchars($old_data['return_date'] ?? ''); ?>" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
                             </div>
                         </div>
 
                         <div class="grid gap-5 md:grid-cols-2">
                             <div>
                                 <label for="borrowed_from" class="mb-2 block text-sm font-semibold text-slate-700">Department Name (Borrow From)</label>
-                                <input type="text" id="borrowed_from" name="borrowed_from" list="borrowed_from_list" placeholder="e.g. MECH" value="<?php echo htmlspecialchars($old_data['borrowed_from'] ?? ''); ?>" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
-                                <datalist id="borrowed_from_list">
-                                    <?php foreach ($departments as $dept): ?>
-                                        <option value="<?php echo htmlspecialchars($dept); ?>"></option>
-                                    <?php endforeach; ?>
-                                </datalist>
-                                <!-- <p class="mt-2 text-xs text-slate-500">Choose a previously used department or type a new one.</p> -->
+                                <input type="text" id="borrowed_from" name="borrowed_from" placeholder="e.g. MECH" value="<?php echo htmlspecialchars($old_data['borrowed_from'] ?? ''); ?>" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
                             </div>
 
                             <div>
@@ -582,6 +570,7 @@ if (!$embedMode) {
             itemNoInput,
             assetNoInput,
             borrowDateInput,
+            returnDateInput,
             document.getElementById('borrowed_from')
         ];
 
