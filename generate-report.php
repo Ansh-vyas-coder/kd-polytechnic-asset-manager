@@ -24,22 +24,53 @@ if (isset($_GET['fetch_filters']) && $_GET['fetch_filters'] === 'true') {
 
     $response = ['asset_names' => [], 'locations' => []];
 
+    // "Borrowed From" column option doubles as the include-borrowed toggle
+    $include_borrowed = isset($_GET['include_borrowed']) ? ($_GET['include_borrowed'] === '1') : false;
+
     if ($_SESSION['role'] === 'staff') {
-        $stmt_assets = $conn->prepare("SELECT DISTINCT asset_name FROM assets WHERE category_id = ? AND assigned_to = ? AND (transferred = 0 OR transferred IS NULL) ORDER BY asset_name ASC");
-        $stmt_assets->bind_param("is", $category_id, $_SESSION['user_name']);
+        $an_sql  = "SELECT DISTINCT asset_name FROM assets WHERE category_id = ? AND assigned_to = ? AND (transferred = 0 OR transferred IS NULL)";
+        $an_types = "is";
+        $an_params = [$category_id, $_SESSION['user_name']];
+        if ($include_borrowed) {
+            $an_sql .= " UNION (SELECT DISTINCT asset_name FROM borrowed_assets WHERE category_id = ? AND assigned_to = ? AND (status IS NULL OR status <> 'Returned'))";
+            $an_types .= "is";
+            $an_params[] = $category_id;
+            $an_params[] = $_SESSION['user_name'];
+        }
+        $an_sql .= " ORDER BY asset_name ASC";
+        $stmt_assets = $conn->prepare($an_sql);
+        $stmt_assets->bind_param($an_types, ...$an_params);
     } else {
-        $stmt_assets = $conn->prepare("SELECT DISTINCT asset_name FROM assets WHERE category_id = ? AND (transferred = 0 OR transferred IS NULL) ORDER BY asset_name ASC");
-        $stmt_assets->bind_param("i", $category_id);
+        $an_sql  = "SELECT DISTINCT asset_name FROM assets WHERE category_id = ? AND (transferred = 0 OR transferred IS NULL)";
+        $an_types = "i";
+        $an_params = [$category_id];
+        if ($include_borrowed) {
+            $an_sql .= " UNION (SELECT DISTINCT asset_name FROM borrowed_assets WHERE category_id = ? AND (status IS NULL OR status <> 'Returned'))";
+            $an_types .= "i";
+            $an_params[] = $category_id;
+        }
+        $an_sql .= " ORDER BY asset_name ASC";
+        $stmt_assets = $conn->prepare($an_sql);
+        $stmt_assets->bind_param($an_types, ...$an_params);
     }
     $stmt_assets->execute();
     $result_assets = $stmt_assets->get_result();
     while ($row = $result_assets->fetch_assoc()) { $response['asset_names'][] = $row['asset_name']; }
     $stmt_assets->close();
 
-    // Staff do not need locations as it's mutually exclusive and hidden
-    if ($_SESSION['role'] !== 'staff') {
-        $stmt_locations = $conn->prepare("SELECT DISTINCT location FROM assets WHERE category_id = ? AND location IS NOT NULL AND location != '' AND (transferred = 0 OR transferred IS NULL) ORDER BY location ASC");
-        $stmt_locations->bind_param("i", $category_id);
+        // Staff do not need locations as it's mutually exclusive and hidden
+        if ($_SESSION['role'] !== 'staff') {
+            $loc_sql  = "SELECT DISTINCT location FROM assets WHERE category_id = ? AND location IS NOT NULL AND location != '' AND (transferred = 0 OR transferred IS NULL)";
+            $loc_types = "i";
+            $loc_params = [$category_id];
+            if ($include_borrowed) {
+                $loc_sql .= " UNION (SELECT DISTINCT location FROM borrowed_assets WHERE category_id = ? AND location IS NOT NULL AND location != '' AND (status IS NULL OR status <> 'Returned'))";
+                $loc_types .= "i";
+                $loc_params[] = $category_id;
+            }
+            $loc_sql .= " ORDER BY location ASC";
+            $stmt_locations = $conn->prepare($loc_sql);
+            $stmt_locations->bind_param($loc_types, ...$loc_params);
         $stmt_locations->execute();
         $result_locations = $stmt_locations->get_result();
         while ($row = $result_locations->fetch_assoc()) { $response['locations'][] = $row['location']; }
@@ -76,52 +107,67 @@ if (isset($_GET['fetch_preview']) && $_GET['fetch_preview'] === 'true') {
         $location = 'all'; // mutual exclusivity
     }
 
-    $sql = "SELECT * FROM assets";
-    $where_clauses = ["(transferred = 0 OR transferred IS NULL)"];
-    $params = [];
-    $types  = '';
+    // Build filters shared by department assets and borrowed assets
+    $common_wheres = [];
+    $common_params = [];
+    $common_types  = '';
 
     if ($category_id !== 'all' && is_numeric($category_id)) {
-        $where_clauses[] = "category_id = ?";
-        $types .= 'i';
-        $params[] = (int)$category_id;
+        $common_wheres[] = "category_id = ?";
+        $common_types .= 'i';
+        $common_params[] = (int)$category_id;
     }
 
     if ($asset_name !== 'all' && $asset_name !== '') {
-        $where_clauses[] = "asset_name = ?";
-        $types .= 's';
-        $params[] = $asset_name;
+        $common_wheres[] = "asset_name = ?";
+        $common_types .= 's';
+        $common_params[] = $asset_name;
     }
 
     if ($location !== 'all' && $location !== '') {
-        $where_clauses[] = "location = ?";
-        $types .= 's';
-        $params[] = $location;
+        $common_wheres[] = "location = ?";
+        $common_types .= 's';
+        $common_params[] = $location;
     }
 
     if ($assigned_to !== 'all' && $assigned_to !== '') {
-        $where_clauses[] = "assigned_to = ?";
-        $types .= 's';
-        $params[] = $assigned_to;
+        $common_wheres[] = "assigned_to = ?";
+        $common_types .= 's';
+        $common_params[] = $assigned_to;
     }
 
     if (!empty($start_date)) {
-        $where_clauses[] = "date_of_issue >= ?";
-        $types .= 's';
-        $params[] = $start_date;
+        $common_wheres[] = "date_of_issue >= ?";
+        $common_types .= 's';
+        $common_params[] = $start_date;
     }
 
     if (!empty($end_date)) {
-        $where_clauses[] = "date_of_issue <= ?";
-        $types .= 's';
-        $params[] = $end_date;
+        $common_wheres[] = "date_of_issue <= ?";
+        $common_types .= 's';
+        $common_params[] = $end_date;
     }
 
-    if (!empty($where_clauses)) {
-        $sql .= " WHERE " . implode(" AND ", $where_clauses);
-    }
+    $dept_where = array_merge(["(transferred = 0 OR transferred IS NULL)"], $common_wheres);
 
-    $sql .= " ORDER BY date_of_issue DESC, id DESC";
+    $shared_cols = "id, asset_no, asset_name, category_id, quantity, item_no, page_no, location, date_of_issue, assigned_to, remarks, status";
+    $dept_sql = "SELECT " . $shared_cols . ", NULL AS borrowed_from, 0 AS cost, 'dept' AS source FROM assets WHERE " . implode(" AND ", $dept_where);
+
+    // "Borrowed From" column option doubles as the include-borrowed toggle
+    $include_borrowed = isset($_GET['include_borrowed']) ? ($_GET['include_borrowed'] === '1') : false;
+
+    if ($include_borrowed) {
+        $borrowed_where = array_merge(["(status IS NULL OR status <> 'Returned')"], $common_wheres);
+        $borrowed_sql   = "SELECT " . $shared_cols . ", borrowed_from, 0 AS cost, 'borrowed' AS source FROM borrowed_assets WHERE " . implode(" AND ", $borrowed_where);
+
+        $sql   = "(" . $dept_sql . ") UNION ALL (" . $borrowed_sql . ") ORDER BY date_of_issue DESC, id DESC";
+        $types = $common_types . $common_types;
+        $params = array_merge($common_params, $common_params);
+    } else {
+        $sql   = $dept_sql . " ORDER BY date_of_issue DESC, id DESC";
+        $types = $common_types;
+        $params = $common_params;
+    }
 
     $stmt = $conn->prepare($sql);
     if (!empty($params)) {
@@ -329,8 +375,9 @@ if ($fac_stmt) {
                     'gem_order_no'   => 'GeM Order No',
                     'gem_invoice_no' => 'GeM Invoice No',
                     'gpr_no'         => 'GPR No',
-                    'pr_page_no'     => 'GPR Page No',
+                    'pr_page_no'     => 'PR Page No',
                     'gpr_item_no'    => 'GPR Item No',
+                    'borrowed_from'  => 'Borrowed From',
                 ];
                 foreach ($columns as $key => $label): ?>
                     <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer hover:text-blue-700 transition select-none">
@@ -407,7 +454,8 @@ const COL_LABELS = {
     quantity:'Quantity', cost:'Cost', location:'Location', date_of_issue:'Date of Issue',
     assigned_to:'Assigned To', remarks:'Remarks', page_no:'Page No',
     gem_order_no:'GeM Order No', gem_invoice_no:'GeM Invoice No',
-    gpr_no:'GPR No', pr_page_no:'GPR Page No', gpr_item_no:'GPR Item No'
+    gpr_no:'GPR No', pr_page_no:'PR Page No', gpr_item_no:'GPR Item No',
+    borrowed_from:'Borrowed From'
 };
 
 // ── Helpers ──
@@ -489,7 +537,7 @@ categorySelect.addEventListener('change', function () {
             if (lh) lh.textContent = '';
         }
 
-        fetch(`generate-report.php?fetch_filters=true&category_id=${categoryId}`)
+        fetch(`generate-report.php?fetch_filters=true&category_id=${categoryId}&include_borrowed=${getIncludeBorrowed()}`)
             .then(r => r.json())
             .then(data => {
                 assetNameSelect.innerHTML = '<option value="all">All Assets</option>';
@@ -528,6 +576,12 @@ document.getElementById('deselectAllCols').addEventListener('click', () => {
 });
 
 // ── Build URL params ──
+// The "Borrowed From" column checkbox doubles as the include-borrowed toggle
+function getIncludeBorrowed() {
+    const cb = document.querySelector('input[data-col="borrowed_from"]');
+    return (cb && cb.checked) ? '1' : '0';
+}
+
 function buildParams() {
     const p = new URLSearchParams();
     p.set('fetch_preview', 'true');
@@ -538,6 +592,7 @@ function buildParams() {
     p.set('assigned_to', (isSelect(facultySelect)  && facultySelect.disabled)  ? 'all' : (facultySelect  ? facultySelect.value  : 'all'));
     p.set('start_date',  startDate.value);
     p.set('end_date',    endDate.value);
+    p.set('include_borrowed', getIncludeBorrowed());
     return p;
 }
 
