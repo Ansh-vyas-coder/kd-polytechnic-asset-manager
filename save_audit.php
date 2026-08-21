@@ -16,7 +16,6 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
 
 $audit_id = isset($_POST['audit_id']) ? (int)$_POST['audit_id'] : 0;
 $posted_assets = isset($_POST['assets']) ? $_POST['assets'] : [];
-$posted_borrowed = isset($_POST['borrowed_assets']) ? $_POST['borrowed_assets'] : [];
 $misplaced_asset_ids = isset($_POST['misplaced_assets']) ? $_POST['misplaced_assets'] : [];
 
 if ($audit_id <= 0) {
@@ -48,31 +47,20 @@ try {
 
     $location_id = $audit_session['location_id'];
 
-    // Fetch all assets that were expected at this location (department assets + borrowed assets)
-    $expected_assets_stmt = $conn->prepare("SELECT id, 'assets' AS source FROM assets WHERE location = ? AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)");
+    // Fetch all assets that were expected at this location
+    $expected_assets_stmt = $conn->prepare("SELECT id FROM assets WHERE location = ? AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)");
     $expected_assets_stmt->bind_param("s", $location_id);
     $expected_assets_stmt->execute();
     $expected_assets_result = $expected_assets_stmt->get_result();
-    $expected_items = [];
+    $expected_asset_ids = [];
     while ($row = $expected_assets_result->fetch_assoc()) {
-        $expected_items[] = ['id' => (int)$row['id'], 'source' => $row['source']];
+        $expected_asset_ids[] = (int)$row['id'];
     }
     $expected_assets_stmt->close();
 
-    $borrowed_expected_stmt = $conn->prepare("SELECT id, 'borrowed' AS source FROM borrowed_assets WHERE location = ? AND (status IS NULL OR status <> 'Returned')");
-    if ($borrowed_expected_stmt) {
-        $borrowed_expected_stmt->bind_param("s", $location_id);
-        $borrowed_expected_stmt->execute();
-        $borrowed_expected_result = $borrowed_expected_stmt->get_result();
-        while ($row = $borrowed_expected_result->fetch_assoc()) {
-            $expected_items[] = ['id' => (int)$row['id'], 'source' => $row['source']];
-        }
-        $borrowed_expected_stmt->close();
-    }
-
     // Prepare statement for inserting audit items
     $insert_item_stmt = $conn->prepare(
-        "INSERT INTO audit_items (audit_id, asset_id, source, expected_location_id, scanned_location_id, verification_status, `condition`, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO audit_items (audit_id, asset_id, expected_location_id, scanned_location_id, verification_status, `condition`, note) VALUES (?, ?, ?, ?, ?, ?, ?)"
     );
 
     // New: Prepare a statement to check for misplaced items from other audits
@@ -86,46 +74,39 @@ try {
          LIMIT 1"
     );
 
-    // Helper to persist a single audit item
-    $recordItem = function ($asset_id, $source, $status, $condition, $scanned_location, $note) use ($insert_item_stmt, $audit_id, $location_id) {
-        $insert_item_stmt->bind_param("iisissss", $audit_id, $asset_id, $source, $location_id, $scanned_location, $status, $condition, $note);
-        $insert_item_stmt->execute();
-    };
-
     // 2. Process all expected assets ('Present' or 'Missing')
-    foreach ($expected_items as $item) {
-        $asset_id = $item['id'];
-        $source   = $item['source'];
-        $posted   = ($source === 'borrowed') ? ($posted_borrowed[$asset_id] ?? null) : ($posted_assets[$asset_id] ?? null);
+    foreach ($expected_asset_ids as $asset_id) {
+        $asset_data = $posted_assets[$asset_id] ?? null;
 
-        if (isset($posted['status']) && $posted['status'] === 'Present') {
+        if (isset($asset_data['status']) && $asset_data['status'] === 'Present') {
             // Item was marked as Present
             $status = 'Present';
-            $condition = $posted['condition'] ?? 'Good';
-            $note = !empty($posted['note']) ? trim($posted['note']) : null;
+            $condition = $asset_data['condition'] ?? 'Good';
+            $note = !empty($asset_data['note']) ? trim($asset_data['note']) : null;
             $scanned_location = $location_id; // It was found where it was expected
-            $recordItem($asset_id, $source, $status, $condition, $scanned_location, $note);
+            $insert_item_stmt->bind_param("iisssss", $audit_id, $asset_id, $location_id, $scanned_location, $status, $condition, $note);
         } else {
             // Item was not checked, so it's 'Missing' from this location.
+            // Let's see if it has already been found elsewhere.
+            $check_misplaced_stmt->bind_param("i", $asset_id);
+            $check_misplaced_stmt->execute();
+            $misplaced_result = $check_misplaced_stmt->get_result();
+            $found_elsewhere = $misplaced_result->fetch_assoc();
+
             $status = 'Missing'; // It is always 'Missing' from its expected location if not 'Present'.
             $condition = null; // No condition if missing
             $scanned_location = null;
             $note = null;
 
-            // Only department assets can already be recorded as found elsewhere
-            if ($source === 'assets') {
-                $check_misplaced_stmt->bind_param("i", $asset_id);
-                $check_misplaced_stmt->execute();
-                $misplaced_result = $check_misplaced_stmt->get_result();
-                $found_elsewhere = $misplaced_result->fetch_assoc();
-                if ($found_elsewhere) {
-                    $scanned_location = $found_elsewhere['scanned_location_id'];
-                    $note = 'Found at location: ' . $scanned_location;
-                }
+            if ($found_elsewhere) {
+                // It was found in another location. Let's record that.
+                $scanned_location = $found_elsewhere['scanned_location_id'];
+                $note = 'Found at location: ' . $scanned_location;
             }
 
-            $recordItem($asset_id, $source, $status, $condition, $scanned_location, $note);
+            $insert_item_stmt->bind_param("iisssss", $audit_id, $asset_id, $location_id, $scanned_location, $status, $condition, $note);
         }
+        $insert_item_stmt->execute();
     }
     $check_misplaced_stmt->close();
 

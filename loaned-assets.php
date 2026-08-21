@@ -1569,7 +1569,7 @@ $active_section = isset($_GET['section']) && in_array($_GET['section'], ['loaned
         </div>
         <form id="bulkEditForm" class="grid gap-5">
             <input type="hidden" name="ids" id="bulk-edit-ids">
-            <div class="grid gap-5 md:grid-cols-1">
+            <div class="grid gap-5 md:grid-cols-2">
                 <div>
                     <label for="bulk-edit-location" class="mb-2 block text-sm font-semibold text-slate-700">Location</label>
                     <select id="bulk-edit-location" name="location" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200">
@@ -1590,7 +1590,7 @@ $active_section = isset($_GET['section']) && in_array($_GET['section'], ['loaned
                     </select>
                 </div>
             </div>
-            <div class="grid gap-5 md:grid-cols-1">
+            <div class="grid gap-5 md:grid-cols-2">
                 <div>
                     <label for="bulk-edit-status" class="mb-2 block text-sm font-semibold text-slate-700">Status</label>
                     <select id="bulk-edit-status" name="status" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200">
