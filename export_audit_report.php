@@ -56,13 +56,14 @@ $items_stmt = $conn->prepare(
         ai.note,
         ai.expected_location_id,
         ai.scanned_location_id,
-        a.asset_name, 
-        a.category_id,
-        a.asset_no
+        COALESCE(a.asset_name, b.asset_name) AS asset_name,
+        COALESCE(a.category_id, b.category_id) AS category_id,
+        COALESCE(a.asset_no, b.asset_no) AS asset_no
     FROM audit_items ai
-    JOIN assets a ON ai.asset_id = a.id
+    LEFT JOIN assets a ON ai.asset_id = a.id AND ai.source = 'assets'
+    LEFT JOIN borrowed_assets b ON ai.asset_id = b.id AND ai.source = 'borrowed'
     WHERE ai.audit_id = ?
-    ORDER BY ai.verification_status, a.asset_name"
+    ORDER BY ai.verification_status, asset_name"
 );
 if (!$items_stmt) {
     die("Database error preparing to fetch audit items.");
