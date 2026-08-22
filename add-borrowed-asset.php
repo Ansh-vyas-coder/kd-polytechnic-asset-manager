@@ -70,7 +70,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
     $item_number = (int)$_POST['item_no'];
     $location = trim($_POST['location']);
     $borrow_date = $_POST['borrow_date'];
-    $return_date = $_POST['return_date'];
+    $return_date = !empty($_POST['return_date']) ? $_POST['return_date'] : null;
     $date_of_issue = $borrow_date;
     $assigned_to = !empty($_POST['assigned_to']) ? trim($_POST['assigned_to']) : null;
     $remarks = !empty($_POST['remarks']) ? trim($_POST['remarks']) : null;
@@ -84,11 +84,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
 
     if (empty($borrow_date)) {
         header("Location: dashboard.php?view=loaned-assets&status=error&message=" . urlencode('Borrow Date is required.'));
-        exit();
-    }
-
-    if (empty($return_date)) {
-        header("Location: dashboard.php?view=loaned-assets&status=error&message=" . urlencode('Return Date is required.'));
         exit();
     }
 
@@ -324,14 +319,23 @@ if (!$embedMode) {
 
                             <div>
                                 <label for="return_date" class="mb-2 block text-sm font-semibold text-slate-700">Return Date</label>
-                                <input type="date" id="return_date" name="return_date" value="<?php echo htmlspecialchars($old_data['return_date'] ?? ''); ?>" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
+                                <input type="date" id="return_date" name="return_date" value="<?php echo htmlspecialchars($old_data['return_date'] ?? ''); ?>" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200">
                             </div>
                         </div>
 
                         <div class="grid gap-5 md:grid-cols-2">
                             <div>
                                 <label for="borrowed_from" class="mb-2 block text-sm font-semibold text-slate-700">Department Name (Borrow From)</label>
-                                <input type="text" id="borrowed_from" name="borrowed_from" placeholder="e.g. MECH" value="<?php echo htmlspecialchars($old_data['borrowed_from'] ?? ''); ?>" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
+                                <select id="borrowed_from" name="borrowed_from" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200">
+                                    <option value="">Select department</option>
+                                </select>
+                                <div id="custom_department_wrapper" class="mt-3 hidden">
+                                    <label for="custom_department" class="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">Add new department</label>
+                                    <div class="flex gap-2">
+                                        <input type="text" id="custom_department" placeholder="Enter new department name" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200">
+                                        <button type="button" id="add_department_btn" class="rounded-lg border border-blue-600 bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700">Add</button>
+                                    </div>
+                                </div>
                             </div>
 
                             <div>
@@ -379,9 +383,14 @@ if (!$embedMode) {
     const assignedToSelect = document.getElementById('assigned_to');
     const borrowDateInput = document.getElementById('borrow_date');
     const returnDateInput = document.getElementById('return_date');
-    const borrowedFromInput = document.getElementById('borrowed_from');
+    const borrowedFromSelect = document.getElementById('borrowed_from');
+    const customDepartmentInput = document.getElementById('custom_department');
+    const customDepartmentWrapper = document.getElementById('custom_department_wrapper');
+    const addDepartmentButton = document.getElementById('add_department_btn');
     const locationStorageKey = 'kd_polytechnic_saved_locations';
+    const departmentStorageKey = 'kd_polytechnic_saved_departments';
     const oldLocation = <?php echo json_encode($old_data['location'] ?? ''); ?>;
+    const oldBorrowedFrom = <?php echo json_encode($old_data['borrowed_from'] ?? ''); ?>;
     const oldAssignedTo = <?php echo json_encode($old_data['assigned_to'] ?? ''); ?>;
 
     function getCategoryCode(value) {
@@ -402,7 +411,7 @@ if (!$embedMode) {
     function updateAssetNo() {
         const categoryValue = categoryInput.value;
         const categoryCode = getCategoryCode(categoryValue);
-        const deptCode = getDeptCode(borrowedFromInput.value);
+        const deptCode = getDeptCode(borrowedFromSelect.value);
         const year = new Date().getFullYear();
         const pageNo = document.getElementById('page_no').value.trim();
         const quantity = parseInt(quantityInput.value, 10) || 1;
@@ -524,6 +533,73 @@ if (!$embedMode) {
         customLocationWrapper.classList.add('hidden');
     }
 
+    function getSavedDepartments() {
+        try {
+            return JSON.parse(localStorage.getItem(departmentStorageKey)) || [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function populateDepartmentOptions() {
+        const savedDepartments = getSavedDepartments();
+        const currentValue = borrowedFromSelect.value;
+
+        let optionsHTML = `
+            <option value="">Select department</option>
+            <option value="CIVIL">CIVIL - Civil Department</option>
+            <option value="MECH">MECH - Mechanical Department</option>
+            <option value="EC">EC - EC Department</option>
+        `;
+
+        if (savedDepartments.length > 0) {
+            optionsHTML += `<optgroup label="Custom Departments">`;
+            savedDepartments.forEach(dept => {
+                optionsHTML += `<option value="${dept}">${dept}</option>`;
+            });
+            optionsHTML += `</optgroup>`;
+        }
+
+        optionsHTML += `<option value="__other__">Other</option>`;
+
+        borrowedFromSelect.innerHTML = optionsHTML;
+
+        const valueToSelect = currentValue || oldBorrowedFrom;
+        if (valueToSelect && Array.from(borrowedFromSelect.options).some(option => option.value === valueToSelect)) {
+            borrowedFromSelect.value = valueToSelect;
+        } else if (valueToSelect === '__other__') {
+            borrowedFromSelect.value = '__other__';
+        }
+    }
+
+    function toggleCustomDepartmentInput() {
+        const showCustomInput = borrowedFromSelect.value === '__other__';
+        customDepartmentWrapper.classList.toggle('hidden', !showCustomInput);
+        if (!showCustomInput) {
+            customDepartmentInput.value = '';
+        }
+    }
+
+    function addCustomDepartment() {
+        const newDepartment = customDepartmentInput.value.trim();
+        if (!newDepartment) {
+            alert('Please enter a new department name.');
+            return;
+        }
+
+        const savedDepartments = getSavedDepartments();
+        if (!savedDepartments.includes(newDepartment)) {
+            savedDepartments.push(newDepartment);
+            localStorage.setItem(departmentStorageKey, JSON.stringify(savedDepartments));
+        }
+
+        populateDepartmentOptions();
+        borrowedFromSelect.value = newDepartment;
+        customDepartmentInput.value = '';
+        customDepartmentWrapper.classList.add('hidden');
+        updateAssetNo();
+    }
+
     [quantityInput, categoryInput, itemNoInput].forEach(input => {
         input.addEventListener('input', () => {
             updateAssetNo();
@@ -534,7 +610,7 @@ if (!$embedMode) {
     });
 
     document.getElementById('page_no').addEventListener('input', updateAssetNo);
-    borrowedFromInput.addEventListener('input', updateAssetNo);
+    borrowedFromSelect.addEventListener('change', updateAssetNo);
 
     locationSelect.addEventListener('change', toggleCustomLocationInput);
     addLocationButton.addEventListener('click', addCustomLocation);
@@ -542,6 +618,15 @@ if (!$embedMode) {
         if (event.key === 'Enter') {
             event.preventDefault();
             addCustomLocation();
+        }
+    });
+
+    borrowedFromSelect.addEventListener('change', toggleCustomDepartmentInput);
+    addDepartmentButton.addEventListener('click', addCustomDepartment);
+    customDepartmentInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            addCustomDepartment();
         }
     });
 
@@ -570,8 +655,7 @@ if (!$embedMode) {
             itemNoInput,
             assetNoInput,
             borrowDateInput,
-            returnDateInput,
-            document.getElementById('borrowed_from')
+            borrowedFromSelect
         ];
 
         for (const field of requiredFields) {
@@ -580,6 +664,12 @@ if (!$embedMode) {
                 alert('Please fill all required fields in the correct format.');
                 return;
             }
+        }
+
+        if (borrowedFromSelect.value === '__other__') {
+            event.preventDefault();
+            alert('Please add a new department name or choose an existing one.');
+            return;
         }
 
         if (!isValidAssetNumber(assetNoInput.value.trim())) {
@@ -623,6 +713,8 @@ if (!$embedMode) {
 
     populateLocationOptions();
     toggleCustomLocationInput();
+    populateDepartmentOptions();
+    toggleCustomDepartmentInput();
     updateAssetNo();
 <?php if (!$embedMode): ?>
     if (typeof lucide !== 'undefined') {

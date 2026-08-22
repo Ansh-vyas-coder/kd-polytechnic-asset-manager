@@ -62,7 +62,7 @@ if ($_SESSION['role'] === 'staff') {
 }
 
 $items = [];
-$sql = "SELECT id, asset_no, asset_name, category_id, location, assigned_to, status, status_marked_by, status_marked_role, status_marked_at, updated_at FROM assets WHERE " . implode(" AND ", $sql_where_clauses) . " ORDER BY assigned_to ASC, updated_at DESC";
+$sql = "SELECT id, asset_no, asset_name, category_id, location, assigned_to, status, status_marked_by, status_marked_role, status_marked_at, updated_at, 'dept' AS source FROM assets WHERE " . implode(" AND ", $sql_where_clauses) . " ORDER BY assigned_to ASC, updated_at DESC";
 
 if (!empty($sql_params)) {
     $stmt = $conn->prepare($sql);
@@ -77,6 +77,49 @@ if ($result) {
     $items = $result->fetch_all(MYSQLI_ASSOC);
 }
 $stmt->close();
+
+// Fetch borrowed assets that are assigned to someone and not yet returned
+$borrowed_where = ["assigned_to IS NOT NULL", "assigned_to != ''", "(status IS NULL OR status <> 'Returned')"];
+$borrowed_params = [];
+$borrowed_types = "";
+
+if ($_SESSION['role'] === 'staff') {
+    $borrowed_where[] = "assigned_to = ?";
+    $borrowed_types .= "s";
+    $borrowed_params[] = $_SESSION['user_name'];
+} elseif ($selected_faculty !== '') {
+    $borrowed_where[] = "assigned_to = ?";
+    $borrowed_types .= "s";
+    $borrowed_params[] = $selected_faculty;
+}
+
+$borrowed_sql = "SELECT id, asset_no, asset_name, category_id, location, assigned_to, status, NULL AS status_marked_by, NULL AS status_marked_role, NULL AS status_marked_at, updated_at, 'borrowed' AS source FROM borrowed_assets WHERE " . implode(" AND ", $borrowed_where) . " ORDER BY assigned_to ASC, updated_at DESC";
+
+if (!empty($borrowed_params)) {
+    $bstmt = $conn->prepare($borrowed_sql);
+    $bstmt->bind_param($borrowed_types, ...$borrowed_params);
+} else {
+    $bstmt = $conn->prepare($borrowed_sql);
+}
+$bstmt->execute();
+$bresult = $bstmt->get_result();
+
+$borrowed_items = [];
+if ($bresult) {
+    $borrowed_items = $bresult->fetch_all(MYSQLI_ASSOC);
+}
+$bstmt->close();
+
+$items = array_merge($items, $borrowed_items);
+
+// Sort merged items by assigned_to (asc) then last updated (desc)
+usort($items, function ($a, $b) {
+    $cmp = strcmp($a['assigned_to'] ?? '', $b['assigned_to'] ?? '');
+    if ($cmp !== 0) {
+        return $cmp;
+    }
+    return strtotime($b['updated_at'] ?? '0') <=> strtotime($a['updated_at'] ?? '0');
+});
 
 // Faculty summary for admin filters
 $faculty_summary = [];
@@ -326,15 +369,25 @@ $categories = [
                       </tr>
                   <?php else: ?>
                   <?php foreach ($items as $item): ?>
-                      <tr class="clickable-row" data-href="view-asset-details.php?category_id=<?php echo $item['category_id']; ?>&asset_name=<?php echo urlencode($item['asset_name']); ?>">
-                        <td class="px-6 py-4 whitespace-nowrap font-semibold text-gray-900"><?php echo htmlspecialchars($item['asset_name']); ?></td>
-                        <td class="px-6 py-4 whitespace-nowrap font-mono text-xs text-gray-600"><?php echo htmlspecialchars($item['asset_no'] ?: 'N/A'); ?></td>
-                        <td class="px-6 py-4 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($categories[$item['category_id']] ?? 'Unknown'); ?></td>
-                        <td class="px-6 py-4 whitespace-nowrap text-gray-800 font-medium"><?php echo htmlspecialchars($item['assigned_to']); ?></td>
-                        <td class="px-6 py-4 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($item['location'] ?: 'N/A'); ?></td>
-                        <td class="px-6 py-4 whitespace-nowrap text-gray-500 text-right">
-                          <?php echo date('M d, Y', strtotime($item['updated_at'])); ?>
-                          <?php if (($item['status_marked_role'] ?? '') === 'staff' && in_array($item['status'], ['Not Working', 'Missing'], true)): ?>
+                       <?php
+                        $row_href = !empty($item['source']) && $item['source'] === 'borrowed'
+                            ? 'dashboard.php?view=loaned-assets&section=borrowed'
+                            : 'view-asset-details.php?category_id=' . $item['category_id'] . '&asset_name=' . urlencode($item['asset_name']);
+                       ?>
+                       <tr class="clickable-row" data-href="<?php echo htmlspecialchars($row_href); ?>">
+                         <td class="px-6 py-4 whitespace-nowrap font-semibold text-gray-900"><?php echo htmlspecialchars($item['asset_name']); ?></td>
+                         <td class="px-6 py-4 whitespace-nowrap font-mono text-xs text-gray-600"><?php echo htmlspecialchars($item['asset_no'] ?: 'N/A'); ?></td>
+                         <td class="px-6 py-4 whitespace-nowrap text-gray-600">
+                           <?php echo htmlspecialchars($categories[$item['category_id']] ?? 'Unknown'); ?>
+                           <?php if (!empty($item['source']) && $item['source'] === 'borrowed'): ?>
+                             <span class="ml-1 inline-flex items-center rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-700 border border-purple-100">Borrowed</span>
+                           <?php endif; ?>
+                         </td>
+                         <td class="px-6 py-4 whitespace-nowrap text-gray-800 font-medium"><?php echo htmlspecialchars($item['assigned_to']); ?></td>
+                         <td class="px-6 py-4 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($item['location'] ?: 'N/A'); ?></td>
+                         <td class="px-6 py-4 whitespace-nowrap text-gray-500 text-right">
+                           <?php echo date('M d, Y', strtotime($item['updated_at'])); ?>
+                           <?php if (($item['status_marked_role'] ?? '') === 'staff' && in_array($item['status'], ['Not Working', 'Missing'], true)): ?>
                             <div class="mt-1">
                               <span class="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 border border-amber-100">
                                 Staff reported

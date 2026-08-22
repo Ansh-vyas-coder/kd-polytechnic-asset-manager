@@ -715,8 +715,9 @@ $current_page = $pageView;
                         $color = $catColors[$cid] ?? 'gray';
                         $label = $catLabels[$cid] ?? 'Unknown';
                         $loc = htmlspecialchars($details['location'] ?: ($details['assigned_to'] ?: '—'));
+                        $group_key = strtolower(trim(preg_replace('/^.*\s/', '', $details['asset_name'])));
                       ?>
-                        <tr class="row-all cursor-pointer" onclick="window.location.href='view-asset-details.php?category_id=<?php echo $cid; ?>&asset_name=<?php echo urlencode($details['asset_name']); ?>'">
+                        <tr class="row-all cursor-pointer" onclick="window.location.href='view-assets.php?category_id=<?php echo $cid; ?>&group=<?php echo urlencode($group_key); ?>'">
                           <td class="py-3.5 px-1 font-medium text-gray-900"><?php echo htmlspecialchars($details['asset_no']); ?></td>
                           <td class="py-3.5 px-1 text-gray-600"><?php echo htmlspecialchars($details['asset_name']); ?></td>
                           <td class="py-3.5 px-1"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-<?php echo $color; ?>-50 text-<?php echo $color; ?>-600"><?php echo $label; ?></span></td>
@@ -739,8 +740,9 @@ $current_page = $pageView;
                         $color = $catColors[$cid] ?? 'gray';
                         $label = $catLabels[$cid] ?? 'Unknown';
                         $loc = htmlspecialchars($details['location'] ?: ($details['assigned_to'] ?: '—'));
+                        $group_key = strtolower(trim(preg_replace('/^.*\s/', '', $details['asset_name'])));
                       ?>
-                        <tr class="row-month hidden cursor-pointer" onclick="window.location.href='view-asset-details.php?category_id=<?php echo $cid; ?>&asset_name=<?php echo urlencode($details['asset_name']); ?>'">
+                        <tr class="row-month hidden cursor-pointer" onclick="window.location.href='view-assets.php?category_id=<?php echo $cid; ?>&group=<?php echo urlencode($group_key); ?>'">
                           <td class="py-3.5 px-1 font-medium text-gray-900"><?php echo htmlspecialchars($details['asset_no']); ?></td>
                           <td class="py-3.5 px-1 text-gray-600"><?php echo htmlspecialchars($details['asset_name']); ?></td>
                           <td class="py-3.5 px-1"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-<?php echo $color; ?>-50 text-<?php echo $color; ?>-600"><?php echo $label; ?></span></td>
@@ -1020,8 +1022,9 @@ $current_page = $pageView;
               $label = $catLabels[$cid] ?? 'Unknown';
               $loc = htmlspecialchars($details['location'] ?: ($details['assigned_to'] ?: '—'));
               $is_month_row = strpos($details['created_at'], $thisMonth) === 0;
+              $group_key = strtolower(trim(preg_replace('/^.*\s/', '', $details['asset_name'])));
             ?>
-              <tr class="activity-modal-row" data-is-month="<?php echo $is_month_row ? '1' : '0'; ?>" onclick="window.location.href='view-asset-details.php?category_id=<?php echo $cid; ?>&asset_name=<?php echo urlencode($details['asset_name']); ?>'">
+              <tr class="activity-modal-row" data-is-month="<?php echo $is_month_row ? '1' : '0'; ?>" onclick="window.location.href='view-assets.php?category_id=<?php echo $cid; ?>&group=<?php echo urlencode($group_key); ?>'">
                 <td class="py-3.5 px-1 font-medium text-gray-900"><?php echo htmlspecialchars($details['asset_no']); ?></td>
                 <td class="py-3.5 px-1 text-gray-600"><?php echo htmlspecialchars($details['asset_name']); ?></td>
                 <td class="py-3.5 px-1"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-<?php echo $color; ?>-50 text-<?php echo $color; ?>-600"><?php echo $label; ?></span></td>
