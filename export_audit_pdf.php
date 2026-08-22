@@ -1,7 +1,13 @@
 <?php
 session_start();
 require 'db.php';
-require 'vendor/autoload.php';
+
+$autoload_path = __DIR__ . '/vendor/autoload.php';
+if (!file_exists($autoload_path)) {
+    http_response_code(500);
+    exit("PDF export dependencies are missing. Run composer install and try again.");
+}
+require_once $autoload_path;
 
 // Security check: ensure user is logged in and is an admin
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'staff'])) {
