@@ -14,10 +14,8 @@ $old_data = $_SESSION['add_borrowed_asset_old_data'] ?? [];
 unset($_SESSION['add_borrowed_asset_old_data']);
 
 $suggested_page_nos = [];
-$suggested_item_nos = [];
 for ($category_id = 1; $category_id <= 4; $category_id++) {
     $suggested_page_nos[$category_id] = 1;
-    $suggested_item_nos[$category_id] = 1;
 
     $page_stmt = $conn->prepare("
         SELECT page_no
@@ -40,24 +38,6 @@ for ($category_id = 1; $category_id <= 4; $category_id++) {
 
         $page_stmt->close();
     }
-
-    $item_stmt = $conn->prepare("
-        SELECT MAX(item_no)
-        FROM assets
-        WHERE category_id = ?
-    ");
-
-    if ($item_stmt) {
-        $item_stmt->bind_param("i", $category_id);
-        $item_stmt->execute();
-        $item_stmt->bind_result($latest_item_no);
-
-        if ($item_stmt->fetch() && $latest_item_no !== null && is_numeric($latest_item_no)) {
-            $suggested_item_nos[$category_id] = (int)$latest_item_no + 1;
-        }
-
-        $item_stmt->close();
-    }
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['action'] === 'add_borrowed_asset') {
@@ -78,21 +58,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
     $borrowed_from = !empty($_POST['borrowed_from']) ? trim($_POST['borrowed_from']) : null;
 
     if ($page_no === null || $page_no === '') {
-        header("Location: dashboard.php?view=loaned-assets&status=error&message=" . urlencode('Page No is required.'));
+        header("Location: dashboard.php?view=add-borrowed-asset&status=error&message=" . urlencode('Page No is required.'));
         exit();
     }
 
     if (empty($borrow_date)) {
-        header("Location: dashboard.php?view=loaned-assets&status=error&message=" . urlencode('Borrow Date is required.'));
+        header("Location: dashboard.php?view=add-borrowed-asset&status=error&message=" . urlencode('Borrow Date is required.'));
         exit();
     }
 
     if (empty($borrowed_from)) {
-        header("Location: dashboard.php?view=loaned-assets&status=error&message=" . urlencode('Department Name (Borrow From) is required.'));
+        header("Location: dashboard.php?view=add-borrowed-asset&status=error&message=" . urlencode('Department Name (Borrow From) is required.'));
         exit();
     }
 
-    $check_item_stmt = $conn->prepare("SELECT id, asset_name FROM assets WHERE category_id = ? AND item_no = ? LIMIT 1");
+    // Borrowed assets have their own Item No. sequence; do not compare them with department assets.
+    $check_item_stmt = $conn->prepare("SELECT asset_name FROM borrowed_assets WHERE category_id = ? AND item_no = ? LIMIT 1");
     if ($check_item_stmt) {
         $check_item_stmt->bind_param("ii", $category_id, $item_number);
         $check_item_stmt->execute();
@@ -106,8 +87,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
                 4 => 'Furniture',
                 default => 'selected'
             };
-            $err_msg = "Item No. {$item_number} is already used in {$category_name_str} category (Asset: '{$existing_row['asset_name']}'). Please use a unique Item No.";
-            header("Location: dashboard.php?view=loaned-assets&status=error&message=" . urlencode($err_msg));
+            $err_msg = "Item No. {$item_number} is already used by borrowed asset '{$existing_row['asset_name']}' in the {$category_name_str} category. Please use a unique Item No.";
+            header("Location: dashboard.php?view=add-borrowed-asset&status=error&message=" . urlencode($err_msg));
             exit();
         }
         $check_item_stmt->close();
@@ -126,7 +107,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
 
         foreach ($asset_numbers as $asset_no_value) {
             if (!preg_match($asset_number_pattern, $asset_no_value)) {
-                header("Location: dashboard.php?view=loaned-assets&status=error&message=" . urlencode('Asset No must be in the format KDP/DEPTNAME/YYYY/CATEGORY/P-PAGE/I-ITEM/SEQ/QTY.'));
+                header("Location: dashboard.php?view=add-borrowed-asset&status=error&message=" . urlencode('Asset No must be in the format KDP/DEPTNAME/YYYY/CATEGORY/P-PAGE/I-ITEM/SEQ/QTY.'));
                 exit();
             }
         }
@@ -170,7 +151,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
         } else {
             $error_message = $stmt->error;
             $stmt->close();
-            header("Location: dashboard.php?view=loaned-assets&status=error&message=" . urlencode($error_message));
+            header("Location: dashboard.php?view=add-borrowed-asset&status=error&message=" . urlencode($error_message));
             exit();
         }
 
@@ -206,7 +187,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
         unset($_SESSION['add_borrowed_asset_old_data']);
         header("Location: dashboard.php?view=loaned-assets&status=borrowed_asset_added");
     } else {
-        header("Location: dashboard.php?view=loaned-assets&status=error&message=" . urlencode('No borrowed assets were added.'));
+        header("Location: dashboard.php?view=add-borrowed-asset&status=error&message=" . urlencode('No borrowed assets were added.'));
     }
     exit();
 }
@@ -292,7 +273,7 @@ if (!$embedMode) {
                         <div class="grid gap-5 md:grid-cols-2">
                             <div>
                                 <label for="item_no" class="mb-2 block text-sm font-semibold text-slate-700">Item No</label>
-                                <input type="number" id="item_no" name="item_no" min="1" value="<?php echo htmlspecialchars($old_data['item_no'] ?? ''); ?>" placeholder="Auto-assigned on category select" class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
+                                <input type="number" id="item_no" name="item_no" min="1" value="<?php echo htmlspecialchars($old_data['item_no'] ?? ''); ?>" placeholder="Enter Item No." class="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200" required>
                                 <p class="mt-2 text-xs text-slate-500">Enter a unique Item No for selected category.</p>
                             </div>
 

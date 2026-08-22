@@ -45,7 +45,7 @@ if ($audit_session['status'] === 'Completed') {
 
 $location_id = $audit_session['location_id'];
 
-// Fetch all assets that are expected to be in this location
+// Fetch owned assets and active borrowed assets separately, then show both in this room's audit.
 $assets_stmt = $conn->prepare("SELECT id, asset_name, asset_no, category_id FROM assets WHERE location = ? AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL) ORDER BY asset_name ASC");
 if (!$assets_stmt) {
     die("Database error preparing to fetch assets.");
@@ -55,6 +55,30 @@ $assets_stmt->execute();
 $assets_result = $assets_stmt->get_result();
 $expected_assets = $assets_result->fetch_all(MYSQLI_ASSOC);
 $assets_stmt->close();
+
+foreach ($expected_assets as &$asset) {
+    $asset['audit_key'] = 'asset_' . $asset['id'];
+    $asset['asset_type'] = 'Owned';
+}
+unset($asset);
+
+$borrowed_stmt = $conn->prepare("SELECT id, asset_name, asset_no, category_id, borrowed_from FROM borrowed_assets WHERE location = ? AND status = 'active' ORDER BY asset_name ASC");
+if (!$borrowed_stmt) {
+    die("Database error preparing to fetch borrowed assets.");
+}
+$borrowed_stmt->bind_param("s", $location_id);
+$borrowed_stmt->execute();
+$borrowed_assets = $borrowed_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$borrowed_stmt->close();
+
+foreach ($borrowed_assets as &$asset) {
+    $asset['audit_key'] = 'borrowed_' . $asset['id'];
+    $asset['asset_type'] = 'Borrowed';
+}
+unset($asset);
+
+$expected_assets = array_merge($expected_assets, $borrowed_assets);
+usort($expected_assets, fn($left, $right) => strcasecmp($left['asset_name'], $right['asset_name']));
 
 // Get unique asset names for the filter dropdown
 $unique_asset_names = [];
@@ -193,14 +217,19 @@ $current_page = 'audit'; // for sidebar active state
                                 <ul class="divide-y divide-gray-100">
                                     <li id="noFilterResults" class="p-6 text-center text-gray-500 hidden">No items match the current filters.</li>
                                     <?php if (empty($expected_assets)): ?>
-                                        <li class="p-6 text-center text-gray-500">No assets are assigned to this location.</li>
+                                        <li class="p-6 text-center text-gray-500">No owned or active borrowed assets are assigned to this location.</li>
                                     <?php else: ?>
                                         <?php foreach ($expected_assets as $asset): ?>
                                             <li class="p-4 sm:p-5" data-asset-name="<?php echo htmlspecialchars($asset['asset_name']); ?>">
                                                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                                                     <!-- Left side: Asset Info -->
                                                     <div class="min-w-0 flex-1">
-                                                        <p class="font-semibold text-gray-800 truncate"><?php echo htmlspecialchars($asset['asset_name']); ?></p>
+                                                        <div class="flex items-center gap-2">
+                                                            <p class="font-semibold text-gray-800 truncate"><?php echo htmlspecialchars($asset['asset_name']); ?></p>
+                                                            <?php if ($asset['asset_type'] === 'Borrowed'): ?>
+                                                                <span class="inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-800">Borrowed</span>
+                                                            <?php endif; ?>
+                                                        </div>
                                                         <p class="text-xs text-gray-500 mt-1 font-mono"><?php echo htmlspecialchars($asset['asset_no'] ?: 'No Asset No.'); ?></p>
                                                     </div>
 
@@ -209,8 +238,8 @@ $current_page = 'audit'; // for sidebar active state
                                                         <!-- Checkbox for 'Present' -->
                                                         <label for="asset_present_<?php echo $asset['id']; ?>" class="flex items-center gap-2 cursor-pointer flex-shrink-0">
                                                             <input type="checkbox" 
-                                                                   id="asset_present_<?php echo $asset['id']; ?>" 
-                                                                   name="assets[<?php echo $asset['id']; ?>][status]" 
+                                                                   id="asset_present_<?php echo $asset['audit_key']; ?>" 
+                                                                   name="assets[<?php echo $asset['audit_key']; ?>][status]" 
                                                                    value="Present" 
                                                                    class="asset-checkbox h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
                                                             <span class="text-sm font-medium text-gray-700">Present</span>
@@ -218,7 +247,7 @@ $current_page = 'audit'; // for sidebar active state
 
                                                         <!-- Condition Dropdown -->
                                                         <div class="w-full sm:w-36 flex-shrink-0">
-                                                            <select name="assets[<?php echo $asset['id']; ?>][condition]" class="w-full text-sm bg-gray-50 border-gray-200 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                                                            <select name="assets[<?php echo $asset['audit_key']; ?>][condition]" class="w-full text-sm bg-gray-50 border-gray-200 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
                                                                 <option value="Good" selected>Good</option>
                                                                 <option value="Needs Repair">Needs Repair</option>
                                                                 <option value="Broken">Broken</option>
@@ -229,7 +258,7 @@ $current_page = 'audit'; // for sidebar active state
                                                         <!-- Note Input -->
                                                         <div class="w-full sm:w-48 flex-shrink-0">
                                                             <input type="text" 
-                                                                   name="assets[<?php echo $asset['id']; ?>][note]" 
+                                                                   name="assets[<?php echo $asset['audit_key']; ?>][note]" 
                                                                    placeholder="Add a note..." 
                                                                    class="w-full text-sm bg-gray-50 border-gray-200 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
                                                         </div>

@@ -47,7 +47,7 @@ try {
 
     $location_id = $audit_session['location_id'];
 
-    // Fetch all assets that were expected at this location
+    // Fetch all owned assets that were expected at this location.
     $expected_assets_stmt = $conn->prepare("SELECT id FROM assets WHERE location = ? AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)");
     $expected_assets_stmt->bind_param("s", $location_id);
     $expected_assets_stmt->execute();
@@ -58,9 +58,23 @@ try {
     }
     $expected_assets_stmt->close();
 
+    // Borrowed assets remain in their own table, but active ones at this location are audited too.
+    $expected_borrowed_stmt = $conn->prepare("SELECT id FROM borrowed_assets WHERE location = ? AND status = 'active'");
+    $expected_borrowed_stmt->bind_param("s", $location_id);
+    $expected_borrowed_stmt->execute();
+    $expected_borrowed_result = $expected_borrowed_stmt->get_result();
+    $expected_borrowed_ids = [];
+    while ($row = $expected_borrowed_result->fetch_assoc()) {
+        $expected_borrowed_ids[] = (int)$row['id'];
+    }
+    $expected_borrowed_stmt->close();
+
     // Prepare statement for inserting audit items
     $insert_item_stmt = $conn->prepare(
         "INSERT INTO audit_items (audit_id, asset_id, expected_location_id, scanned_location_id, verification_status, `condition`, note) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    );
+    $insert_borrowed_item_stmt = $conn->prepare(
+        "INSERT INTO borrowed_audit_items (audit_id, borrowed_asset_id, expected_location_id, scanned_location_id, verification_status, `condition`, note) VALUES (?, ?, ?, ?, ?, ?, ?)"
     );
 
     // New: Prepare a statement to check for misplaced items from other audits
@@ -76,7 +90,7 @@ try {
 
     // 2. Process all expected assets ('Present' or 'Missing')
     foreach ($expected_asset_ids as $asset_id) {
-        $asset_data = $posted_assets[$asset_id] ?? null;
+        $asset_data = $posted_assets['asset_' . $asset_id] ?? null;
 
         if (isset($asset_data['status']) && $asset_data['status'] === 'Present') {
             // Item was marked as Present
@@ -110,11 +124,32 @@ try {
     }
     $check_misplaced_stmt->close();
 
-    // 3. Process 'Misplaced' assets
+    // 3. Process borrowed assets separately so they never enter the department assets table.
+    foreach ($expected_borrowed_ids as $borrowed_asset_id) {
+        $asset_data = $posted_assets['borrowed_' . $borrowed_asset_id] ?? null;
+        if (isset($asset_data['status']) && $asset_data['status'] === 'Present') {
+            $status = 'Present';
+            $condition = $asset_data['condition'] ?? 'Good';
+            $note = !empty($asset_data['note']) ? trim($asset_data['note']) : null;
+            $scanned_location = $location_id;
+        } else {
+            $status = 'Missing';
+            $condition = null;
+            $note = null;
+            $scanned_location = null;
+        }
+        $insert_borrowed_item_stmt->bind_param("iisssss", $audit_id, $borrowed_asset_id, $location_id, $scanned_location, $status, $condition, $note);
+        $insert_borrowed_item_stmt->execute();
+    }
+    $insert_borrowed_item_stmt->close();
+
+    // 4. Process 'Misplaced' owned assets
     if (!empty($misplaced_asset_ids)) {
         $asset_details_stmt = $conn->prepare("SELECT location FROM assets WHERE id = ?");
         $update_missing_stmt = $conn->prepare(
-            "UPDATE audit_items SET scanned_location_id = ?, note = ? WHERE asset_id = ? AND verification_status = 'Missing' AND scanned_location_id IS NULL"
+            "UPDATE audit_items
+             SET verification_status = 'Present', scanned_location_id = ?, `condition` = 'Good', note = ?
+             WHERE asset_id = ? AND verification_status = 'Missing' AND scanned_location_id IS NULL"
         );
         foreach ($misplaced_asset_ids as $asset_id) {
             $asset_id = (int)$asset_id;
@@ -130,7 +165,7 @@ try {
             $insert_item_stmt->bind_param("iisssss", $audit_id, $asset_id, $expected_location, $location_id, $status, $condition, $note);
             $insert_item_stmt->execute();
 
-            // Now, update any 'Missing' records for this asset in other audits.
+            // Now, mark any earlier missing records as present at the location where it was found.
             $update_note = 'Found at location: ' . $location_id;
             $update_missing_stmt->bind_param("ssi", $location_id, $update_note, $asset_id);
             $update_missing_stmt->execute();
@@ -140,13 +175,13 @@ try {
     }
     $insert_item_stmt->close();
 
-    // 4. Update the main audit status to 'Completed'
+    // 5. Update the main audit status to 'Completed'
     $update_audit_stmt = $conn->prepare("UPDATE audits SET status = 'Completed' WHERE id = ?");
     $update_audit_stmt->bind_param("i", $audit_id);
     $update_audit_stmt->execute();
     $update_audit_stmt->close();
 
-    // 5. Notify all admins that the audit has been completed
+    // 6. Notify all admins that the audit has been completed
     $staff_name_stmt = $conn->prepare("SELECT full_name FROM users WHERE id = ?");
     $staff_name_stmt->bind_param("i", $audit_session['audited_by_user_id']);
     $staff_name_stmt->execute();

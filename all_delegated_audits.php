@@ -155,7 +155,13 @@ $current_page = 'audit';
                                                         <?php elseif ($audit['status'] === 'Completed'): ?>
                                                             <a href="audit_results.php?id=<?php echo $audit['id']; ?>" class="inline-flex items-center justify-center gap-2 rounded-md bg-green-100 px-3 py-1.5 text-xs font-semibold text-green-700 shadow-sm transition hover:bg-green-200">View Report</a>
                                                         <?php else: ?>
-                                                            <span class="text-xs text-gray-400">Pending staff action</span>
+                                                            <form action="remove_assigned_audit.php" method="POST" class="inline" onsubmit="return confirm('Remove this assigned audit? It will also disappear from the assigned staff member’s audit page.');">
+                                                                <input type="hidden" name="audit_id" value="<?php echo (int)$audit['id']; ?>">
+                                                                <button type="submit" class="inline-flex items-center justify-center gap-1.5 rounded-md bg-red-100 px-3 py-1.5 text-xs font-semibold text-red-700 shadow-sm transition hover:bg-red-200">
+                                                                    <i data-lucide="trash-2" style="width:14px;height:14px"></i>
+                                                                    Remove Assignment
+                                                                </button>
+                                                            </form>
                                                         <?php endif; ?>
                                                     <?php elseif ($_SESSION['user_name'] === $audit['assigned_to_name'] && ($audit['status'] ?? 'Assigned') === 'Assigned'): ?>
                                                         <form action="start_audit.php" method="POST" class="inline">

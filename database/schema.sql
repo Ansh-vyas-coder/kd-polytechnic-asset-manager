@@ -184,3 +184,20 @@ CREATE TABLE IF NOT EXISTS borrowed_assets (
     INDEX idx_borrowed_from (borrowed_from),
     INDEX idx_borrow_date (borrow_date)
 );
+
+-- Audit records for borrowed assets are deliberately kept apart from audit_items,
+-- which is reserved for assets owned by the department.
+CREATE TABLE IF NOT EXISTS borrowed_audit_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    audit_id INT NOT NULL,
+    borrowed_asset_id INT NOT NULL,
+    expected_location_id VARCHAR(100) NOT NULL,
+    scanned_location_id VARCHAR(100) NULL,
+    verification_status ENUM('Present', 'Missing') NOT NULL,
+    `condition` ENUM('Good', 'Needs Repair', 'Broken', 'Scrap') NULL DEFAULT 'Good',
+    note TEXT NULL,
+    INDEX idx_borrowed_audit_id (audit_id),
+    INDEX idx_borrowed_audit_asset_id (borrowed_asset_id),
+    FOREIGN KEY (audit_id) REFERENCES audits(id) ON DELETE CASCADE,
+    FOREIGN KEY (borrowed_asset_id) REFERENCES borrowed_assets(id) ON DELETE CASCADE
+);

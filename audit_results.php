@@ -42,26 +42,48 @@ if ($_SESSION['role'] === 'staff' && $audit_details['audited_by_user_id'] != $_S
     exit();
 }
 
-// --- Fetch all audit items ---
+// --- Fetch all audit items, including assets borrowed from other departments ---
 $items_stmt = $conn->prepare(
-    "SELECT
-        ai.verification_status,
-        ai.condition,
-        ai.note,
-        ai.expected_location_id,
-        ai.scanned_location_id,
-        a.asset_name,
-        a.category_id,
-        a.asset_no
-    FROM audit_items ai
-    JOIN assets a ON ai.asset_id = a.id
-    WHERE ai.audit_id = ?
-    ORDER BY ai.verification_status, a.asset_name"
+    "SELECT * FROM (
+        SELECT
+            CASE
+                WHEN ai.verification_status = 'Missing' AND ai.scanned_location_id IS NOT NULL THEN 'Present'
+                ELSE ai.verification_status
+            END AS verification_status,
+            ai.condition,
+            ai.note,
+            ai.expected_location_id,
+            ai.scanned_location_id,
+            a.asset_name,
+            a.category_id,
+            a.asset_no,
+            'Owned' AS asset_type
+        FROM audit_items ai
+        JOIN assets a ON ai.asset_id = a.id
+        WHERE ai.audit_id = ?
+
+        UNION ALL
+
+        SELECT
+            bai.verification_status,
+            bai.condition,
+            bai.note,
+            bai.expected_location_id,
+            bai.scanned_location_id,
+            ba.asset_name,
+            ba.category_id,
+            ba.asset_no,
+            'Borrowed' AS asset_type
+        FROM borrowed_audit_items bai
+        JOIN borrowed_assets ba ON bai.borrowed_asset_id = ba.id
+        WHERE bai.audit_id = ?
+    ) AS audit_report_items
+    ORDER BY verification_status, asset_name"
 );
 if (!$items_stmt) {
     die("Database error preparing to fetch audit items.");
 }
-$items_stmt->bind_param("i", $audit_id);
+$items_stmt->bind_param("ii", $audit_id, $audit_id);
 $items_stmt->execute();
 $items_result = $items_stmt->get_result();
 $all_items = $items_result->fetch_all(MYSQLI_ASSOC);
@@ -238,6 +260,8 @@ $current_page = 'audit';
                                                     <thead class="bg-gray-50">
                                                         <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
                                                             <th class="px-6 py-3 font-medium">Asset No.</th>
+                                                            <th class="px-6 py-3 font-medium">Type</th>
+                                                            <th class="px-6 py-3 font-medium">Found At</th>
                                                             <th class="px-6 py-3 font-medium">Condition</th>
                                                             <th class="px-6 py-3 font-medium">Note</th>
                                                         </tr>
@@ -246,6 +270,8 @@ $current_page = 'audit';
                                                         <?php foreach ($items as $item): ?>
                                                         <tr>
                                                             <td class="px-6 py-4 font-mono text-xs text-gray-600"><?php echo htmlspecialchars($item['asset_no']); ?></td>
+                                                            <td class="px-6 py-4"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium <?php echo $item['asset_type'] === 'Borrowed' ? 'bg-violet-100 text-violet-800' : 'bg-blue-100 text-blue-800'; ?>"><?php echo htmlspecialchars($item['asset_type']); ?></span></td>
+                                                            <td class="px-6 py-4 text-gray-600"><?php echo htmlspecialchars($item['scanned_location_id'] ?: $item['expected_location_id']); ?></td>
                                                             <td class="px-6 py-4"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"><?php echo htmlspecialchars($item['condition'] ?: 'N/A'); ?></span></td>
                                                             <td class="px-6 py-4 text-gray-600 text-xs"><?php echo htmlspecialchars($item['note'] ?: '-'); ?></td>
                                                         </tr>
@@ -279,6 +305,7 @@ $current_page = 'audit';
                                                     <thead class="bg-gray-50">
                                                         <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
                                                             <th class="px-6 py-3 font-medium">Asset No.</th>
+                                                            <th class="px-6 py-3 font-medium">Type</th>
                                                             <th class="px-6 py-3 font-medium">Expected At</th>
                                                             <th class="px-6 py-3 font-medium">Note</th>
                                                         </tr>
@@ -287,6 +314,7 @@ $current_page = 'audit';
                                                         <?php foreach ($items as $item): ?>
                                                         <tr>
                                                             <td class="px-6 py-4 font-mono text-xs text-gray-600"><?php echo htmlspecialchars($item['asset_no']); ?></td>
+                                                            <td class="px-6 py-4"><span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium <?php echo $item['asset_type'] === 'Borrowed' ? 'bg-violet-100 text-violet-800' : 'bg-blue-100 text-blue-800'; ?>"><?php echo htmlspecialchars($item['asset_type']); ?></span></td>
                                                             <td class="px-6 py-4 text-gray-600"><?php echo htmlspecialchars($item['expected_location_id']); ?></td>
                                                             <td class="px-6 py-4 text-gray-600 text-xs"><?php echo htmlspecialchars($item['note'] ?: '-'); ?></td>
                                                         </tr>
