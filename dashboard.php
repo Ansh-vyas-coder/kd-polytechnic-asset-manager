@@ -84,7 +84,7 @@ if ($isStaff) {
 }
 
 // Fetch Not Working / Missing items (limited to 4)
-$not_working_sql_limited = "SELECT asset_no, asset_name, location, category_id, status FROM assets WHERE status IN ('Not Working', 'Missing') AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)";
+$not_working_sql_limited = "SELECT id, batch_id, asset_no, asset_name, location, category_id, status FROM assets WHERE status IN ('Not Working', 'Missing') AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)";
 if ($isStaff) {
     $not_working_sql_limited .= " AND assigned_to = ?";
 }
@@ -101,6 +101,9 @@ if (!empty($maintenance_params)) {
 
 if ($not_working_result) {
     while ($row = $not_working_result->fetch_assoc()) {
+        if (empty($row['batch_id'])) {
+            $row['batch_id'] = 'batch_uncategorized_' . $row['id'];
+        }
         $items_not_working[] = $row;
     }
     if (isset($not_working_stmt)) {
@@ -126,7 +129,7 @@ if (!empty($maintenance_params)) {
 }
 
 // Fetch ALL Not Working / Missing items for modal
-$not_working_sql_all = "SELECT asset_no, asset_name, location, category_id, status FROM assets WHERE status IN ('Not Working', 'Missing') AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)";
+$not_working_sql_all = "SELECT id, batch_id, asset_no, asset_name, location, category_id, status FROM assets WHERE status IN ('Not Working', 'Missing') AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)";
 if ($isStaff) {
     $not_working_sql_all .= " AND assigned_to = ?";
 }
@@ -143,11 +146,17 @@ if (!empty($maintenance_params)) {
 
 if ($not_working_all_result) {
     $all_items_not_working = $not_working_all_result->fetch_all(MYSQLI_ASSOC);
+    foreach ($all_items_not_working as &$item) {
+        if (empty($item['batch_id'])) {
+            $item['batch_id'] = 'batch_uncategorized_' . $item['id'];
+        }
+    }
+    unset($item);
     if (isset($not_working_all_stmt)) $not_working_all_stmt->close();
 }
 
 // Fetch Under Maintenance items (limited to 4)
-$under_maintenance_sql_limited = "SELECT asset_no, asset_name, location, category_id, status FROM assets WHERE status = 'Under Maintenance' AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)";
+$under_maintenance_sql_limited = "SELECT id, batch_id, asset_no, asset_name, location, category_id, status FROM assets WHERE status = 'Under Maintenance' AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)";
 if ($isStaff) {
     $under_maintenance_sql_limited .= " AND assigned_to = ?";
 }
@@ -163,6 +172,9 @@ if (!empty($maintenance_params)) {
 }
 if ($under_maintenance_result) {
     while ($row = $under_maintenance_result->fetch_assoc()) {
+        if (empty($row['batch_id'])) {
+            $row['batch_id'] = 'batch_uncategorized_' . $row['id'];
+        }
         $items_under_maintenance[] = $row;
     }
     if (isset($under_maintenance_stmt)) {
@@ -188,7 +200,7 @@ if (!empty($maintenance_params)) {
 }
 
 // Fetch ALL Under Maintenance items for modal
-$under_maintenance_sql_all = "SELECT asset_no, asset_name, location, category_id, status FROM assets WHERE status = 'Under Maintenance' AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)";
+$under_maintenance_sql_all = "SELECT id, batch_id, asset_no, asset_name, location, category_id, status FROM assets WHERE status = 'Under Maintenance' AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL)";
 if ($isStaff) {
     $under_maintenance_sql_all .= " AND assigned_to = ?";
 }
@@ -205,6 +217,12 @@ if (!empty($maintenance_params)) {
 
 if ($under_maintenance_all_result) {
     $all_items_under_maintenance = $under_maintenance_all_result->fetch_all(MYSQLI_ASSOC);
+    foreach ($all_items_under_maintenance as &$item) {
+        if (empty($item['batch_id'])) {
+            $item['batch_id'] = 'batch_uncategorized_' . $item['id'];
+        }
+    }
+    unset($item);
     if (isset($under_maintenance_all_stmt)) $under_maintenance_all_stmt->close();
 }
 
@@ -306,16 +324,20 @@ if ($_SESSION['role'] === 'admin') {
 
 // NEW: Fetch assigned audits
 $assigned_audits = [];
+$current_user_id = (int)$_SESSION['user_id'];
 if ($_SESSION['role'] === 'admin') {
     // Admins can see all assigned audits
-    $assigned_audits_result = $conn->query("
+    $assigned_audits_stmt = $conn->prepare("
         SELECT a.id, a.location_id, a.audit_date, a.status, u.full_name as assigned_to_name, assigner.full_name as assigned_by_name
         FROM audits a
         JOIN users u ON a.audited_by_user_id = u.id
         LEFT JOIN users assigner ON a.assigned_by_user_id = assigner.id
-        WHERE a.assigned_by_user_id IS NOT NULL
+        WHERE a.assigned_by_user_id IS NOT NULL OR a.audited_by_user_id = ?
         ORDER BY FIELD(a.status, 'Assigned', 'In Progress', 'Completed'), a.audit_date DESC
     ");
+    $assigned_audits_stmt->bind_param("i", $current_user_id);
+    $assigned_audits_stmt->execute();
+    $assigned_audits_result = $assigned_audits_stmt->get_result();
 } else { // Staff can only see audits assigned TO them
     $assigned_audits_stmt = $conn->prepare("
         SELECT a.id, a.location_id, a.audit_date, a.status, u.full_name as assigned_to_name
@@ -335,7 +357,7 @@ if (isset($assigned_audits_stmt)) $assigned_audits_stmt->close();
 
 // Fetch ongoing audits for the audit page
 $ongoing_audits = [];
-$user_id = $_SESSION['user_id'];
+$user_id = $current_user_id;
 if ($_SESSION['role'] === 'admin') {
     $ongoing_audits_result = $conn->query("
         SELECT a.id, a.location_id, a.audit_date, u.full_name
@@ -493,7 +515,13 @@ $current_page = $pageView;
               <div id="search-spinner" class="hidden animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
             </div>
             <input type="text" id="searchInput" placeholder="Search assets, locations, categories..."
-              class="w-full pl-10 pr-4 py-2.5 rounded-l-full bg-gray-50 border border-r-0 border-gray-200 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 transition" autocomplete="off" />
+              class="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-r-0 border-gray-200 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 transition" autocomplete="off" />
+            <!-- QR Scan Button -->
+            <button id="qrScanBtn" title="Scan QR Code to search asset"
+              class="px-3 py-2.5 bg-gray-50 border border-x-0 border-gray-200 text-gray-500 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+              onclick="openQrScanner()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            </button>
             <button id="searchButton" class="px-4 py-2.5 bg-blue-600 text-white rounded-r-full hover:bg-blue-700 transition-colors text-sm font-semibold">
               Search
             </button>
@@ -857,7 +885,7 @@ $current_page = $pageView;
                               <ul class="divide-y divide-gray-100 -mx-5 lg:-mx-6">
                                   <?php foreach ($items_not_working as $item): ?>
                                       <li class="px-5 lg:px-6 py-3 hover:bg-gray-50 transition-colors">
-                                          <a href="view-asset-details.php?category_id=<?php echo $item['category_id']; ?>&asset_name=<?php echo urlencode($item['asset_name']); ?>" class="block">
+                                          <a href="view-batch-details.php?category_id=<?php echo $item['category_id']; ?>&asset_name=<?php echo urlencode($item['asset_name']); ?>&batch_id=<?php echo urlencode($item['batch_id']); ?>" class="block">
                                               <div class="flex items-center justify-between">
                                                   <p class="text-sm font-semibold text-gray-800 truncate"><?php echo htmlspecialchars($item['asset_name']); ?></p>
                                                   <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-700">
@@ -902,7 +930,7 @@ $current_page = $pageView;
                               <ul class="divide-y divide-gray-100 -mx-5 lg:-mx-6">
                                   <?php foreach ($items_under_maintenance as $item): ?>
                                       <li class="px-5 lg:px-6 py-3 hover:bg-gray-50 transition-colors">
-                                          <a href="view-asset-details.php?category_id=<?php echo $item['category_id']; ?>&asset_name=<?php echo urlencode($item['asset_name']); ?>" class="block">
+                                          <a href="view-batch-details.php?category_id=<?php echo $item['category_id']; ?>&asset_name=<?php echo urlencode($item['asset_name']); ?>&batch_id=<?php echo urlencode($item['batch_id']); ?>" class="block">
                                               <div class="flex items-center justify-between">
                                                   <p class="text-sm font-semibold text-gray-800 truncate"><?php echo htmlspecialchars($item['asset_name']); ?></p>
                                                   <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
@@ -1066,7 +1094,7 @@ $current_page = $pageView;
                   </thead>
                   <tbody class="divide-y divide-gray-100">
                       <?php foreach ($all_items_not_working as $item): ?>
-                          <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.location.href='view-asset-details.php?category_id=<?php echo $item['category_id']; ?>&asset_name=<?php echo urlencode($item['asset_name']); ?>'">
+                          <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.location.href='view-batch-details.php?category_id=<?php echo $item['category_id']; ?>&asset_name=<?php echo urlencode($item['asset_name']); ?>&batch_id=<?php echo urlencode($item['batch_id']); ?>'">
                               <td class="py-3.5 px-1 font-semibold text-gray-800 truncate"><?php echo htmlspecialchars($item['asset_name']); ?></td>
                               <td class="py-3.5 px-1 font-mono text-xs text-gray-600"><?php echo htmlspecialchars($item['asset_no'] ?: 'N/A'); ?></td>
                               <td class="py-3.5 px-1 text-gray-500"><?php echo htmlspecialchars($item['location'] ?: 'N/A'); ?></td>
@@ -1107,7 +1135,7 @@ $current_page = $pageView;
                   </thead>
                   <tbody class="divide-y divide-gray-100">
                       <?php foreach ($all_items_under_maintenance as $item): ?>
-                          <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.location.href='view-asset-details.php?category_id=<?php echo $item['category_id']; ?>&asset_name=<?php echo urlencode($item['asset_name']); ?>'">
+                          <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.location.href='view-batch-details.php?category_id=<?php echo $item['category_id']; ?>&asset_name=<?php echo urlencode($item['asset_name']); ?>&batch_id=<?php echo urlencode($item['batch_id']); ?>'">
                               <td class="py-3.5 px-1 font-semibold text-gray-800 truncate"><?php echo htmlspecialchars($item['asset_name']); ?></td>
                               <td class="py-3.5 px-1 font-mono text-xs text-gray-600"><?php echo htmlspecialchars($item['asset_no'] ?: 'N/A'); ?></td>
                               <td class="py-3.5 px-1 text-gray-500"><?php echo htmlspecialchars($item['location'] ?: 'N/A'); ?></td>
@@ -1316,7 +1344,7 @@ $current_page = $pageView;
                   // Staff viewing their OWN asset — clickable
                   resultsHtml += `
                   <li>
-                    <a href="view-asset-details.php?category_id=${item.category_id}&asset_name=${encodeURIComponent(item.asset_name)}"
+                    <a href="view-batch-details.php?category_id=${item.category_id}&asset_name=${encodeURIComponent(item.asset_name)}&batch_id=${encodeURIComponent(item.batch_id)}"
                        class="flex items-center justify-between p-3 rounded-md hover:bg-blue-50 border border-transparent hover:border-blue-100 transition-colors">
                       <div>${infoHtml}</div>
                       <i data-lucide="arrow-right" class="w-4 h-4 text-blue-400"></i>
@@ -1338,7 +1366,7 @@ $current_page = $pageView;
                 // Admin: clickable link to asset details
                 resultsHtml += `
                 <li>
-                  <a href="view-asset-details.php?category_id=${item.category_id}&asset_name=${encodeURIComponent(item.asset_name)}"
+                  <a href="view-batch-details.php?category_id=${item.category_id}&asset_name=${encodeURIComponent(item.asset_name)}&batch_id=${encodeURIComponent(item.batch_id)}"
                      class="flex items-center justify-between p-3 rounded-md hover:bg-gray-50 transition-colors">
                     <div>${infoHtml}</div>
                     <i data-lucide="arrow-right" class="w-4 h-4 text-gray-400"></i>
@@ -1461,6 +1489,78 @@ $current_page = $pageView;
   </script>
   <script src="loader/loader.js"></script>
   <script src="notifications.js"></script>
+  <script src="loader/html5-qrcode.min.js"></script>
+
+  <!-- QR Scanner Modal -->
+  <div id="qrScannerModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4">
+    <div class="w-full max-w-sm rounded-2xl bg-white shadow-2xl overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <div class="flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <h3 class="font-bold text-gray-900 text-base">Scan Asset QR Code</h3>
+        </div>
+        <button onclick="closeQrScanner()" class="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="p-5">
+        <div id="qr-reader" class="rounded-xl overflow-hidden" style="width:100%"></div>
+        <div id="qr-scan-status" class="mt-3 text-center text-sm text-gray-500">Point camera at the asset QR code</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let qrScanner = null;
+
+    function openQrScanner() {
+      document.getElementById('qrScannerModal').classList.remove('hidden');
+      document.getElementById('qr-scan-status').textContent = 'Starting camera...';
+      document.getElementById('qr-scan-status').className = 'mt-3 text-center text-sm text-gray-500';
+
+      qrScanner = new Html5Qrcode("qr-reader");
+      qrScanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 220, height: 220 } },
+        function(decodedText) {
+          closeQrScanner();
+          handleQrResult(decodedText.trim());
+        },
+        function(err) { /* scan error, ignore */ }
+      ).catch(function(err) {
+        document.getElementById('qr-scan-status').textContent = 'Camera error: ' + err;
+        document.getElementById('qr-scan-status').className = 'mt-3 text-center text-sm text-red-600';
+      });
+    }
+
+    function closeQrScanner() {
+      if (qrScanner) {
+        qrScanner.stop().catch(() => {});
+        qrScanner = null;
+      }
+      document.getElementById('qrScannerModal').classList.add('hidden');
+    }
+
+    async function handleQrResult(assetNo) {
+      if (!assetNo) return;
+      const searchInput = document.getElementById('searchInput');
+      if (searchInput) { searchInput.value = assetNo; }
+
+      try {
+        const res = await fetch('scan-asset.php?asset_no=' + encodeURIComponent(assetNo));
+        const data = await res.json();
+        if (data.error) {
+          alert('QR Scan: ' + data.error);
+        } else if (data.source === 'borrowed') {
+          window.location.href = 'dashboard.php?view=loaned-assets&section=borrowed';
+        } else {
+          window.location.href = 'view-batch-details.php?category_id=' + data.category_id + '&asset_name=' + encodeURIComponent(data.asset_name) + '&batch_id=' + encodeURIComponent(data.batch_id);
+        }
+      } catch(e) {
+        alert('Could not lookup asset. Please try again.');
+      }
+    }
+  </script>
 </body>
 
 </html>

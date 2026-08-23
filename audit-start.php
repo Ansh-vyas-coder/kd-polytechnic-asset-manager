@@ -1,6 +1,6 @@
 <?php
 // This file is included in dashboard.php, so $conn and session are available.
-// The variables $locations, $staff_users, $assigned_audits are also fetched in dashboard.php.
+// The variables $locations, $staff_users, $assigned_audits, and $completed_audits are also fetched in dashboard.php.
 
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'staff'])) {
     exit('Access Denied.'); // Only admins and staff can see the audit dashboard
@@ -10,6 +10,7 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'staf
 $locations = $locations ?? [];
 $staff_users = $staff_users ?? [];
 $assigned_audits = $assigned_audits ?? [];
+$completed_audits = $completed_audits ?? [];
 ?>
 
 <div class="max-w-7xl mx-auto space-y-6">
@@ -175,6 +176,53 @@ $assigned_audits = $assigned_audits ?? [];
                 </div>
             <?php endif; ?>
         </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- Completed Audits Section -->
+    <?php if ($_SESSION['role'] === 'staff' && !empty($completed_audits)): ?>
+    <?php
+        $total_completed = count($completed_audits);
+        $completed_to_show = ($total_completed > 5) ? array_slice($completed_audits, 0, 5) : $completed_audits;
+    ?>
+    <div class="space-y-4">
+        <h2 class="text-xl font-bold text-gray-800 tracking-tight">Your Completed Audits</h2>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50">
+                    <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
+                        <th class="px-6 py-3 font-medium">Location</th>
+                        <th class="px-6 py-3 font-medium">Audited By</th>
+                        <th class="px-6 py-3 font-medium">Completed On</th>
+                        <th class="px-6 py-3 font-medium text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    <?php foreach ($completed_to_show as $audit): ?>
+                        <tr>
+                            <td class="px-6 py-4 font-semibold text-gray-800"><?php echo htmlspecialchars($audit['location_id']); ?></td>
+                            <td class="px-6 py-4 text-gray-600"><?php echo htmlspecialchars($audit['full_name'] ?? 'Self'); ?></td>
+                            <td class="px-6 py-4 text-gray-500"><?php echo date('M d, Y', strtotime($audit['audit_date'])); ?></td>
+                            <td class="px-6 py-4 text-right">
+                                <a href="audit_results.php?id=<?php echo (int)$audit['id']; ?>" class="inline-flex items-center justify-center gap-2 rounded-md bg-green-100 px-3 py-1.5 text-xs font-semibold text-green-700 shadow-sm transition hover:bg-green-200">
+                                    View Report
+                                </a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php if ($total_completed > 5): ?>
+                <div class="p-4 bg-gray-50 border-t border-gray-200 text-center">
+                    <span class="text-sm text-gray-500"><?php echo $total_completed; ?> completed audits available.</span>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php elseif ($_SESSION['role'] === 'staff'): ?>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-xl font-bold text-gray-800 tracking-tight">Your Completed Audits</h2>
+        <p class="mt-2 text-sm text-gray-500">You have no completed audits yet.</p>
     </div>
     <?php endif; ?>
 

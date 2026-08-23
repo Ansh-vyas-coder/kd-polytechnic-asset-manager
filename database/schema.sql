@@ -193,7 +193,7 @@ CREATE TABLE IF NOT EXISTS borrowed_audit_items (
     borrowed_asset_id INT NOT NULL,
     expected_location_id VARCHAR(100) NOT NULL,
     scanned_location_id VARCHAR(100) NULL,
-    verification_status ENUM('Present', 'Missing') NOT NULL,
+    verification_status ENUM('Present', 'Missing', 'Misplaced') NOT NULL,
     `condition` ENUM('Good', 'Needs Repair', 'Broken', 'Scrap') NULL DEFAULT 'Good',
     note TEXT NULL,
     INDEX idx_borrowed_audit_id (audit_id),

@@ -1188,7 +1188,14 @@ $active_section = isset($_GET['section']) && in_array($_GET['section'], ['loaned
                                     <div>Return: <?php echo $return_dates; ?></div>
                                 </div>
 
-                                <div class="la-cell text-right">
+                                <div class="la-cell text-right" style="display: flex; gap: 8px; justify-content: flex-end; align-items: center;">
+                                    <a href="download-qr.php?category_id=<?php echo (int)$selectedCategory; ?>&asset_name=<?php echo urlencode($group['asset_name']); ?>&item_no=<?php echo urlencode($item_no); ?>&source=borrowed"
+                                       title="Download Group QR Labels"
+                                       class="la-btn la-btn-secondary text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition"
+                                       style="padding: 6px 10px; font-weight: 600; color: #475569; background: #ffffff; display: inline-flex; align-items: center; gap: 4px; text-decoration: none;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                                        QR
+                                    </a>
                                     <button type="button" id="btn-toggle-borrow-<?php echo $item_no; ?>" onclick="toggleBorrowDetails('<?php echo $item_no; ?>')" class="la-btn la-btn-secondary text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition" style="padding: 6px 10px; font-weight: 600; color: #475569; background: #ffffff;">
                                         Details
                                     </button>
@@ -1216,6 +1223,15 @@ $active_section = isset($_GET['section']) && in_array($_GET['section'], ['loaned
                                                 </div>
                                             </div>
                                             <div class="flex items-center gap-2">
+                                                <?php if (!empty($sub_asset['asset_no'])): ?>
+                                                    <a href="download-qr.php?asset_no=<?php echo urlencode($sub_asset['asset_no']); ?>"
+                                                       title="Download QR Label"
+                                                       class="la-btn la-btn-secondary text-xs font-semibold px-2.5 py-1.5"
+                                                       style="padding: 6px 12px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; text-decoration: none; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569;">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                                                        QR
+                                                    </a>
+                                                <?php endif; ?>
                                                 <form method="POST" action="return-borrowed-asset.php" class="return-borrowed-form" data-asset-id="<?php echo (int)$sub_asset['id']; ?>" data-asset-name="<?php echo htmlspecialchars($sub_asset['asset_name']); ?>">
                                                     <input type="hidden" name="id" value="<?php echo (int)$sub_asset['id']; ?>">
                                                     <button type="submit" class="la-btn la-btn-success text-xs font-semibold px-2.5 py-1.5" style="padding: 6px 12px; border-radius: 6px;">

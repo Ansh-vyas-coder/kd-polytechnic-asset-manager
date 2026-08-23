@@ -17,6 +17,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
 $audit_id = isset($_POST['audit_id']) ? (int)$_POST['audit_id'] : 0;
 $posted_assets = isset($_POST['assets']) ? $_POST['assets'] : [];
 $misplaced_asset_ids = isset($_POST['misplaced_assets']) ? $_POST['misplaced_assets'] : [];
+$misplaced_borrowed_asset_ids = isset($_POST['misplaced_borrowed_assets']) ? $_POST['misplaced_borrowed_assets'] : [];
 
 if ($audit_id <= 0) {
     header("Location: dashboard.php?view=audit&status=error&message=" . urlencode("Invalid audit ID."));
@@ -174,6 +175,29 @@ try {
         $update_missing_stmt->close();
     }
     $insert_item_stmt->close();
+
+    // 4.5. Process 'Misplaced' borrowed assets
+    if (!empty($misplaced_borrowed_asset_ids)) {
+        $borrowed_details_stmt = $conn->prepare("SELECT location FROM borrowed_assets WHERE id = ?");
+        $insert_misplaced_borrowed_stmt = $conn->prepare(
+            "INSERT INTO borrowed_audit_items (audit_id, borrowed_asset_id, expected_location_id, scanned_location_id, verification_status, `condition`, note) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        );
+        foreach ($misplaced_borrowed_asset_ids as $asset_id) {
+            $asset_id = (int)$asset_id;
+            $borrowed_details_stmt->bind_param("i", $asset_id);
+            $borrowed_details_stmt->execute();
+            $borrowed_details = $borrowed_details_stmt->get_result()->fetch_assoc();
+            $expected_location = $borrowed_details ? $borrowed_details['location'] : 'Unknown';
+            $status = 'Misplaced';
+            $condition = 'Good';
+            $note = 'Found during audit at ' . $location_id;
+
+            $insert_misplaced_borrowed_stmt->bind_param("iisssss", $audit_id, $asset_id, $expected_location, $location_id, $status, $condition, $note);
+            $insert_misplaced_borrowed_stmt->execute();
+        }
+        $borrowed_details_stmt->close();
+        $insert_misplaced_borrowed_stmt->close();
+    }
 
     // 5. Update the main audit status to 'Completed'
     $update_audit_stmt = $conn->prepare("UPDATE audits SET status = 'Completed' WHERE id = ?");

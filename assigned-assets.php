@@ -124,12 +124,23 @@ usort($items, function ($a, $b) {
 // Faculty summary for admin filters
 $faculty_summary = [];
 $summary_sql = "
-    SELECT assigned_to, COUNT(*) AS total_assets
-    FROM assets
-    WHERE assigned_to IS NOT NULL
-      AND assigned_to != ''
-      AND retire_at IS NULL
-       AND (transferred = 0 OR transferred IS NULL)
+    SELECT assigned_to, SUM(total_assets) AS total_assets
+    FROM (
+        SELECT assigned_to, COUNT(*) AS total_assets
+        FROM assets
+        WHERE assigned_to IS NOT NULL
+          AND assigned_to != ''
+          AND retire_at IS NULL
+          AND (transferred = 0 OR transferred IS NULL)
+        GROUP BY assigned_to
+        UNION ALL
+        SELECT assigned_to, COUNT(*) AS total_assets
+        FROM borrowed_assets
+        WHERE assigned_to IS NOT NULL
+          AND assigned_to != ''
+          AND (status IS NULL OR status <> 'Returned')
+        GROUP BY assigned_to
+    ) AS combined
     GROUP BY assigned_to
     ORDER BY assigned_to ASC
 ";
@@ -226,6 +237,7 @@ $categories = [
   }
 </style>
 <link rel="stylesheet" href="loader/loader.css" />
+  <link rel="stylesheet" href="notifications.css" />
 </head>
 
 <body class="h-screen bg-slate-50 text-slate-900 antialiased">
@@ -241,39 +253,7 @@ $categories = [
 
   <div id="mainContent" class="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300 ease-in-out h-screen overflow-hidden">
     <!-- Header -->
-    <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6 gap-4 shrink-0">
-        <div class="flex items-center gap-2 flex-1 min-w-0">
-            <button id="menuBtn" class="p-2 -ml-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0">
-                <i data-lucide="menu" style="width:20px;height:20px"></i>
-            </button>
-        </div>
-        <div class="flex items-center gap-3 sm:gap-4 shrink-0">
-            <div class="relative">
-                <button id="userMenuBtn" class="flex items-center gap-2.5 group">
-                    <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white text-sm font-semibold shrink-0"><?php echo getInitials($_SESSION['user_name']); ?></div>
-                    <div class="hidden sm:block text-left leading-tight">
-                        <p class="text-sm font-semibold text-gray-900"><?php echo htmlspecialchars($_SESSION['user_name']); ?></p>
-                        <p class="text-xs text-gray-400"><?php echo htmlspecialchars(ucfirst($_SESSION['role'])); ?> - Computer Dept.</p>
-                    </div>
-                    <i data-lucide="chevron-down" class="hidden sm:block text-gray-400 group-hover:text-gray-600 transition-colors" style="width:16px;height:16px"></i>
-                </button>
-                <div id="userMenuDropdown" class="absolute top-full right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-100 hidden z-10">
-                    <div class="p-3 border-b border-gray-100">
-                        <p class="text-sm font-semibold text-gray-900 truncate"><?php echo htmlspecialchars($_SESSION['user_name']); ?></p>
-                        <p class="text-xs text-gray-500 truncate mt-0.5"><?php echo htmlspecialchars($_SESSION['user_email']); ?></p>
-                    </div>
-                    <div class="p-1.5">
-                        <a href="#" id="changePasswordBtn" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
-                            <i data-lucide="key" style="width:16px;height:16px"></i> Change Password
-                        </a>
-                        <a href="logout.php" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors mt-1">
-                            <i data-lucide="log-out" style="width:16px;height:16px"></i> Logout
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </header>
+        <?php include 'topbar.php'; ?>
 
     <!-- Main Content -->
     <div class="flex-1 overflow-y-auto flex flex-col">
@@ -353,13 +333,14 @@ $categories = [
                     <th class="px-6 py-3 font-medium">Category</th>
                     <th class="px-6 py-3 font-medium">Assigned To</th>
                     <th class="px-6 py-3 font-medium">Location</th>
-                    <th class="px-6 py-3 font-medium text-right">Last Updated</th>
+                    <th class="px-6 py-3 font-medium">Last Updated</th>
+                    <th class="px-6 py-3 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                   <?php if (empty($items)): ?>
                       <tr>
-                          <td colspan="6" class="text-center py-16 text-gray-500">
+                          <td colspan="7" class="text-center py-16 text-gray-500">
                               <div class="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-3">
                                   <i data-lucide="user-check" class="w-7 h-7 text-gray-400"></i>
                               </div>
@@ -385,22 +366,34 @@ $categories = [
                          </td>
                          <td class="px-6 py-4 whitespace-nowrap text-gray-800 font-medium"><?php echo htmlspecialchars($item['assigned_to']); ?></td>
                          <td class="px-6 py-4 whitespace-nowrap text-gray-600"><?php echo htmlspecialchars($item['location'] ?: 'N/A'); ?></td>
-                         <td class="px-6 py-4 whitespace-nowrap text-gray-500 text-right">
-                           <?php echo date('M d, Y', strtotime($item['updated_at'])); ?>
-                           <?php if (($item['status_marked_role'] ?? '') === 'staff' && in_array($item['status'], ['Not Working', 'Missing'], true)): ?>
-                            <div class="mt-1">
-                              <span class="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 border border-amber-100">
-                                Staff reported
-                              </span>
-                              <?php if (!empty($item['status_marked_by'])): ?>
-                                <div class="mt-1 text-[11px] text-gray-400 text-right">
-                                  by <?php echo htmlspecialchars($item['status_marked_by']); ?>
-                                </div>
+                          <td class="px-6 py-4 whitespace-nowrap text-gray-500">
+                            <?php echo date('M d, Y', strtotime($item['updated_at'])); ?>
+                            <?php if (($item['status_marked_role'] ?? '') === 'staff' && in_array($item['status'], ['Not Working', 'Missing'], true)): ?>
+                             <div class="mt-1">
+                               <span class="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 border border-amber-100">
+                                 Staff reported
+                               </span>
+                               <?php if (!empty($item['status_marked_by'])): ?>
+                                 <div class="mt-1 text-[11px] text-gray-400">
+                                   by <?php echo htmlspecialchars($item['status_marked_by']); ?>
+                                 </div>
+                               <?php endif; ?>
+                             </div>
+                           <?php endif; ?>
+                          </td>
+                          <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div class="flex items-center justify-end gap-3" onclick="event.stopPropagation()">
+                              <?php if (!empty($item['asset_no'])): ?>
+                              <a href="download-qr.php?asset_no=<?php echo urlencode($item['asset_no']); ?>"
+                                 title="Download QR Label"
+                                 class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                                QR
+                              </a>
                               <?php endif; ?>
                             </div>
-                          <?php endif; ?>
-                        </td>
-                      </tr>
+                          </td>
+                        </tr>
                       <?php endforeach; ?>
                   <?php endif; ?>
                 </tbody>
@@ -460,12 +453,12 @@ $categories = [
 <script>
   lucide.createIcons();
 
-  const userMenuBtn = document.getElementById('userMenuBtn');
-  const userMenuDropdown = document.getElementById('userMenuDropdown');
   const sidebar = document.getElementById('sidebar');
+  const sidebarOverlay = document.getElementById('sidebarOverlay');
   const mainContent = document.getElementById('mainContent');
   const menuBtn = document.getElementById('menuBtn');
-  const sidebarOverlay = document.getElementById('sidebarOverlay');
+  const userMenuBtn = document.getElementById('userMenuBtn');
+  const userMenuDropdown = document.getElementById('userMenuDropdown');
 
   function toggleSidebar() {
       if (!sidebar) return;
@@ -484,12 +477,15 @@ $categories = [
   if (menuBtn) menuBtn.addEventListener('click', toggleSidebar);
   if (sidebarOverlay) sidebarOverlay.addEventListener('click', toggleSidebar);
 
-  userMenuBtn.addEventListener('click', () => userMenuDropdown.classList.toggle('hidden'));
-  document.addEventListener('click', (event) => {
-    if (!userMenuBtn.contains(event.target) && !userMenuDropdown.contains(event.target)) {
-      userMenuDropdown.classList.add('hidden');
-    }
-  });
+  if (userMenuBtn && userMenuDropdown) {
+      userMenuBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          userMenuDropdown.classList.toggle('hidden');
+      });
+      document.addEventListener('click', () => {
+          userMenuDropdown.classList.add('hidden');
+      });
+  }
 
   document.addEventListener('DOMContentLoaded', function() {
       const rows = document.querySelectorAll('.clickable-row');
@@ -577,5 +573,8 @@ $categories = [
   }
 </script>
 <script src="loader/loader.js"></script>
+  <?php include 'page_scripts.php'; ?>
 </body>
 </html>
+
+

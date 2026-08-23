@@ -36,12 +36,21 @@ if (!$audit_session) {
 $audit_location = $audit_session['location_id'];
 
 // Find the asset by its asset_no
-$asset_stmt = $conn->prepare("SELECT id, asset_name, asset_no, location FROM assets WHERE asset_no = ? AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL) LIMIT 1");
+$asset_stmt = $conn->prepare("SELECT id, asset_name, asset_no, location, 'dept' AS source FROM assets WHERE asset_no = ? AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL) LIMIT 1");
 $asset_stmt->bind_param("s", $asset_no);
 $asset_stmt->execute();
 $asset_result = $asset_stmt->get_result();
 $asset = $asset_result->fetch_assoc();
 $asset_stmt->close();
+
+if (!$asset) {
+    // Check in borrowed_assets table
+    $borrowed_stmt = $conn->prepare("SELECT id, asset_name, asset_no, location, 'borrowed' AS source FROM borrowed_assets WHERE asset_no = ? AND (status IS NULL OR status <> 'Returned') LIMIT 1");
+    $borrowed_stmt->bind_param("s", $asset_no);
+    $borrowed_stmt->execute();
+    $asset = $borrowed_stmt->get_result()->fetch_assoc();
+    $borrowed_stmt->close();
+}
 
 if (!$asset) {
     echo json_encode(['error' => 'Asset not found or is retired/transferred.']);

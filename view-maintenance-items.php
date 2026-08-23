@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require 'db.php';
 
@@ -99,6 +99,7 @@ if (!function_exists('getInitials')) {
         }
     </style>
     <link rel="stylesheet" href="loader/loader.css" />
+  <link rel="stylesheet" href="notifications.css" />
 </head>
 
 <body class="h-screen bg-gray-50 text-gray-900 antialiased">
@@ -143,37 +144,7 @@ if (!function_exists('getInitials')) {
         <div id="overlay" class="fixed inset-0 bg-gray-900/30 z-30 hidden"></div>
 
         <div class="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-            <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-end px-4 lg:px-6 gap-4 shrink-0">
-                <div class="flex items-center gap-3 sm:gap-4 shrink-0">
-                    <button class="relative p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
-                        <i data-lucide="bell" style="width:19px;height:19px"></i>
-                        <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white"></span>
-                    </button>
-                    <div class="w-px h-6 bg-gray-200 hidden sm:block"></div>
-                    <div class="relative">
-                        <button id="userMenuBtn" class="flex items-center gap-2.5 group">
-                            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-semibold shrink-0"><?php echo getInitials($_SESSION['user_name']); ?></div>
-                            <div class="hidden sm:block text-left leading-tight">
-                                <p class="text-sm font-semibold text-gray-900"><?php echo htmlspecialchars($_SESSION['user_name']); ?></p>
-                                <p class="text-xs text-gray-400"><?php echo htmlspecialchars(ucfirst($_SESSION['role'])); ?> - Computer Dept.</p>
-                            </div>
-                            <i data-lucide="chevron-down" class="hidden sm:block text-gray-400 group-hover:text-gray-600 transition-colors" style="width:16px;height:16px"></i>
-                        </button>
-                        <div id="userMenuDropdown" class="absolute top-full right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-100 hidden z-10">
-                            <div class="p-3 border-b border-gray-100">
-                                <p class="text-sm font-semibold text-gray-900 truncate"><?php echo htmlspecialchars($_SESSION['user_name']); ?></p>
-                                <p class="text-xs text-gray-500 truncate mt-0.5"><?php echo htmlspecialchars($_SESSION['user_email']); ?></p>
-                            </div>
-                            <div class="p-1.5">
-                                <a href="logout.php" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
-                                    <i data-lucide="log-out" style="width:16px;height:16px"></i>
-                                    Logout
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </header>
+            <?php include 'topbar.php'; ?>
 
             <div class="flex-1 overflow-y-auto flex flex-col">
                 <main class="flex-1 bg-gray-50 p-4 lg:p-6">
@@ -257,6 +228,8 @@ if (!function_exists('getInitials')) {
         });
     </script>
     <script src="loader/loader.js"></script>
+  <?php include 'page_scripts.php'; ?>
 </body>
 
 </html>
+

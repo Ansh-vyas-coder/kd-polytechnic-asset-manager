@@ -41,6 +41,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     $location_id = trim($_POST['location_id']);
     $audited_by_user_id = $_SESSION['user_id'];
+    $assigned_by_user_id = ($_SESSION['role'] === 'admin') ? $_SESSION['user_id'] : null;
 
     // Check if an audit for this location is already in progress
     $check_stmt = $conn->prepare("SELECT id FROM audits WHERE location_id = ? AND status = 'In Progress' LIMIT 1");
@@ -57,15 +58,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $check_stmt->close();
 
     // Create a new audit record in the 'audits' table
-    $stmt = $conn->prepare("INSERT INTO audits (location_id, audited_by_user_id, status) VALUES (?, ?, 'In Progress')");
-    
-    if (!$stmt) {
-        // Handle statement preparation error
-        header("Location: dashboard.php?view=audit&status=error&message=" . urlencode("Database error: " . $conn->error));
-        exit();
+    if ($_SESSION['role'] === 'admin') {
+        $stmt = $conn->prepare("INSERT INTO audits (location_id, audited_by_user_id, assigned_by_user_id, status) VALUES (?, ?, ?, 'In Progress')");
+        if (!$stmt) {
+            header("Location: dashboard.php?view=audit&status=error&message=" . urlencode("Database error: " . $conn->error));
+            exit();
+        }
+        $stmt->bind_param("sii", $location_id, $audited_by_user_id, $assigned_by_user_id);
+    } else {
+        $stmt = $conn->prepare("INSERT INTO audits (location_id, audited_by_user_id, status) VALUES (?, ?, 'In Progress')");
+        if (!$stmt) {
+            // Handle statement preparation error
+            header("Location: dashboard.php?view=audit&status=error&message=" . urlencode("Database error: " . $conn->error));
+            exit();
+        }
+        $stmt->bind_param("si", $location_id, $audited_by_user_id);
     }
-
-    $stmt->bind_param("si", $location_id, $audited_by_user_id);
 
     if ($stmt->execute()) {
         // Get the ID of the newly created audit

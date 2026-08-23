@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require 'db.php';
 
@@ -109,6 +109,7 @@ $current_page = 'audit'; // for sidebar active state
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <link rel="stylesheet" href="loader/loader.css" />
+  <link rel="stylesheet" href="notifications.css" />
     <script>
         tailwind.config = {
             theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } }
@@ -125,21 +126,7 @@ $current_page = 'audit'; // for sidebar active state
         <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden"></div>
 
         <div id="mainContent" class="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300 ease-in-out h-screen overflow-hidden">
-            <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6 shrink-0">
-                <div class="flex items-center gap-2">
-                    <button id="menuBtn" class="p-2 -ml-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0">
-                        <i data-lucide="menu" style="width:20px;height:20px"></i>
-                    </button>
-                    <h1 class="text-lg font-semibold">Audit Session</h1>
-                </div>
-                <div class="flex items-center gap-3 sm:gap-4">
-                    <div class="relative">
-                        <button id="userMenuBtn" class="flex items-center gap-2.5 group">
-                            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-semibold shrink-0"><?php echo getInitials($_SESSION['user_name']); ?></div>
-                        </button>
-                    </div>
-                </div>
-            </header>
+        <?php include 'topbar.php'; ?>
 
             <!-- Progress Bar -->
             <div class="sticky top-16 bg-white/80 backdrop-blur-sm border-b border-gray-200 z-10 p-4">
@@ -212,7 +199,16 @@ $current_page = 'audit'; // for sidebar active state
                                             </select>
                                         </div>
                                     </div>
-                                    <button type="button" id="checkAllBtn" class="text-sm font-medium text-blue-600 hover:text-blue-800">Mark All as Present</button>
+                                    <div class="flex items-center gap-3">
+                                        <button type="button" id="auditQrScanBtn"
+                                            onclick="openAuditQrScanner()"
+                                            title="Scan QR Code to verify asset"
+                                            class="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                                            Scan QR
+                                        </button>
+                                        <button type="button" id="checkAllBtn" class="text-sm font-medium text-blue-600 hover:text-blue-800">Mark All as Present</button>
+                                    </div>
                                 </div>
                                 <ul class="divide-y divide-gray-100">
                                     <li id="noFilterResults" class="p-6 text-center text-gray-500 hidden">No items match the current filters.</li>
@@ -220,7 +216,7 @@ $current_page = 'audit'; // for sidebar active state
                                         <li class="p-6 text-center text-gray-500">No owned or active borrowed assets are assigned to this location.</li>
                                     <?php else: ?>
                                         <?php foreach ($expected_assets as $asset): ?>
-                                            <li class="p-4 sm:p-5" data-asset-name="<?php echo htmlspecialchars($asset['asset_name']); ?>">
+                                            <li class="p-4 sm:p-5" data-asset-name="<?php echo htmlspecialchars($asset['asset_name']); ?>" data-asset-no="<?php echo htmlspecialchars($asset['asset_no']); ?>">
                                                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                                                     <!-- Left side: Asset Info -->
                                                     <div class="min-w-0 flex-1">
@@ -398,22 +394,25 @@ $current_page = 'audit'; // for sidebar active state
         const container = document.getElementById('misplacedItemsContainer');
 
         function addMisplacedItem(asset) {
-            if (misplacedAssetIdSet.has(asset.id.toString())) {
+            const isBorrowed = asset.source === 'borrowed';
+            const compositeId = isBorrowed ? `borrowed_${asset.id}` : `asset_${asset.id}`;
+
+            if (misplacedAssetIdSet.has(compositeId)) {
                 feedbackDiv.textContent = 'This asset has already been added.';
                 feedbackDiv.className = 'text-xs mt-2 h-4 text-amber-600';
-                return;
+                return false;
             }
 
-            misplacedAssetIdSet.add(asset.id.toString());
+            misplacedAssetIdSet.add(compositeId);
             misplacedAssets.push(asset);
 
             const itemHtml = `
-                <div id="misplaced-item-${asset.id}" class="flex items-center justify-between gap-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div id="misplaced-item-${compositeId}" class="flex items-center justify-between gap-3 ${isBorrowed ? 'bg-purple-50 border-purple-200 text-purple-800' : 'bg-blue-50 border-blue-200 text-blue-800'} border rounded-lg p-3">
                     <div class="min-w-0">
-                        <p class="font-semibold text-sm text-blue-800 truncate">${asset.asset_name}</p>
-                        <p class="text-xs text-blue-600 mt-1 font-mono">${asset.asset_no}</p>
+                        <p class="font-semibold text-sm truncate">${asset.asset_name} ${isBorrowed ? '<span class="inline-flex rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-semibold text-purple-800">Borrowed</span>' : ''}</p>
+                        <p class="text-xs mt-1 font-mono">${asset.asset_no}</p>
                     </div>
-                    <button type="button" class="remove-misplaced-btn p-1.5 rounded-full text-red-500 hover:bg-red-100" data-id="${asset.id}">
+                    <button type="button" class="remove-misplaced-btn p-1.5 rounded-full text-red-500 hover:bg-red-100" data-composite-id="${compositeId}">
                         <i data-lucide="x" class="w-4 h-4"></i>
                     </button>
                 </div>
@@ -422,9 +421,9 @@ $current_page = 'audit'; // for sidebar active state
 
             const hiddenInput = document.createElement('input');
             hiddenInput.type = 'hidden';
-            hiddenInput.name = 'misplaced_assets[]';
+            hiddenInput.name = isBorrowed ? 'misplaced_borrowed_assets[]' : 'misplaced_assets[]';
             hiddenInput.value = asset.id;
-            hiddenInput.id = `misplaced-input-${asset.id}`;
+            hiddenInput.id = `misplaced-input-${compositeId}`;
             mainForm.appendChild(hiddenInput);
 
             lucide.createIcons();
@@ -432,11 +431,12 @@ $current_page = 'audit'; // for sidebar active state
             feedbackDiv.textContent = `Added: ${asset.asset_name}`;
             feedbackDiv.className = 'text-xs mt-2 h-4 text-green-600';
             saveMisplacedState();
+            return true;
         }
 
         async function findAsset() {
             const assetNo = searchInput.value.trim();
-            if (!assetNo) return;
+            if (!assetNo) return { ok: false, error: 'Please scan or enter an asset number.' };
 
             feedbackDiv.textContent = 'Searching...';
             feedbackDiv.className = 'text-xs mt-2 h-4 text-gray-500';
@@ -446,14 +446,22 @@ $current_page = 'audit'; // for sidebar active state
                 const data = await response.json();
 
                 if (response.ok && data.id) {
-                    addMisplacedItem(data);
+                    const wasAdded = addMisplacedItem(data);
+                    if (wasAdded) {
+                        return { ok: true, data };
+                    }
+                    return { ok: false, error: 'This asset has already been added.' };
                 } else {
-                    feedbackDiv.textContent = data.error || 'An unknown error occurred.';
+                    const errorMessage = data.error || 'An unknown error occurred.';
+                    feedbackDiv.textContent = errorMessage;
                     feedbackDiv.className = 'text-xs mt-2 h-4 text-red-600';
+                    return { ok: false, error: errorMessage };
                 }
             } catch (error) {
-                feedbackDiv.textContent = 'Failed to connect to the server.';
+                const errorMessage = 'Failed to connect to the server.';
+                feedbackDiv.textContent = errorMessage;
                 feedbackDiv.className = 'text-xs mt-2 h-4 text-red-600';
+                return { ok: false, error: errorMessage };
             }
         }
 
@@ -463,12 +471,17 @@ $current_page = 'audit'; // for sidebar active state
         container.addEventListener('click', (e) => {
             const removeBtn = e.target.closest('.remove-misplaced-btn');
             if (removeBtn) {
-                const assetId = removeBtn.dataset.id;
-                document.getElementById(`misplaced-item-${assetId}`).remove();
-                document.getElementById(`misplaced-input-${assetId}`).remove();
+                const compositeId = removeBtn.dataset.compositeId || removeBtn.dataset.id;
+                const el = document.getElementById(`misplaced-item-${compositeId}`);
+                if (el) el.remove();
+                const inputEl = document.getElementById(`misplaced-input-${compositeId}`);
+                if (inputEl) inputEl.remove();
                 
-                misplacedAssetIdSet.delete(assetId);
-                misplacedAssets = misplacedAssets.filter(asset => asset.id.toString() !== assetId);
+                misplacedAssetIdSet.delete(compositeId);
+                misplacedAssets = misplacedAssets.filter(asset => {
+                    const idToMatch = asset.source === 'borrowed' ? `borrowed_${asset.id}` : `asset_${asset.id}`;
+                    return idToMatch !== compositeId;
+                });
                 saveMisplacedState();
 
                 feedbackDiv.textContent = 'Item removed.';
@@ -589,6 +602,163 @@ $current_page = 'audit'; // for sidebar active state
             applyFilter();
         });
     </script>
+    <script src="loader/html5-qrcode.min.js"></script>
+
+    <!-- QR Scanner Modal for Audit -->
+    <div id="auditQrScannerModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4">
+        <div class="w-full max-w-sm rounded-2xl bg-white shadow-2xl overflow-hidden">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <div class="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    <h3 class="font-bold text-gray-900 text-base">Audit: Scan Asset QR</h3>
+                </div>
+                <button onclick="closeAuditQrScanner()" class="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="p-5">
+                <div id="audit-qr-reader" class="rounded-xl overflow-hidden shadow-inner bg-black" style="width:100%"></div>
+                <div id="audit-qr-scan-status" class="mt-3 text-center text-sm text-gray-500 font-medium">Scan an asset QR to check it in</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let auditQrScanner = null;
+        let lastScannedText = "";
+        let scanThrottleTimeout = null;
+        let scanAudioContext = null;
+
+        function playScanBeep(kind = 'success') {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClass) return;
+
+            if (!scanAudioContext) {
+                scanAudioContext = new AudioContextClass();
+            }
+
+            if (scanAudioContext.state === 'suspended') {
+                scanAudioContext.resume().catch(() => {});
+            }
+
+            const beepPattern = kind === 'misplaced'
+                ? [{ frequency: 620, duration: 0.09 }, { frequency: 820, duration: 0.09 }]
+                : [{ frequency: 880, duration: 0.12 }];
+
+            let startAt = scanAudioContext.currentTime;
+            beepPattern.forEach((tone, index) => {
+                const oscillator = scanAudioContext.createOscillator();
+                const gainNode = scanAudioContext.createGain();
+
+                oscillator.type = 'sine';
+                oscillator.frequency.value = tone.frequency;
+
+                gainNode.gain.setValueAtTime(0.0001, startAt);
+                gainNode.gain.exponentialRampToValueAtTime(0.12, startAt + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.0001, startAt + tone.duration);
+
+                oscillator.connect(gainNode);
+                gainNode.connect(scanAudioContext.destination);
+                oscillator.start(startAt);
+                oscillator.stop(startAt + tone.duration + 0.02);
+
+                startAt += index === 0 ? tone.duration + 0.08 : 0;
+            });
+        }
+
+        function openAuditQrScanner() {
+            document.getElementById('auditQrScannerModal').classList.remove('hidden');
+            document.getElementById('audit-qr-scan-status').textContent = 'Starting camera... Keep scanning after each beep.';
+            document.getElementById('audit-qr-scan-status').className = 'mt-3 text-center text-sm text-gray-500 font-medium';
+            lastScannedText = "";
+
+            auditQrScanner = new Html5Qrcode("audit-qr-reader");
+            auditQrScanner.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 220, height: 220 } },
+                function(decodedText) {
+                    const cleanText = decodedText.trim();
+                    if (cleanText === lastScannedText) {
+                        return; // Prevent duplicate immediate scans
+                    }
+                    lastScannedText = cleanText;
+                    
+                    // Throttle reset of lastScannedText so user can scan it again after 3 seconds if needed
+                    clearTimeout(scanThrottleTimeout);
+                    scanThrottleTimeout = setTimeout(() => {
+                        lastScannedText = "";
+                    }, 3000);
+
+                    handleAuditQrResult(cleanText);
+                },
+                function(err) { /* ignore */ }
+            ).catch(function(err) {
+                document.getElementById('audit-qr-scan-status').textContent = 'Camera error: ' + err;
+                document.getElementById('audit-qr-scan-status').className = 'mt-3 text-center text-sm text-red-600 font-medium';
+            });
+        }
+
+        function closeAuditQrScanner() {
+            if (auditQrScanner) {
+                auditQrScanner.stop().catch(() => {});
+                auditQrScanner = null;
+            }
+            document.getElementById('auditQrScannerModal').classList.add('hidden');
+        }
+
+        async function handleAuditQrResult(assetNo) {
+            if (!assetNo) return;
+            const statusEl = document.getElementById('audit-qr-scan-status');
+            
+            // Try finding in expected assets list
+            const targetLi = document.querySelector(`li[data-asset-no="${assetNo}"]`);
+            
+            if (targetLi) {
+                const checkbox = targetLi.querySelector('.asset-checkbox');
+                if (checkbox) {
+                    checkbox.checked = true;
+                    const assetId = checkbox.id.replace('asset_present_', '');
+                    saveAssetState(assetId);
+                    updateProgress();
+                    applyFilter();
+                    
+                    // Visual feedback: green flash
+                    targetLi.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    targetLi.classList.add('bg-emerald-50', 'transition-colors', 'duration-500');
+                    setTimeout(() => {
+                        targetLi.classList.remove('bg-emerald-50');
+                    }, 1500);
+
+                    playScanBeep('success');
+                    statusEl.textContent = `Verified: ${assetNo}. Ready for next scan.`;
+                    statusEl.className = 'mt-3 text-center text-sm text-emerald-600 font-bold';
+                }
+            } else {
+                // Not in expected list: add to misplaced
+                statusEl.textContent = `Checking database for: ${assetNo}...`;
+                statusEl.className = 'mt-3 text-center text-sm text-amber-600 font-medium';
+
+                const mInput = document.getElementById('misplacedAssetSearch');
+                if (mInput) {
+                    mInput.value = assetNo;
+                    const result = await findAsset(); // Calls existing findAsset JS function
+
+                    if (result && result.ok) {
+                        playScanBeep('misplaced');
+                        statusEl.textContent = `Marked misplaced: ${assetNo}. Ready for next scan.`;
+                        statusEl.className = 'mt-3 text-center text-sm text-blue-600 font-bold';
+                    } else {
+                        const errorMessage = (result && result.error) ? result.error : 'Could not mark misplaced asset.';
+                        statusEl.textContent = errorMessage;
+                        statusEl.className = 'mt-3 text-center text-sm text-red-600 font-medium';
+                    }
+                }
+            }
+        }
+    </script>
     <script src="loader/loader.js"></script>
+  <?php include 'page_scripts.php'; ?>
 </body>
 </html>
+
+

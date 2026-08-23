@@ -116,7 +116,8 @@ $dept_col_sql     = build_report_columns($selected_columns, $dept_available);
 $borrowed_col_sql = build_report_columns($selected_columns, $borrowed_available);
 
 // "Borrowed From" column option doubles as the include-borrowed toggle
-$include_borrowed = in_array('borrowed_from', $selected_columns, true);
+// For staff role, always include borrowed assets.
+$include_borrowed = ($_SESSION['role'] === 'staff') ? true : in_array('borrowed_from', $selected_columns, true);
 
 $where_text = !empty($where_clauses) ? " WHERE " . implode(" AND ", $where_clauses) : "";
 $dept_sql = "SELECT " . implode(", ", $dept_col_sql) . " FROM assets" . $where_text;

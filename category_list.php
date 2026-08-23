@@ -123,6 +123,7 @@ function getInitials($name)
         }
     </style>
     <link rel="stylesheet" href="loader/loader.css" />
+  <link rel="stylesheet" href="notifications.css" />
 
 
 <body class="h-screen bg-gray-50 text-gray-900 antialiased">
@@ -135,48 +136,7 @@ function getInitials($name)
         <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden"></div>
 
         <div id="mainContent" class="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300 ease-in-out h-screen overflow-hidden">
-            <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6 gap-4 shrink-0">
-                <div class="flex items-center gap-2 flex-1 min-w-0">
-                    <button id="menuBtn" class="lg:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0">
-                        <i data-lucide="menu" style="width:20px;height:20px"></i>
-                    </button>
-                    <div class="relative w-full max-w-md">
-                        <i data-lucide="search" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" style="width:16px;height:16px"></i>
-                        <input type="text" placeholder="Search assets, locations, categories..."
-                            class="w-full pl-10 pr-4 py-2.5 rounded-full bg-gray-50 border border-gray-200 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 transition" />
-                    </div>
-                </div>
-
-                <div class="flex items-center gap-3 sm:gap-4 shrink-0">
-                    <button class="relative p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
-                        <i data-lucide="bell" style="width:19px;height:19px"></i>
-                        <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white"></span>
-                    </button>
-                    <div class="w-px h-6 bg-gray-200 hidden sm:block"></div>
-                    <div class="relative">
-                        <button id="userMenuBtn" class="flex items-center gap-2.5 group">
-                            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-semibold shrink-0"><?php echo getInitials($_SESSION['user_name']); ?></div>
-                            <div class="hidden sm:block text-left leading-tight">
-                                <p class="text-sm font-semibold text-gray-900"><?php echo htmlspecialchars($_SESSION['user_name']); ?></p>
-                                <p class="text-xs text-gray-400"><?php echo htmlspecialchars(ucfirst($_SESSION['role'])); ?> - Computer Dept.</p>
-                            </div>
-                            <i data-lucide="chevron-down" class="hidden sm:block text-gray-400 group-hover:text-gray-600 transition-colors" style="width:16px;height:16px"></i>
-                        </button>
-                        <div id="userMenuDropdown" class="absolute top-full right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-100 hidden z-10">
-                            <div class="p-3 border-b border-gray-100">
-                                <p class="text-sm font-semibold text-gray-900 truncate"><?php echo htmlspecialchars($_SESSION['user_name']); ?></p>
-                                <p class="text-xs text-gray-500 truncate mt-0.5"><?php echo htmlspecialchars($_SESSION['user_email']); ?></p>
-                            </div>
-                            <div class="p-1.5">
-                                <a href="logout.php" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
-                                    <i data-lucide="log-out" style="width:16px;height:16px"></i>
-                                    Logout
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </header>
+        <?php include 'topbar.php'; ?>
 
             <div class="flex-1 overflow-y-auto flex flex-col">
                 <main class="flex-1 bg-gray-50 p-4 lg:p-6">
@@ -393,21 +353,19 @@ function getInitials($name)
         lucide.createIcons();
 
         const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
         const mainContent = document.getElementById('mainContent');
         const menuBtn = document.getElementById('menuBtn');
         const userMenuBtn = document.getElementById('userMenuBtn');
         const userMenuDropdown = document.getElementById('userMenuDropdown');
-        const sidebarOverlay = document.getElementById('sidebarOverlay');
 
         function toggleSidebar() {
             if (!sidebar) return;
 
             if (window.innerWidth < 1024) {
-                // Mobile: Toggle the class that hides the sidebar and show/hide the overlay.
                 sidebar.classList.toggle('-translate-x-full');
                 if (sidebarOverlay) sidebarOverlay.classList.toggle('hidden');
             } else {
-                // Desktop: Toggle the responsive class that shows the sidebar and adjust main content margin.
                 sidebar.classList.toggle('lg:translate-x-0');
                 if (mainContent) mainContent.classList.toggle('lg:ml-64');
             }
@@ -416,8 +374,18 @@ function getInitials($name)
         if (menuBtn) menuBtn.addEventListener('click', toggleSidebar);
         if (sidebarOverlay) sidebarOverlay.addEventListener('click', toggleSidebar);
 
-        userMenuBtn.addEventListener('click', () => userMenuDropdown.classList.toggle('hidden'));
-        document.addEventListener('click', (event) => { if (!userMenuBtn.contains(event.target) && !userMenuDropdown.contains(event.target)) { userMenuDropdown.classList.add('hidden'); } });
+        if (userMenuBtn && userMenuDropdown) {
+            userMenuBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                userMenuDropdown.classList.toggle('hidden');
+            });
+            document.addEventListener('click', function(e) {
+                if (!userMenuDropdown.contains(e.target) && e.target !== userMenuBtn) {
+                    userMenuDropdown.classList.add('hidden');
+                }
+            });
+        }
+
 
         <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
         function openEditModal(assetId) {
@@ -455,3 +423,6 @@ function getInitials($name)
 
 
 </html>
+
+
+

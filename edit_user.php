@@ -80,6 +80,7 @@ $current_page = 'manage-users';
   html, body { font-family: 'Inter', sans-serif; }
 </style>
     <link rel="stylesheet" href="loader/loader.css" />
+  <link rel="stylesheet" href="notifications.css" />
 
 <body class="h-screen bg-gray-50 text-gray-900 antialiased">
   <?php include 'loader/loader.html'; ?>
@@ -94,25 +95,7 @@ $current_page = 'manage-users';
 
   <div id="mainContent" class="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300 ease-in-out h-screen overflow-hidden">
     <!-- Header -->
-    <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6">
-        <div class="flex items-center gap-2">
-            <button id="menuBtn" class="p-2 -ml-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0">
-                <i data-lucide="menu" style="width:20px;height:20px"></i>
-            </button>
-        </div>
-        <div class="flex items-center gap-3 sm:gap-4">
-            <div class="relative">
-                <button id="userMenuBtn" class="flex items-center gap-2.5 group">
-                    <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-semibold shrink-0"><?php echo getInitials($_SESSION['user_name']); ?></div>
-                    <div class="hidden sm:block text-left leading-tight">
-                        <p class="text-sm font-semibold text-gray-900"><?php echo htmlspecialchars($_SESSION['user_name']); ?></p>
-                        <p class="text-xs text-gray-400"><?php echo htmlspecialchars(ucfirst($_SESSION['role'])); ?> - Computer Dept.</p>
-                    </div>
-                    <i data-lucide="chevron-down" class="hidden sm:block text-gray-400 group-hover:text-gray-600 transition-colors" style="width:16px;height:16px"></i>
-                </button>
-            </div>
-        </div>
-    </header>
+    <?php include 'topbar.php'; ?>
 
     <!-- Main Content -->
     <div class="flex-1 overflow-y-auto flex flex-col">
@@ -191,4 +174,6 @@ $current_page = 'manage-users';
 
   <script src="loader/loader.js"></script>
 
+  <?php include 'page_scripts.php'; ?>
 </html>
+

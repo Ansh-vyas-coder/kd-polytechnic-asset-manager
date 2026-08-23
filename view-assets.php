@@ -51,6 +51,12 @@ if ($group_filter === '') {
   $params = [$category_id];
   $types  = "i";
 
+  if ($_SESSION['role'] === 'staff') {
+    $base_where .= " AND assigned_to = ?";
+    $params[] = $_SESSION['user_name'];
+    $types .= "s";
+  }
+
   if (!empty($search_query)) {
     $base_where .= " AND (asset_name LIKE ? OR item_no LIKE ? OR location LIKE ?)";
     $search_term = "%" . $search_query . "%";
@@ -91,6 +97,12 @@ else {
                  AND LOWER(TRIM(SUBSTRING_INDEX(TRIM(asset_name), ' ', -1))) = ?";
   $params = [$category_id, $group_filter];
   $types  = "is";
+
+  if ($_SESSION['role'] === 'staff') {
+    $base_where .= " AND assigned_to = ?";
+    $params[] = $_SESSION['user_name'];
+    $types .= "s";
+  }
 
   if (!empty($search_query)) {
     $base_where .= " AND (asset_name LIKE ? OR item_no LIKE ? OR location LIKE ? OR date_of_issue LIKE ?)";
@@ -157,6 +169,7 @@ if (!function_exists('getInitials')) {
     .group-card:hover { background: #eff6ff; border-color: #bfdbfe; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59,130,246,.1); }
   </style>
   <link rel="stylesheet" href="loader/loader.css" />
+  <link rel="stylesheet" href="notifications.css" />
 </head>
 
 <body class="h-screen bg-gray-50 text-gray-900 antialiased">
@@ -172,22 +185,33 @@ if (!function_exists('getInitials')) {
 
     <div id="mainContent" class="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300 ease-in-out h-screen overflow-hidden">
       <!-- Header -->
-      <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6">
-        <button id="menuBtn" class="p-2 -ml-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0">
-          <i data-lucide="menu" style="width:20px;height:20px"></i>
-        </button>
-        <div class="flex items-center gap-3 sm:gap-4 shrink-0">
-          <div class="relative">
-            <button id="userMenuBtn" class="flex items-center gap-2.5 group">
-              <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-semibold shrink-0"><?php echo getInitials($_SESSION['user_name']); ?></div>
-            </button>
-          </div>
-        </div>
-      </header>
+      <?php include 'topbar.php'; ?>
 
       <!-- Main Content -->
       <div class="flex-1 overflow-y-auto flex flex-col">
         <main class="flex-1 bg-gray-50 p-4 lg:p-6">
+
+          <?php
+          $status_msg = $_GET['status'] ?? '';
+          $new_batch_id = trim($_GET['new_batch_id'] ?? '');
+          if ($status_msg === 'asset_added'): ?>
+          <div class="mb-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 shadow-sm">
+            <div class="flex items-center gap-3">
+              <span class="text-2xl">✅</span>
+              <div>
+                <p class="text-sm font-bold text-emerald-800">Assets added successfully!</p>
+                <p class="text-xs text-emerald-600 mt-0.5">The new assets have been added to the register.</p>
+              </div>
+            </div>
+            <?php if (!empty($new_batch_id)): ?>
+            <a href="download-qr.php?batch_id=<?php echo urlencode($new_batch_id); ?>"
+               class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow hover:bg-emerald-700 transition shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              Download QR Labels (PDF)
+            </a>
+            <?php endif; ?>
+          </div>
+          <?php endif; ?>
 
           <!-- Breadcrumb Navigation -->
           <div class="mb-6">
@@ -352,7 +376,15 @@ if (!function_exists('getInitials')) {
                       <td class="px-6 py-4 whitespace-nowrap text-gray-500"><?php echo date('M d, Y', strtotime($asset['first_issue_date'])); ?></td>
                       <td class="px-6 py-4 whitespace-nowrap text-gray-500 text-xs"><?php echo htmlspecialchars($asset['locations'] ?? 'N/A'); ?></td>
                       <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <a href="<?php echo $link; ?>" class="text-indigo-600 hover:text-indigo-900" onclick="event.stopPropagation()">View Assets</a>
+                        <div class="flex items-center justify-end gap-3" onclick="event.stopPropagation()">
+                          <a href="download-qr.php?category_id=<?php echo $category_id; ?>&asset_name=<?php echo urlencode($asset['asset_name']); ?>&item_no=<?php echo $item_no; ?>"
+                             title="Download QR Labels for all assets of this item"
+                             class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                            QR
+                          </a>
+                          <a href="<?php echo $link; ?>" class="text-indigo-600 hover:text-indigo-900">View Assets</a>
+                        </div>
                       </td>
                     </tr>
                     <?php endforeach; ?>
@@ -376,3 +408,6 @@ if (!function_exists('getInitials')) {
       const sidebar = document.getElementById('sidebar');
       const mainContent = document.getElementById('mainContent');
       const userMenuBtn = document.getElementById('userMenuB
+
+
+

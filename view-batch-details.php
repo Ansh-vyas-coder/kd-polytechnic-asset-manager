@@ -368,6 +368,7 @@ if (!function_exists('getInitials')) {
     </style>
 
     <link rel="stylesheet" href="loader/loader.css" />
+  <link rel="stylesheet" href="notifications.css" />
 </head>
 
 <body class="h-screen bg-gray-50 text-gray-900 antialiased">
@@ -381,18 +382,7 @@ if (!function_exists('getInitials')) {
 
         <div id="mainContent" class="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300 ease-in-out h-screen overflow-hidden">
             <!-- Header -->
-            <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6">
-                <button id="menuBtn" class="p-2 -ml-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0">
-                    <i data-lucide="menu" style="width:20px;height:20px"></i>
-                </button>
-                <div class="flex items-center gap-3 sm:gap-4 shrink-0">
-                    <div class="relative">
-                        <button id="userMenuBtn" class="flex items-center gap-2.5 group">
-                            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-semibold shrink-0"><?php echo getInitials($_SESSION['user_name']); ?></div>
-                        </button>
-                    </div>
-                </div>
-            </header>
+        <?php include 'topbar.php'; ?>
 
             <!-- Main Content -->
             <div class="flex-1 overflow-y-auto flex flex-col">
@@ -560,6 +550,7 @@ if (!function_exists('getInitials')) {
                                         <th class="px-6 py-3 font-medium">Location</th>
                                         <th class="px-6 py-3 font-medium">Status</th>
                                         <th class="px-6 py-3 font-medium">Remarks</th>
+                                        <th class="px-6 py-3 font-medium">QR Code</th>
                                         <?php if ($show_actions_column): ?>
                                             <th class="px-6 py-3 font-medium">Actions</th>
                                         <?php endif; ?>
@@ -603,6 +594,18 @@ if (!function_exists('getInitials')) {
                                                     <?php endif; ?>
                                                 </td>
                                                 <td class="px-6 py-4 text-xs"><?php echo htmlspecialchars($item['remarks'] ?: 'None'); ?></td>
+                                                <td class="px-6 py-4">
+                                                    <?php if (!empty($item['asset_no'])): ?>
+                                                        <a href="download-qr.php?asset_no=<?php echo urlencode($item['asset_no']); ?>"
+                                                           title="Download QR Label for <?php echo htmlspecialchars($item['asset_no']); ?>"
+                                                           class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                                                            QR
+                                                        </a>
+                                                    <?php else: ?>
+                                                        <span class="text-xs text-gray-400">—</span>
+                                                    <?php endif; ?>
+                                                </td>
                                                 <?php if ($show_actions_column): ?>
                                                     <td class="record-row-actions px-6 py-4 text-sm whitespace-nowrap">
                                                         <?php if ($is_admin): ?>
@@ -660,6 +663,10 @@ if (!function_exists('getInitials')) {
                         <div class="flex gap-3">
                             <button type="button" id="bulkEditEditBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                 Edit
+                            </button>
+
+                            <button type="button" id="bulkQrDownloadBtn" class="inline-flex items-center gap-1.5 px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                                <i data-lucide="qr-code" class="w-4 h-4"></i> QR
                             </button>
 
                             <button type="button" id="bulkEditCancelBtn" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
@@ -907,9 +914,11 @@ if (!function_exists('getInitials')) {
 
         // --- Sidebar Toggle Logic ---
         const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
         const mainContent = document.getElementById('mainContent');
         const menuBtn = document.getElementById('menuBtn');
-        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        const userMenuBtn = document.getElementById('userMenuBtn');
+        const userMenuDropdown = document.getElementById('userMenuDropdown');
 
         function toggleSidebar() {
             if (!sidebar) return;
@@ -927,6 +936,19 @@ if (!function_exists('getInitials')) {
 
         if (menuBtn) menuBtn.addEventListener('click', toggleSidebar);
         if (sidebarOverlay) sidebarOverlay.addEventListener('click', toggleSidebar);
+
+        if (userMenuBtn && userMenuDropdown) {
+            userMenuBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                userMenuDropdown.classList.toggle('hidden');
+            });
+            document.addEventListener('click', function(e) {
+                if (!userMenuDropdown.contains(e.target) && e.target !== userMenuBtn) {
+                    userMenuDropdown.classList.add('hidden');
+                }
+            });
+        }
+
 
         const filterBtn = document.getElementById('filterBtn');
         const filterDropdown = document.getElementById('filterDropdown');
@@ -962,6 +984,7 @@ if (!function_exists('getInitials')) {
             const bulkRetireCount = document.getElementById('bulkRetireCount');
             const cancelBulkRetireBtn = document.getElementById('cancelBulkRetireBtn');
             const confirmBulkRetireBtn = document.getElementById('confirmBulkRetireBtn');
+            const openBulkEditBtn = document.getElementById('openBulkEditBtn');
 
             document.querySelectorAll('.retire-item-btn').forEach(button => {
                 button.addEventListener('click', function() {
@@ -1227,6 +1250,15 @@ if (!function_exists('getInitials')) {
             if (document.getElementById('bulkEditCancelBtn')) {
                 document.getElementById('bulkEditCancelBtn').addEventListener('click', () => {
                     exitBulkEditMode();
+                });
+            }
+
+            if (document.getElementById('bulkQrDownloadBtn')) {
+                document.getElementById('bulkQrDownloadBtn').addEventListener('click', () => {
+                    const checked = Array.from(document.querySelectorAll('.bulk-edit-checkbox:checked'));
+                    if (checked.length === 0) return;
+                    const ids = checked.map(cb => cb.dataset.itemId).filter(Boolean).join(',');
+                    if (ids) window.open('download-qr.php?ids=' + encodeURIComponent(ids), '_blank');
                 });
             }
 
@@ -1635,6 +1667,9 @@ document.querySelectorAll('.edit-item-btn').forEach(button => {
 
     <script src="loader/loader.js"></script>
 
+  <?php include 'page_scripts.php'; ?>
 </body>
 
 </html>
+
+

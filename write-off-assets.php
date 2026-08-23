@@ -725,6 +725,8 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
                             'page_no' => $asset['page_no'],
                             'date_of_issue_min' => $asset['date_of_issue'],
                             'date_of_issue_max' => $asset['date_of_issue'],
+                            'retire_at_min' => isset($asset['retire_at']) ? $asset['retire_at'] : null,
+                            'retire_at_max' => isset($asset['retire_at']) ? $asset['retire_at'] : null,
                             'total_cost' => 0,
                             'status' => $asset['status'] ?: ($active_tab === 'history' ? 'Retired' : 'Active'),
                             'locations' => [],
@@ -742,6 +744,14 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
                     }
                     if (strtotime($asset['date_of_issue']) > strtotime($grouped[$item_no]['date_of_issue_max'])) {
                         $grouped[$item_no]['date_of_issue_max'] = $asset['date_of_issue'];
+                    }
+                    if (isset($asset['retire_at']) && $asset['retire_at'] !== null) {
+                        if (!$grouped[$item_no]['retire_at_min'] || strtotime($asset['retire_at']) < strtotime($grouped[$item_no]['retire_at_min'])) {
+                            $grouped[$item_no]['retire_at_min'] = $asset['retire_at'];
+                        }
+                        if (!$grouped[$item_no]['retire_at_max'] || strtotime($asset['retire_at']) > strtotime($grouped[$item_no]['retire_at_max'])) {
+                            $grouped[$item_no]['retire_at_max'] = $asset['retire_at'];
+                        }
                     }
                 }
 
@@ -768,7 +778,19 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
                                 <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100"><?php echo htmlspecialchars($item_no); ?></span>
                                 <div class="wo-primary capitalize"><?php echo htmlspecialchars($group['asset_name']); ?></div>
                             </div>
-                            <div class="wo-secondary mt-1">Page No: <?php echo htmlspecialchars($group['page_no'] ?: 'N/A'); ?> | Date Range: <?php echo date('d/m/Y', strtotime($group['date_of_issue_min'])); ?> - <?php echo date('d/m/Y', strtotime($group['date_of_issue_max'])); ?></div>
+                            <div class="wo-secondary mt-1">
+                                Page No: <?php echo htmlspecialchars($group['page_no'] ?: 'N/A'); ?> | 
+                                <?php if ($active_tab === 'history'): ?>
+                                    Date Range (Issued - Written Off): <?php echo date('d/m/Y', strtotime($group['date_of_issue_min'])); ?> - <?php echo $group['retire_at_max'] ? date('d/m/Y', strtotime($group['retire_at_max'])) : 'N/A'; ?>
+                                <?php else: ?>
+                                    <?php
+                                    $age_min = date_diff(date_create($group['date_of_issue_min']), date_create('today'))->y;
+                                    $age_max = date_diff(date_create($group['date_of_issue_max']), date_create('today'))->y;
+                                    $age_str = ($age_min === $age_max) ? "{$age_min} years" : "{$age_min} - {$age_max} years";
+                                    ?>
+                                    Asset Age: <?php echo $age_str; ?>
+                                <?php endif; ?>
+                            </div>
                         </div>
 
                         <div class="wo-cell">
