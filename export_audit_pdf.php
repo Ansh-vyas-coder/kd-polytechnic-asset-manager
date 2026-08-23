@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require 'db.php';
 
@@ -9,9 +9,9 @@ if (!file_exists($autoload_path)) {
 }
 require_once $autoload_path;
 
-// Security check: ensure user is logged in and is an admin
+// Security check: ensure user is logged in and is an admin or staff
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'staff'])) {
-    header("HTTP/1.1 403 Forbidden"); // User not logged in or not a valid role
+    header("HTTP/1.1 403 Forbidden");
     exit("Access denied.");
 }
 
@@ -33,8 +33,7 @@ if (!$audit_stmt) {
 }
 $audit_stmt->bind_param("i", $audit_id);
 $audit_stmt->execute();
-$audit_result = $audit_stmt->get_result();
-$audit_details = $audit_result->fetch_assoc();
+$audit_details = $audit_stmt->get_result()->fetch_assoc();
 $audit_stmt->close();
 
 if (!$audit_details) {
@@ -47,47 +46,47 @@ if ($_SESSION['role'] === 'staff' && $audit_details['audited_by_user_id'] != $_S
     exit("Access denied. You can only export your own audit reports.");
 }
 
-// --- Fetch all audit items ---
+// --- Fetch dept audit items ---
 $items_stmt = $conn->prepare(
-    "SELECT
-        ai.verification_status,
-        ai.condition,
-        ai.note,
-        ai.expected_location_id,
-        ai.scanned_location_id,
-        a.asset_name, 
-        a.category_id,
-        a.asset_no
-    FROM audit_items ai
-    JOIN assets a ON ai.asset_id = a.id
-    WHERE ai.audit_id = ?
-    ORDER BY ai.verification_status, a.asset_name"
+    "SELECT ai.verification_status, ai.condition, ai.note, ai.expected_location_id, ai.scanned_location_id,
+            a.asset_name, a.category_id, a.asset_no, 'dept' AS source
+     FROM audit_items ai
+     JOIN assets a ON ai.asset_id = a.id
+     WHERE ai.audit_id = ?
+     ORDER BY ai.verification_status, a.asset_name"
 );
-if (!$items_stmt) {
-    die("Database error preparing to fetch audit items.");
-}
+if (!$items_stmt) { die("Database error preparing to fetch audit items."); }
 $items_stmt->bind_param("i", $audit_id);
 $items_stmt->execute();
-$items_result = $items_stmt->get_result();
-$all_items = $items_result->fetch_all(MYSQLI_ASSOC);
+$all_items = $items_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $items_stmt->close();
 
+// --- Fetch borrowed audit items and merge ---
+$borrowed_stmt = $conn->prepare(
+    "SELECT bai.verification_status, bai.condition, bai.note, bai.expected_location_id, bai.scanned_location_id,
+             ba.asset_name, ba.category_id, ba.asset_no, 'borrowed' AS source
+     FROM borrowed_audit_items bai
+     JOIN borrowed_assets ba ON bai.borrowed_asset_id = ba.id
+     WHERE bai.audit_id = ?
+     ORDER BY bai.verification_status, ba.asset_name"
+);
+if ($borrowed_stmt) {
+    $borrowed_stmt->bind_param("i", $audit_id);
+    $borrowed_stmt->execute();
+    $all_items = array_merge($all_items, $borrowed_stmt->get_result()->fetch_all(MYSQLI_ASSOC));
+    $borrowed_stmt->close();
+}
+
 // --- Process items into categories ---
-$present_items_by_category_and_name = [];
-$missing_items_by_category_and_name = [];
+$present_items_by_category_and_name   = [];
+$missing_items_by_category_and_name   = [];
 $misplaced_items_by_category_and_name = [];
 
-// Define categories for display
-$categories_map = [
-    1 => 'Expandable',
-    2 => 'Consumables',
-    3 => 'Deadstock',
-    4 => 'Furniture'
-];
+$categories_map = [1 => 'Expandable', 2 => 'Consumables', 3 => 'Deadstock', 4 => 'Furniture'];
 
 foreach ($all_items as $item) {
     $category_id = $item['category_id'];
-    $asset_name = $item['asset_name'];
+    $asset_name  = $item['asset_name'] . ($item['source'] === 'borrowed' ? ' [Borrowed]' : '');
     switch ($item['verification_status']) {
         case 'Present':
             if (!isset($present_items_by_category_and_name[$category_id])) $present_items_by_category_and_name[$category_id] = [];
@@ -106,8 +105,8 @@ foreach ($all_items as $item) {
             break;
     }
 }
-$present_count = array_sum(array_map(fn($group) => array_sum(array_map('count', $group)), $present_items_by_category_and_name));
-$missing_count = array_sum(array_map(fn($group) => array_sum(array_map('count', $group)), $missing_items_by_category_and_name));
+$present_count   = array_sum(array_map(fn($group) => array_sum(array_map('count', $group)), $present_items_by_category_and_name));
+$missing_count   = array_sum(array_map(fn($group) => array_sum(array_map('count', $group)), $missing_items_by_category_and_name));
 $misplaced_count = array_sum(array_map(fn($group) => array_sum(array_map('count', $group)), $misplaced_items_by_category_and_name));
 
 // --- Start Generating HTML for PDF ---
@@ -122,8 +121,8 @@ ob_start();
         body { font-family: 'dejavusans', sans-serif; font-size: 10pt; color: #333; }
         h1 { font-size: 20pt; text-align: center; color: #1E3A5F; margin-bottom: 20px; text-decoration: underline; }
         h2 { font-size: 14pt; color: #1E3A5F; border-bottom: 2px solid #E2E8F0; padding-bottom: 5px; margin-top: 25px; margin-bottom: 10px; }
-        h3 { font-size: 12pt; margin-top: 15px; margin-bottom: 5px; border-left: 3px solid #ccc; padding-left: 8px; font-weight: bold; } /* Category heading */
-        h4 { font-size: 11pt; margin-top: 10px; margin-bottom: 5px; border-left: 2px solid #eee; padding-left: 6px; font-weight: bold; } /* Asset Name heading */
+        h3 { font-size: 12pt; margin-top: 15px; margin-bottom: 5px; border-left: 3px solid #ccc; padding-left: 8px; font-weight: bold; }
+        h4 { font-size: 11pt; margin-top: 10px; margin-bottom: 5px; border-left: 2px solid #eee; padding-left: 6px; font-weight: bold; }
         table { width: 100%; border-collapse: collapse; }
         th { background-color: #F1F5F9; padding: 8px; text-align: left; font-weight: bold; border: 1px solid #E2E8F0; }
         td { border: 1px solid #E2E8F0; padding: 8px; vertical-align: top; }
@@ -144,6 +143,7 @@ ob_start();
         .condition-repair { background-color: #fef9c3; color: #a16207; }
         .condition-broken { background-color: #fee2e2; color: #b91c1c; }
         .condition-scrap { background-color: #e5e7eb; color: #4b5563; }
+        .badge-borrowed { display: inline-block; padding: 1px 6px; border-radius: 10px; font-size: 7pt; font-weight: bold; background-color: #ede9fe; color: #6d28d9; margin-left: 4px; }
     </style>
 </head>
 <body>
@@ -274,7 +274,7 @@ $mpdf->SetFooter('Generated on: ' . date('d/m/Y h:i A'));
 $mpdf->WriteHTML($html);
 
 $filename = "Audit_Report_" . $audit_id . "_" . date('Y-m-d') . ".pdf";
-$mpdf->Output($filename, 'I'); // 'I' for inline display, 'D' for download
+$mpdf->Output($filename, 'I');
 
 exit();
 ?>

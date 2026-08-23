@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require 'db.php';
 
@@ -145,6 +145,7 @@ $current_page = 'audit'; // for sidebar active state
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <link rel="stylesheet" href="loader/loader.css" />
+  <link rel="stylesheet" href="notifications.css" />
     <script>
         tailwind.config = {
             theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } }
@@ -161,21 +162,7 @@ $current_page = 'audit'; // for sidebar active state
         <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden"></div>
 
         <div id="mainContent" class="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300 ease-in-out h-screen overflow-hidden">
-            <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6 shrink-0">
-                <div class="flex items-center gap-2">
-                    <button id="menuBtn" class="p-2 -ml-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0">
-                        <i data-lucide="menu" style="width:20px;height:20px"></i>
-                    </button>
-                    <h1 class="text-lg font-semibold">Audit Status</h1>
-                </div>
-                <div class="flex items-center gap-3 sm:gap-4">
-                    <div class="relative">
-                        <button id="userMenuBtn" class="flex items-center gap-2.5 group">
-                            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-semibold shrink-0"><?php echo getInitials($_SESSION['user_name']); ?></div>
-                        </button>
-                    </div>
-                </div>
-            </header>
+        <?php include 'topbar.php'; ?>
 
             <div class="flex-1 overflow-y-auto flex flex-col">
                 <main class="flex-1 bg-gray-50 p-4 lg:p-6">
@@ -371,5 +358,8 @@ $current_page = 'audit'; // for sidebar active state
         lucide.createIcons();
     </script>
     <script src="loader/loader.js"></script>
+  <?php include 'page_scripts.php'; ?>
 </body>
 </html>
+
+

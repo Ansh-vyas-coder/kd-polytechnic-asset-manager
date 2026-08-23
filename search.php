@@ -10,7 +10,7 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-$query = isset($_GET['query']) ? trim($_GET['query']) : '';
+$query = isset($_GET['query']) ? trim($_GET['query']) : (isset($_GET['q']) ? trim($_GET['q']) : '');
 
 if (strlen($query) < 2) {
     echo json_encode([]);
@@ -27,12 +27,11 @@ $categories = [
 ];
 
 $stmt = $conn->prepare("
-    SELECT asset_name, category_id, location, assigned_to
+    SELECT id, asset_name, category_id, item_no, batch_id, location, assigned_to, asset_no
     FROM assets 
     WHERE retire_at IS NULL
       AND (transferred = 0 OR transferred IS NULL)
       AND (asset_name LIKE ? OR location LIKE ? OR asset_no LIKE ? OR assigned_to LIKE ?)
-    GROUP BY asset_name, category_id, location, assigned_to
     LIMIT 15
 ");
 $stmt->bind_param("ssss", $searchTerm, $searchTerm, $searchTerm, $searchTerm);
@@ -42,6 +41,9 @@ $result = $stmt->get_result();
 $assets = [];
 while ($row = $result->fetch_assoc()) {
     $row['category_name'] = $categories[$row['category_id']] ?? 'Unknown';
+    if (empty($row['batch_id'])) {
+        $row['batch_id'] = 'batch_uncategorized_' . $row['id'];
+    }
     $assets[] = $row;
 }
 

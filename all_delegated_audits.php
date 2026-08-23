@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require 'db.php';
 
@@ -11,20 +11,25 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'staf
 // Fetch audits based on role
 $all_audits = [];
 $page_title = '';
+$current_user_id = (int)$_SESSION['user_id'];
 
 if ($_SESSION['role'] === 'admin') {
     $page_title = 'All Delegated Audits';
-    $audits_result = $conn->query("
+    $audits_stmt = $conn->prepare("
         SELECT a.id, a.location_id, a.audit_date, a.status, u.full_name as assigned_to_name, assigner.full_name as assigned_by_name
         FROM audits a
         JOIN users u ON a.audited_by_user_id = u.id
         LEFT JOIN users assigner ON a.assigned_by_user_id = assigner.id
-        WHERE a.assigned_by_user_id IS NOT NULL
+        WHERE a.assigned_by_user_id IS NOT NULL OR a.audited_by_user_id = ?
         ORDER BY FIELD(a.status, 'Assigned', 'In Progress', 'Completed'), a.audit_date DESC
     ");
+    $audits_stmt->bind_param("i", $current_user_id);
+    $audits_stmt->execute();
+    $audits_result = $audits_stmt->get_result();
     if ($audits_result) {
         $all_audits = $audits_result->fetch_all(MYSQLI_ASSOC);
     }
+    $audits_stmt->close();
 } else { // staff
     $page_title = 'All Your Assigned Audits';
     $audits_stmt = $conn->prepare("
@@ -65,6 +70,7 @@ $current_page = 'audit';
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <link rel="stylesheet" href="loader/loader.css" />
+  <link rel="stylesheet" href="notifications.css" />
     <script>
         tailwind.config = {
             theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } }
@@ -81,21 +87,7 @@ $current_page = 'audit';
         <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden"></div>
 
         <div id="mainContent" class="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300 ease-in-out h-screen overflow-hidden">
-            <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6 shrink-0">
-                <div class="flex items-center gap-2">
-                    <button id="menuBtn" class="p-2 -ml-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0">
-                        <i data-lucide="menu" style="width:20px;height:20px"></i>
-                    </button>
-                    <h1 class="text-lg font-semibold"><?php echo htmlspecialchars($page_title); ?></h1>
-                </div>
-                <div class="flex items-center gap-3 sm:gap-4">
-                    <div class="relative">
-                        <button id="userMenuBtn" class="flex items-center gap-2.5 group">
-                            <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-semibold shrink-0"><?php echo getInitials($_SESSION['user_name']); ?></div>
-                        </button>
-                    </div>
-                </div>
-            </header>
+        <?php include 'topbar.php'; ?>
 
             <div class="flex-1 overflow-y-auto flex flex-col">
                 <main class="flex-1 bg-gray-50 p-4 lg:p-6">
@@ -133,7 +125,7 @@ $current_page = 'audit';
                                             <tr>
                                                 <td class="px-6 py-4 font-semibold text-gray-800"><?php echo htmlspecialchars($audit['location_id']); ?></td>
                                                 <?php if ($_SESSION['role'] === 'admin'): ?>
-                                                    <td class="px-6 py-4 text-gray-600"><?php echo htmlspecialchars($audit['assigned_by_name'] ?? 'System'); ?></td>
+                                                    <td class="px-6 py-4 text-gray-600"><?php echo htmlspecialchars($audit['assigned_by_name'] ?? 'Self'); ?></td>
                                                     <td class="px-6 py-4">
                                                         <?php
                                                             $status_color = 'gray';
@@ -187,5 +179,8 @@ $current_page = 'audit';
         lucide.createIcons();
     </script>
     <script src="loader/loader.js"></script>
+  <?php include 'page_scripts.php'; ?>
 </body>
 </html>
+
+

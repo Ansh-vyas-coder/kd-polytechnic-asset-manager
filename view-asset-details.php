@@ -145,6 +145,7 @@ if (!function_exists('getInitials')) {
     }
   </style>
   <link rel="stylesheet" href="loader/loader.css" />
+  <link rel="stylesheet" href="notifications.css" />
 </head>
 
   <body class="h-screen bg-gray-50 text-gray-900 antialiased">
@@ -158,18 +159,7 @@ if (!function_exists('getInitials')) {
 
     <div id="mainContent" class="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300 ease-in-out h-screen overflow-hidden">
       <!-- Header -->
-      <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6">
-        <button id="menuBtn" class="p-2 -ml-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0">
-          <i data-lucide="menu" style="width:20px;height:20px"></i>
-        </button>
-        <div class="flex items-center gap-3 sm:gap-4 shrink-0">
-          <div class="relative">
-            <button id="userMenuBtn" class="flex items-center gap-2.5 group">
-              <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm font-semibold shrink-0"><?php echo getInitials($_SESSION['user_name']); ?></div>
-            </button>
-          </div>
-        </div>
-      </header>
+      <?php include 'topbar.php'; ?>
 
       <!-- Main Content -->
       <div class="flex-1 overflow-y-auto flex flex-col">
@@ -262,7 +252,17 @@ if (!function_exists('getInitials')) {
                         <td class="px-6 py-4 whitespace-nowrap text-gray-600 truncate"><?php echo htmlspecialchars($details['location'] ?: 'N/A'); ?></td>
                         <td class="px-6 py-4 whitespace-nowrap text-gray-600">₹<?php echo htmlspecialchars(number_format($details['cost'], 2)); ?></td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <a href="<?php echo $batch_link; ?>" class="text-indigo-600 hover:text-indigo-900" onclick="event.stopPropagation()">View Record</a>
+                          <div class="flex items-center justify-end gap-3" onclick="event.stopPropagation()">
+                            <?php if (!empty($batch_id)): ?>
+                            <a href="download-qr.php?batch_id=<?php echo urlencode($batch_id); ?>"
+                               title="Download QR Labels for this batch"
+                               class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                              QR
+                            </a>
+                            <?php endif; ?>
+                            <a href="<?php echo $batch_link; ?>" class="text-indigo-600 hover:text-indigo-900">View Record</a>
+                          </div>
                         </td>
                       </tr>
                     <?php endforeach; ?>
@@ -290,21 +290,19 @@ if (!function_exists('getInitials')) {
   </script>
   <script>
     const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
     const mainContent = document.getElementById('mainContent');
+    const menuBtn = document.getElementById('menuBtn');
     const userMenuBtn = document.getElementById('userMenuBtn');
     const userMenuDropdown = document.getElementById('userMenuDropdown');
-    const menuBtn = document.getElementById('menuBtn');
-    const sidebarOverlay = document.getElementById('sidebarOverlay');
 
     function toggleSidebar() {
         if (!sidebar) return;
 
         if (window.innerWidth < 1024) {
-            // Mobile: Toggle the class that hides the sidebar and show/hide the overlay.
             sidebar.classList.toggle('-translate-x-full');
             if (sidebarOverlay) sidebarOverlay.classList.toggle('hidden');
         } else {
-            // Desktop: Toggle the responsive class that shows the sidebar and adjust main content margin.
             sidebar.classList.toggle('lg:translate-x-0');
             if (mainContent) mainContent.classList.toggle('lg:ml-64');
         }
@@ -313,14 +311,24 @@ if (!function_exists('getInitials')) {
     if (menuBtn) menuBtn.addEventListener('click', toggleSidebar);
     if (sidebarOverlay) sidebarOverlay.addEventListener('click', toggleSidebar);
 
-    if (userMenuDropdown) {
-        userMenuBtn.addEventListener('click', () => userMenuDropdown.classList.toggle('hidden'));
-        document.addEventListener('click', (event) => { if (!userMenuBtn.contains(event.target) && !userMenuDropdown.contains(event.target)) { userMenuDropdown.classList.add('hidden'); } });
+    if (userMenuBtn && userMenuDropdown) {
+        userMenuBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            userMenuDropdown.classList.toggle('hidden');
+        });
+        document.addEventListener('click', function(e) {
+            if (!userMenuDropdown.contains(e.target) && e.target !== userMenuBtn) {
+                userMenuDropdown.classList.add('hidden');
+            }
+        });
     }
   </script>
 
   <script src="loader/loader.js"></script>
 
+  <?php include 'page_scripts.php'; ?>
 </body>
 
 </html>
+
+

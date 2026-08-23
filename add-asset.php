@@ -217,7 +217,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['action']) && $_POST['a
             echo json_encode(['success' => true, 'category_id' => $category_id, 'asset_name' => $asset_name]);
             exit();
         }
-        header("Location: view-assets.php?category_id=" . $category_id . "&status=asset_added");
+        header("Location: view-assets.php?category_id=" . $category_id . "&status=asset_added&new_batch_id=" . urlencode($batch_id));
     } else {
         if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
             http_response_code(500);

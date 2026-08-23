@@ -25,7 +25,8 @@ if (isset($_GET['fetch_filters']) && $_GET['fetch_filters'] === 'true') {
     $response = ['asset_names' => [], 'locations' => []];
 
     // "Borrowed From" column option doubles as the include-borrowed toggle
-    $include_borrowed = isset($_GET['include_borrowed']) ? ($_GET['include_borrowed'] === '1') : false;
+    // Staff always see their borrowed assets
+    $include_borrowed = ($_SESSION['role'] === 'staff') ? true : (isset($_GET['include_borrowed']) ? ($_GET['include_borrowed'] === '1') : false);
 
     if ($_SESSION['role'] === 'staff') {
         $an_sql  = "SELECT DISTINCT asset_name FROM assets WHERE category_id = ? AND assigned_to = ? AND (transferred = 0 OR transferred IS NULL)";
@@ -154,7 +155,8 @@ if (isset($_GET['fetch_preview']) && $_GET['fetch_preview'] === 'true') {
     $dept_sql = "SELECT " . $shared_cols . ", NULL AS borrowed_from, 0 AS cost, 'dept' AS source FROM assets WHERE " . implode(" AND ", $dept_where);
 
     // "Borrowed From" column option doubles as the include-borrowed toggle
-    $include_borrowed = isset($_GET['include_borrowed']) ? ($_GET['include_borrowed'] === '1') : false;
+    // Staff always see their borrowed assets
+    $include_borrowed = ($_SESSION['role'] === 'staff') ? true : (isset($_GET['include_borrowed']) ? ($_GET['include_borrowed'] === '1') : false);
 
     if ($include_borrowed) {
         $borrowed_where = array_merge(["(status IS NULL OR status <> 'Returned')"], $common_wheres);
@@ -210,6 +212,108 @@ if ($fac_stmt) {
         $faculty_list[] = $fac_row;
     }
     $fac_stmt->close();
+}
+
+if ($_SESSION['role'] === 'staff') {
+    $staff_name = $_SESSION['user_name'];
+    $assigned_items = [];
+
+    $assigned_sql = "
+        SELECT id, asset_no, asset_name, category_id, location, assigned_to, status, updated_at, 'dept' AS source
+        FROM assets
+        WHERE assigned_to = ?
+          AND assigned_to IS NOT NULL
+          AND assigned_to != ''
+          AND retire_at IS NULL
+          AND (transferred = 0 OR transferred IS NULL)
+        UNION ALL
+        SELECT id, asset_no, asset_name, category_id, location, assigned_to, status, updated_at, 'borrowed' AS source
+        FROM borrowed_assets
+        WHERE assigned_to = ?
+          AND assigned_to IS NOT NULL
+          AND assigned_to != ''
+          AND (status IS NULL OR status <> 'Returned')
+        ORDER BY assigned_to ASC, updated_at DESC
+    ";
+
+    $assigned_stmt = $conn->prepare($assigned_sql);
+    if ($assigned_stmt) {
+        $assigned_stmt->bind_param("ss", $staff_name, $staff_name);
+        $assigned_stmt->execute();
+        $assigned_result = $assigned_stmt->get_result();
+        if ($assigned_result) {
+            $assigned_items = $assigned_result->fetch_all(MYSQLI_ASSOC);
+        }
+        $assigned_stmt->close();
+    }
+
+    $category_labels = [1 => 'Expandable', 2 => 'Consumables', 3 => 'Deadstock', 4 => 'Furniture'];
+    ?>
+    <div class="w-full max-w-7xl mx-auto space-y-5">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900 tracking-tight">My Assigned Assets</h1>
+                <p class="text-sm text-gray-500 mt-1">Showing only assets assigned to <?php echo htmlspecialchars($staff_name); ?>.</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <a href="download-assigned-assets.php?format=xlsx" class="inline-flex items-center gap-2 rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-700/20 transition hover:bg-blue-800">
+                    <i data-lucide="file-spreadsheet" style="width:16px;height:16px"></i>
+                    Download Excel
+                </a>
+                <a href="download-assigned-assets.php?format=pdf" target="_blank" class="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50">
+                    <i data-lucide="printer" style="width:16px;height:16px"></i>
+                    Print / PDF
+                </a>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm min-w-[820px]">
+                    <thead class="bg-gray-50">
+                        <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
+                            <th class="px-6 py-3 font-medium">Asset Name</th>
+                            <th class="px-6 py-3 font-medium">Asset No</th>
+                            <th class="px-6 py-3 font-medium">Category</th>
+                            <th class="px-6 py-3 font-medium">Assigned To</th>
+                            <th class="px-6 py-3 font-medium">Location</th>
+                            <th class="px-6 py-3 font-medium">Last Updated</th>
+                            <th class="px-6 py-3 font-medium">Source</th>
+                            <th class="px-6 py-3 font-medium">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        <?php if (empty($assigned_items)): ?>
+                            <tr>
+                                <td colspan="8" class="px-6 py-14 text-center text-gray-500">No assets are assigned to you right now.</td>
+                            </tr>
+                        <?php else: ?>
+                            <?php foreach ($assigned_items as $item): ?>
+                                <tr>
+                                    <td class="px-6 py-4 font-semibold text-gray-900"><?php echo htmlspecialchars($item['asset_name']); ?></td>
+                                    <td class="px-6 py-4 font-mono text-xs text-gray-600"><?php echo htmlspecialchars($item['asset_no'] ?: 'N/A'); ?></td>
+                                    <td class="px-6 py-4 text-gray-600"><?php echo htmlspecialchars($category_labels[$item['category_id']] ?? 'Unknown'); ?></td>
+                                    <td class="px-6 py-4 text-gray-800"><?php echo htmlspecialchars($item['assigned_to']); ?></td>
+                                    <td class="px-6 py-4 text-gray-600"><?php echo htmlspecialchars($item['location'] ?: 'N/A'); ?></td>
+                                    <td class="px-6 py-4 text-gray-500"><?php echo date('M d, Y', strtotime($item['updated_at'])); ?></td>
+                                    <td class="px-6 py-4">
+                                        <?php if (($item['source'] ?? 'dept') === 'borrowed'): ?>
+                                            <span class="inline-flex rounded-full bg-purple-100 px-2.5 py-1 text-xs font-semibold text-purple-800">Borrowed</span>
+                                        <?php else: ?>
+                                            <span class="inline-flex rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-800">Department</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="px-6 py-4 text-gray-600"><?php echo htmlspecialchars($item['status'] ?: 'N/A'); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <?php
+    return;
 }
 ?>
 
@@ -578,8 +682,12 @@ document.getElementById('deselectAllCols').addEventListener('click', () => {
 // ── Build URL params ──
 // The "Borrowed From" column checkbox doubles as the include-borrowed toggle
 function getIncludeBorrowed() {
+    <?php if ($_SESSION['role'] === 'staff'): ?>
+    return '1';
+    <?php else: ?>
     const cb = document.querySelector('input[data-col="borrowed_from"]');
     return (cb && cb.checked) ? '1' : '0';
+    <?php endif; ?>
 }
 
 function buildParams() {
