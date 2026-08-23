@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 require 'db.php';
 
@@ -641,9 +641,16 @@ $current_page = 'audit'; // for sidebar active state
                 scanAudioContext.resume().catch(() => {});
             }
 
+            // success = two ascending tones, misplaced = two-tone alert, already = two soft medium tones, notfound = low error tone
             const beepPattern = kind === 'misplaced'
-                ? [{ frequency: 620, duration: 0.09 }, { frequency: 820, duration: 0.09 }]
-                : [{ frequency: 880, duration: 0.12 }];
+                ? [{ frequency: 520, duration: 0.12 }, { frequency: 780, duration: 0.15 }]
+                : kind === 'notfound'
+                ? [{ frequency: 300, duration: 0.20 }]
+                : kind === 'already'
+                ? [{ frequency: 660, duration: 0.08 }, { frequency: 660, duration: 0.08 }]  // same-pitch double ping
+                : [{ frequency: 880, duration: 0.10 }, { frequency: 1100, duration: 0.14 }]; // success: two ascending tones
+
+            const peakGain = kind === 'misplaced' ? 0.45 : kind === 'notfound' ? 0.40 : kind === 'already' ? 0.30 : 0.55;
 
             let startAt = scanAudioContext.currentTime;
             beepPattern.forEach((tone, index) => {
@@ -654,7 +661,7 @@ $current_page = 'audit'; // for sidebar active state
                 oscillator.frequency.value = tone.frequency;
 
                 gainNode.gain.setValueAtTime(0.0001, startAt);
-                gainNode.gain.exponentialRampToValueAtTime(0.12, startAt + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(peakGain, startAt + 0.01);
                 gainNode.gain.exponentialRampToValueAtTime(0.0001, startAt + tone.duration);
 
                 oscillator.connect(gainNode);
@@ -662,8 +669,22 @@ $current_page = 'audit'; // for sidebar active state
                 oscillator.start(startAt);
                 oscillator.stop(startAt + tone.duration + 0.02);
 
-                startAt += index === 0 ? tone.duration + 0.08 : 0;
+                startAt += tone.duration + 0.06;
             });
+        }
+
+        function showScanFeedback(statusEl, message, colorClass) {
+            if (!statusEl) return;
+            statusEl.textContent = message;
+            statusEl.className = `mt-3 text-center text-sm ${colorClass}`;
+        }
+
+        function playScanBeepSafely(kind = 'success') {
+            try {
+                playScanBeep(kind);
+            } catch (error) {
+                console.warn('Scan beep failed:', error);
+            }
         }
 
         function openAuditQrScanner() {
@@ -716,27 +737,40 @@ $current_page = 'audit'; // for sidebar active state
             if (targetLi) {
                 const checkbox = targetLi.querySelector('.asset-checkbox');
                 if (checkbox) {
+                    const alreadyChecked = checkbox.checked;
                     checkbox.checked = true;
                     const assetId = checkbox.id.replace('asset_present_', '');
                     saveAssetState(assetId);
-                    updateProgress();
-                    applyFilter();
-                    
-                    // Visual feedback: green flash
+
+                    // Dispatch change event — this triggers the updateProgress() + applyFilter()
+                    // listeners wired inside DOMContentLoaded (they live in that scope)
+                    checkbox.dispatchEvent(new Event('change'));
+
+                    // Visual feedback: green flash on the list item
                     targetLi.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     targetLi.classList.add('bg-emerald-50', 'transition-colors', 'duration-500');
                     setTimeout(() => {
                         targetLi.classList.remove('bg-emerald-50');
                     }, 1500);
 
-                    playScanBeep('success');
-                    statusEl.textContent = `Verified: ${assetNo}. Ready for next scan.`;
-                    statusEl.className = 'mt-3 text-center text-sm text-emerald-600 font-bold';
+                    if (alreadyChecked) {
+                        // Already scanned — show reminder message
+                        showScanFeedback(statusEl, `🔔 Already verified: ${assetNo}`, 'text-amber-500 font-bold text-base');
+                        playScanBeepSafely('already');
+                    } else {
+                        // Fresh scan — show success message + beep
+                        showScanFeedback(statusEl, `✅ Present: ${assetNo}`, 'text-emerald-600 font-bold text-base');
+                        playScanBeepSafely('success');
+                    }
+
+                    // Auto-reset status after 2.5s
+                    setTimeout(() => {
+                        showScanFeedback(statusEl, 'Scan next asset QR...', 'text-gray-500 font-medium text-sm');
+                    }, 2500);
                 }
             } else {
                 // Not in expected list: add to misplaced
-                statusEl.textContent = `Checking database for: ${assetNo}...`;
-                statusEl.className = 'mt-3 text-center text-sm text-amber-600 font-medium';
+                showScanFeedback(statusEl, `🔍 Checking: ${assetNo}...`, 'text-amber-600 font-medium text-sm');
 
                 const mInput = document.getElementById('misplacedAssetSearch');
                 if (mInput) {
@@ -744,13 +778,15 @@ $current_page = 'audit'; // for sidebar active state
                     const result = await findAsset(); // Calls existing findAsset JS function
 
                     if (result && result.ok) {
-                        playScanBeep('misplaced');
-                        statusEl.textContent = `Marked misplaced: ${assetNo}. Ready for next scan.`;
-                        statusEl.className = 'mt-3 text-center text-sm text-blue-600 font-bold';
+                        showScanFeedback(statusEl, `⚠️ Misplaced: ${assetNo}. Ready for next scan.`, 'text-blue-600 font-bold text-base');
+                        playScanBeepSafely('misplaced');
+                        setTimeout(() => {
+                            showScanFeedback(statusEl, 'Scan next asset QR...', 'text-gray-500 font-medium text-sm');
+                        }, 2500);
                     } else {
                         const errorMessage = (result && result.error) ? result.error : 'Could not mark misplaced asset.';
-                        statusEl.textContent = errorMessage;
-                        statusEl.className = 'mt-3 text-center text-sm text-red-600 font-medium';
+                        showScanFeedback(statusEl, `❌ ${errorMessage}`, 'text-red-600 font-medium text-sm');
+                        playScanBeepSafely('notfound');
                     }
                 }
             }
@@ -760,5 +796,3 @@ $current_page = 'audit'; // for sidebar active state
   <?php include 'page_scripts.php'; ?>
 </body>
 </html>
-
-
