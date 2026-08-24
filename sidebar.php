@@ -38,18 +38,6 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin' && isset($conn)) {
             <i data-lucide="layout-dashboard" style="width:18px;height:18px"></i>
             Dashboard
         </a>
-        <a href="dashboard.php?view=audit" class="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors <?php echo ($current_page === 'audit') ? 'bg-slate-700 text-white font-semibold' : 'text-slate-300 hover:bg-slate-700 hover:text-white'; ?>">
-            <span class="flex items-center gap-3">
-                <i data-lucide="clipboard-check" style="width:18px;height:18px"></i>
-                Audit
-            </span>
-            <?php if ($assigned_to_me_count > 0): ?>
-                <span class="inline-flex items-center justify-center min-w-5 h-5 rounded-full bg-amber-500 text-white text-[11px] font-bold px-1.5">
-                    <?php echo $assigned_to_me_count; ?>
-                </span>
-            <?php endif; ?>
-        </a>
-        
         <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
             <a href="dashboard.php?view=add-asset" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors <?php echo ($current_page === 'add-asset') ? 'bg-slate-700 text-white font-semibold' : 'text-slate-300 hover:bg-slate-700 hover:text-white'; ?>">
                 <i data-lucide="plus-square" style="width:18px;height:18px"></i>
@@ -67,18 +55,6 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin' && isset($conn)) {
                 <i data-lucide="scan-search" style="width:18px;height:18px"></i>
                 Write-off Assets
             </a>
-            <a href="dashboard.php?view=transfer-assets" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors <?php echo ($current_page === 'transfer-assets') ? 'bg-slate-700 text-white font-semibold' : 'text-slate-300 hover:bg-slate-700 hover:text-white'; ?>">
-                <i data-lucide="arrow-right-left" style="width:18px;height:18px"></i>
-                Transfer Assets
-            </a>
-            <a href="dashboard.php?view=loaned-assets" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors <?php echo ($current_page === 'loaned-assets') ? 'bg-slate-700 text-white font-semibold' : 'text-slate-300 hover:bg-slate-700 hover:text-white'; ?>">
-                <i data-lucide="clock" style="width:18px;height:18px"></i>
-                Loaned Assets
-            </a>
-            <a href="manage-users.php" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors <?php echo ($current_page === 'manage-users') ? 'bg-slate-700 text-white font-semibold' : 'text-slate-300 hover:bg-slate-700 hover:text-white'; ?>">
-                <i data-lucide="users" style="width:18px;height:18px"></i>
-                Manage Users
-            </a>
             <a href="assigned-assets.php" class="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors <?php echo ($current_page === 'assigned-assets') ? 'bg-slate-700 text-white font-semibold' : 'text-slate-300 hover:bg-slate-700 hover:text-white'; ?>">
                 <span class="flex items-center gap-3 min-w-0">
                 <i data-lucide="user-check" style="width:18px;height:18px"></i>
@@ -89,6 +65,33 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin' && isset($conn)) {
                         <?php echo $assigned_assets_alert_count > 9 ? '9+' : $assigned_assets_alert_count; ?>
                     </span>
                 <?php endif; ?>
+            </a>
+            <a href="dashboard.php?view=transfer-assets" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors <?php echo ($current_page === 'transfer-assets') ? 'bg-slate-700 text-white font-semibold' : 'text-slate-300 hover:bg-slate-700 hover:text-white'; ?>">
+                <i data-lucide="arrow-right-left" style="width:18px;height:18px"></i>
+                Transfer Assets
+            </a>
+            <a href="dashboard.php?view=loaned-assets" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors <?php echo ($current_page === 'loaned-assets') ? 'bg-slate-700 text-white font-semibold' : 'text-slate-300 hover:bg-slate-700 hover:text-white'; ?>">
+                <i data-lucide="clock" style="width:18px;height:18px"></i>
+                Loaned Assets
+            </a>
+        <?php endif; ?>
+
+        <a href="dashboard.php?view=audit" class="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors <?php echo ($current_page === 'audit') ? 'bg-slate-700 text-white font-semibold' : 'text-slate-300 hover:bg-slate-700 hover:text-white'; ?>">
+            <span class="flex items-center gap-3">
+                <i data-lucide="clipboard-check" style="width:18px;height:18px"></i>
+                Audit
+            </span>
+            <?php if ($assigned_to_me_count > 0): ?>
+                <span class="inline-flex items-center justify-center min-w-5 h-5 rounded-full bg-amber-500 text-white text-[11px] font-bold px-1.5">
+                    <?php echo $assigned_to_me_count; ?>
+                </span>
+            <?php endif; ?>
+        </a>
+
+        <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
+            <a href="manage-users.php" class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors <?php echo ($current_page === 'manage-users') ? 'bg-slate-700 text-white font-semibold' : 'text-slate-300 hover:bg-slate-700 hover:text-white'; ?>">
+                <i data-lucide="users" style="width:18px;height:18px"></i>
+                Manage Users
             </a>
         <?php endif; ?>
 
