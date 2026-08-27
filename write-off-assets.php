@@ -609,9 +609,9 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
             <p class="text-sm text-slate-500">Manage 5+ year old candidates and archived written-off assets.</p>
         </div>
         <div class="flex items-center gap-2 shrink-0">
-            <button type="button" onclick="openWriteOffExportModal()" class="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 transition no-print">
+            <button type="button" onclick="openWriteOffExportModal('all')" class="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 transition no-print">
                 <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i>
-                Download as Excel
+                Download All (Candidates + Archive)
             </button>
         </div>
     </div>
@@ -679,12 +679,22 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
     <!-- Main List Table Shell -->
     <div class="wo-shell">
         <div class="wo-header-area">
-            <div class="wo-title">
-                <?php echo htmlspecialchars($selected_category_name); ?>
-                <?php echo $active_tab === 'history' ? 'Written-Off Archive' : 'Write-Off Candidates List'; ?>
-            </div>
-            <div class="wo-subtitle">
-                <?php echo $active_tab === 'history' ? 'Assets that have been marked as retired / written off.' : 'Active assets older than 5 years ready for write-off.'; ?>
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <div class="wo-title">
+                        <?php echo htmlspecialchars($selected_category_name); ?>
+                        <?php echo $active_tab === 'history' ? 'Written-Off Archive' : 'Write-Off Candidates List'; ?>
+                    </div>
+                    <div class="wo-subtitle">
+                        <?php echo $active_tab === 'history' ? 'Assets that have been marked as retired / written off.' : 'Active assets older than 5 years ready for write-off.'; ?>
+                    </div>
+                </div>
+                <div>
+                    <button type="button" onclick="openWriteOffExportModal('<?php echo htmlspecialchars($active_tab); ?>')" class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition no-print">
+                        <i data-lucide="file-spreadsheet" style="width:16px;height:16px"></i>
+                        Download <?php echo $active_tab === 'history' ? 'Archive' : 'Candidates'; ?>
+                    </button>
+                </div>
             </div>
             <div class="wo-page-line">
                 <div>Cutoff Date: <strong><?php echo date('M d, Y', strtotime($cutoff_date)); ?></strong></div>
@@ -994,8 +1004,8 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
         </div>
 
         <!-- Export Form -->
-        <form method="GET" action="export-write-off.php">
-            <input type="hidden" name="tab" value="<?php echo htmlspecialchars($active_tab); ?>">
+        <form method="GET" action="export-write-off.php" id="writeOffExportForm" onsubmit="return validateWriteOffExportForm(event);">
+            <input type="hidden" name="tab" id="export_tab_input" value="<?php echo htmlspecialchars($active_tab); ?>">
             <input type="hidden" name="name" value="<?php echo htmlspecialchars($name_filter); ?>">
             <input type="hidden" name="issue_from" value="<?php echo htmlspecialchars($issue_from); ?>">
             <input type="hidden" name="issue_to" value="<?php echo htmlspecialchars($issue_to); ?>">
@@ -1095,7 +1105,27 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
         }, 200);
     }
 
-    function openWriteOffExportModal() {
+    function openWriteOffExportModal(tab) {
+        const tabInput = document.getElementById('export_tab_input');
+        if (tabInput && tab) {
+            tabInput.value = tab;
+            
+            const titleEl = document.querySelector('#writeOffExportModal h3');
+            const subtitleEl = document.querySelector('#writeOffExportModal p');
+            if (titleEl && subtitleEl) {
+                if (tab === 'candidates') {
+                    titleEl.textContent = "Download Candidates Excel";
+                    subtitleEl.textContent = "Download active assets older than 5 years";
+                } else if (tab === 'history') {
+                    titleEl.textContent = "Download Archive Excel";
+                    subtitleEl.textContent = "Download written-off assets archive";
+                } else if (tab === 'all') {
+                    titleEl.textContent = "Download Combined Excel";
+                    subtitleEl.textContent = "Download candidates and archive combined";
+                }
+            }
+        }
+
         const modal = document.getElementById('writeOffExportModal');
         const container = document.getElementById('writeOffExportModalContainer');
         if (!modal || !container) return;

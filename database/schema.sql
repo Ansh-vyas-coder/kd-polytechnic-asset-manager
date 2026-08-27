@@ -201,3 +201,16 @@ CREATE TABLE IF NOT EXISTS borrowed_audit_items (
     FOREIGN KEY (audit_id) REFERENCES audits(id) ON DELETE CASCADE,
     FOREIGN KEY (borrowed_asset_id) REFERENCES borrowed_assets(id) ON DELETE CASCADE
 );
+
+-- =========================================================================
+-- DATABASE UPGRADE/MIGRATION QUERIES FOR EXISTING DATABASES
+-- (Run these ALTER queries on your existing DB to add status tracking columns)
+-- =========================================================================
+
+ALTER TABLE assets ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active' AFTER cost;
+ALTER TABLE assets ADD COLUMN IF NOT EXISTS retire_at TIMESTAMP NULL DEFAULT NULL AFTER location;
+ALTER TABLE assets ADD COLUMN IF NOT EXISTS status_marked_by VARCHAR(100) NULL AFTER status;
+ALTER TABLE assets ADD COLUMN IF NOT EXISTS status_marked_role ENUM('admin', 'staff') NULL AFTER status_marked_by;
+ALTER TABLE assets ADD COLUMN IF NOT EXISTS status_marked_at TIMESTAMP NULL DEFAULT NULL AFTER status_marked_role;
+ALTER TABLE assets ADD COLUMN IF NOT EXISTS status_marked_note TEXT NULL AFTER status_marked_at;
+
