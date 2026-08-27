@@ -598,6 +598,109 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
         border-color: #0f172a;
         box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
     }
+
+    /* ── Mobile Responsive Styles ── */
+    @media (max-width: 768px) {
+        .wo-tabs {
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none; /* Firefox */
+        }
+        .wo-tabs::-webkit-scrollbar {
+            display: none; /* Safari and Chrome */
+        }
+        .wo-tabs a {
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .wo-list-head {
+            display: none; /* Hide tabular headers on mobile */
+        }
+
+        .wo-list-row {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
+            padding: 16px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .wo-list-row .wo-cell {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-align: left !important;
+        }
+
+        /* Set labels for cells dynamically using data-label attribute */
+        .wo-list-row .wo-cell[data-label]::before {
+            content: attr(data-label) ":";
+            font-weight: 700;
+            color: #64748b;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            margin-right: 8px;
+        }
+
+        /* Asset Name cell takes full width and stacks content */
+        .wo-list-row .wo-cell.wo-full-width {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .wo-list-row .wo-cell.wo-full-width[data-label]::before {
+            margin-bottom: 4px;
+        }
+
+        .wo-list-row .wo-sr {
+            display: none; /* Hide serial numbers on mobile */
+        }
+
+        .wo-list-row .wo-action-cell {
+            flex-direction: row;
+            justify-content: flex-end;
+            width: 100%;
+            border-top: 1px dashed #cbd5e1;
+            padding-top: 10px;
+            margin-top: 4px;
+        }
+
+        .wo-list-row .wo-action-cell button {
+            flex: 1;
+            justify-content: center;
+        }
+    }
+
+    @media (max-width: 640px) {
+        .wo-subnav {
+            flex-direction: column;
+            gap: 6px;
+        }
+        .wo-subnav-btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .wo-filter-bar {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 14px;
+            padding: 16px;
+        }
+
+        .wo-field {
+            min-width: 100%;
+        }
+
+        .wo-filter-bar button, 
+        .wo-filter-bar a {
+            width: 100%;
+            justify-content: center;
+        }
+    }
 </style>
 
 <div class="wo-wrap space-y-3 pb-10">
@@ -608,8 +711,8 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
             <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Write-off Assets</h1>
             <p class="text-sm text-slate-500">Manage 5+ year old candidates and archived written-off assets.</p>
         </div>
-        <div class="flex items-center gap-2 shrink-0">
-            <button type="button" onclick="openWriteOffExportModal('all')" class="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 transition no-print">
+        <div class="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+            <button type="button" onclick="openWriteOffExportModal('all')" class="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 transition no-print w-full sm:w-auto">
                 <i data-lucide="file-spreadsheet" style="width:18px;height:18px"></i>
                 Download All (Candidates + Archive)
             </button>
@@ -689,8 +792,8 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
                         <?php echo $active_tab === 'history' ? 'Assets that have been marked as retired / written off.' : 'Active assets older than 5 years ready for write-off.'; ?>
                     </div>
                 </div>
-                <div>
-                    <button type="button" onclick="openWriteOffExportModal('<?php echo htmlspecialchars($active_tab); ?>')" class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition no-print">
+                <div class="w-full sm:w-auto">
+                    <button type="button" onclick="openWriteOffExportModal('<?php echo htmlspecialchars($active_tab); ?>')" class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition no-print w-full sm:w-auto">
                         <i data-lucide="file-spreadsheet" style="width:16px;height:16px"></i>
                         Download <?php echo $active_tab === 'history' ? 'Archive' : 'Candidates'; ?>
                     </button>
@@ -783,7 +886,7 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
                     <div class="wo-list-row" style="background: #ffffff; border-bottom: 1px solid #e2e8f0;">
                         <div class="wo-cell wo-sr"><?php echo $sr_no; ?></div>
 
-                        <div class="wo-cell">
+                        <div class="wo-cell wo-full-width">
                             <div class="flex items-center gap-2">
                                 <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100"><?php echo htmlspecialchars($item_no); ?></span>
                                 <div class="wo-primary capitalize"><?php echo htmlspecialchars($group['asset_name']); ?></div>
@@ -803,20 +906,20 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
                             </div>
                         </div>
 
-                        <div class="wo-cell">
+                        <div class="wo-cell" data-label="Eligible Qty / Cost">
                             <div class="wo-meta text-slate-800 font-bold"><?php echo $items_count; ?> Asset<?php echo $items_count !== 1 ? 's' : ''; ?></div>
                             <div class="wo-secondary">Total Cost: &#8377;<?php echo number_format($group['total_cost'], 2); ?></div>
                         </div>
 
-                        <div class="wo-cell">
+                        <div class="wo-cell" data-label="<?php echo $active_tab === 'history' ? 'Written-Off Date Range' : 'Locations / Faculty'; ?>">
                             <div class="wo-meta text-slate-600"><?php echo htmlspecialchars($holder_summary ?: 'N/A'); ?></div>
                         </div>
 
-                        <div class="wo-cell">
+                        <div class="wo-cell" data-label="Status">
                             <span class="wo-status <?php echo $statusClass; ?>"><?php echo htmlspecialchars($status); ?></span>
                         </div>
 
-                        <div class="wo-cell text-right flex flex-col sm:flex-row items-end sm:items-center justify-end gap-1.5">
+                        <div class="wo-cell wo-action-cell text-right flex flex-col sm:flex-row items-end sm:items-center justify-end gap-1.5">
                             <button type="button" id="btn-toggle-<?php echo $item_no; ?>" onclick="toggleGroupDetails('<?php echo $item_no; ?>')" class="wo-btn wo-btn-secondary text-xs px-2.5 py-1.5 rounded-lg shadow-sm">
                                 🔽 View Detail
                             </button>
@@ -829,7 +932,7 @@ $selected_assets = $write_off_assets[$selectedCategory] ?? [];
                     </div>
 
                     <!-- Accordion Sub-rows with Checkboxes -->
-                    <div id="details-item-<?php echo $item_no; ?>" class="hidden bg-slate-50 border-l-4 border-blue-500 shadow-inner no-print" style="margin-left: 20px; margin-right: 20px; border-radius: 0 0 8px 8px; overflow: hidden;">
+                    <div id="details-item-<?php echo $item_no; ?>" class="hidden bg-slate-50 border-l-4 border-blue-500 shadow-inner no-print mx-2 sm:mx-5" style="border-radius: 0 0 8px 8px; overflow: hidden;">
 
                         <?php if ($active_tab === 'candidates'): ?>
                             <!-- Bulk action header -->
