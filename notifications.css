@@ -164,3 +164,82 @@
 .notification-item .mark-read-btn:hover {
     color: #1d4ed8;
 }
+
+html, body {
+    max-width: 100%;
+}
+
+@media (max-width: 639px) {
+    .topbar {
+        height: auto !important;
+        min-height: 4rem !important;
+        flex-wrap: wrap !important;
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+    }
+
+    .topbar-search-row {
+        order: 2 !important;
+        flex: 0 0 100% !important;
+    }
+
+    .topbar-actions {
+        order: 1 !important;
+        margin-left: auto !important;
+    }
+
+    .topbar #qrScanBtn {
+        display: none;
+    }
+
+    .topbar #searchButton {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+
+    .topbar #searchInput {
+        min-width: 0;
+    }
+
+    .topbar #searchResults {
+        position: fixed;
+        top: 7.5rem;
+        left: 0.75rem;
+        right: 0.75rem;
+        width: auto;
+        max-width: none;
+        max-height: calc(100dvh - 8.25rem);
+        overflow: auto;
+        z-index: 60;
+        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .notification-panel {
+        position: fixed;
+        top: 7.5rem;
+        right: 0.75rem;
+        width: calc(100vw - 1.5rem);
+        max-height: calc(100dvh - 8.25rem);
+    }
+
+    .notification-list {
+        max-height: calc(100dvh - 12.5rem);
+        overscroll-behavior: contain;
+    }
+
+    #mainContent {
+        height: 100dvh !important;
+        min-height: 0 !important;
+        overflow-x: auto !important;
+        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #mainContent > .flex-1.overflow-y-auto {
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-y: contain;
+    }
+}

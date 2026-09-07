@@ -167,7 +167,7 @@ $current_page = 'audit'; // for sidebar active state
             <div class="flex-1 overflow-y-auto flex flex-col">
                 <main class="flex-1 bg-gray-50 p-4 lg:p-6">
                     <div class="max-w-7xl mx-auto space-y-6">
-                        <div class="flex items-center justify-between mb-6">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
                             <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Audit Status for <?php echo htmlspecialchars($selected_location_id); ?></h1>
                             <a href="dashboard.php?view=audit" class="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-300">
                                 <i data-lucide="arrow-left" style="width:16px;height:16px"></i>
@@ -228,8 +228,8 @@ $current_page = 'audit'; // for sidebar active state
                                                     <h4 class="text-md font-semibold text-gray-700 mb-2 pl-2 border-l-2 border-green-300">
                                                         <?php echo htmlspecialchars($asset_name); ?> <span class="text-sm font-normal text-gray-500">(<?php echo count($items); ?>)</span>
                                                     </h4>
-                                                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                                                        <table class="w-full text-sm">
+                                                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+                                                        <table class="w-full min-w-[480px] text-sm">
                                                             <thead class="bg-gray-50">
                                                                 <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
                                                                     <th class="px-6 py-3 font-medium">Asset No.</th>
@@ -269,8 +269,8 @@ $current_page = 'audit'; // for sidebar active state
                                                     <h4 class="text-md font-semibold text-gray-700 mb-2 pl-2 border-l-2 border-red-300">
                                                         <?php echo htmlspecialchars($asset_name); ?> <span class="text-sm font-normal text-gray-500">(<?php echo count($items); ?>)</span>
                                                     </h4>
-                                                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                                                        <table class="w-full text-sm">
+                                                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+                                                        <table class="w-full min-w-[400px] text-sm">
                                                             <thead class="bg-gray-50">
                                                                 <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
                                                                     <th class="px-6 py-3 font-medium">Asset No.</th>
@@ -308,8 +308,8 @@ $current_page = 'audit'; // for sidebar active state
                                                     <h4 class="text-md font-semibold text-gray-700 mb-2 pl-2 border-l-2 border-amber-300">
                                                         <?php echo htmlspecialchars($asset_name); ?> <span class="text-sm font-normal text-gray-500">(<?php echo count($items); ?>)</span>
                                                     </h4>
-                                                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                                                        <table class="w-full text-sm">
+                                                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+                                                        <table class="w-full min-w-[480px] text-sm">
                                                             <thead class="bg-gray-50">
                                                                 <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
                                                                     <th class="px-6 py-3 font-medium">Asset No.</th>

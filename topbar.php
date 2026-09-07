@@ -15,10 +15,10 @@ if (!function_exists('getInitials')) {
     }
 }
 ?>
-<header class="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6 gap-3 shrink-0 sticky top-0 z-20">
+<header class="topbar h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6 gap-3 shrink-0 sticky top-0 z-20">
 
     <!-- Left: Hamburger + Search -->
-    <div class="flex items-center gap-2 flex-1 min-w-0">
+    <div class="topbar-search-row flex items-center gap-2 flex-1 min-w-0">
         <button id="menuBtn" class="p-2 -ml-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0" aria-label="Toggle sidebar">
             <i data-lucide="menu" style="width:20px;height:20px"></i>
         </button>
@@ -55,7 +55,7 @@ if (!function_exists('getInitials')) {
     </div>
 
     <!-- Right: Notification + User Menu -->
-    <div class="flex items-center gap-3 sm:gap-4 shrink-0">
+    <div class="topbar-actions flex items-center gap-3 sm:gap-4 shrink-0">
 
         <!-- Notification Bell -->
         <div id="notification-wrapper" class="notification-wrapper">

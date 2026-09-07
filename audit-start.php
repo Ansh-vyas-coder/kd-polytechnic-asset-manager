@@ -72,6 +72,9 @@ $completed_audits = $completed_audits ?? [];
                     </select>
                 </div>
                 <div class="md:col-span-1">
+                    <button type="submit" class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:bg-indigo-700">
+                        <i data-lucide="user-plus" style="width:16px;height:16px"></i>
+                        Assign Audit
                     </button>
                 </div>
             </div>

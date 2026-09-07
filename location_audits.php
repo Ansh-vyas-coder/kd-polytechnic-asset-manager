@@ -98,8 +98,8 @@ $current_page = 'audit';
                             </a>
                         </div>
 
-                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                            <table class="w-full text-sm">
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+                            <table class="w-full min-w-[620px] text-sm">
                                 <thead class="bg-gray-50">
                                     <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
                                         <th class="px-6 py-3 font-medium">Audit ID</th>

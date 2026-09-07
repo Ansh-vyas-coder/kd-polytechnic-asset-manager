@@ -242,8 +242,8 @@ $current_page = 'audit';
                                             <h4 class="text-md font-semibold text-gray-700 mb-2 pl-2 border-l-2 border-green-300">
                                                 <?php echo htmlspecialchars($asset_name); ?> <span class="text-sm font-normal text-gray-500">(<?php echo count($items); ?>)</span>
                                             </h4>
-                                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                                                <table class="w-full text-sm">
+                                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+                                                <table class="w-full min-w-[640px] text-sm">
                                                     <thead class="bg-gray-50">
                                                         <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
                                                             <th class="px-6 py-3 font-medium">Asset No.</th>
@@ -287,8 +287,8 @@ $current_page = 'audit';
                                             <h4 class="text-md font-semibold text-gray-700 mb-2 pl-2 border-l-2 border-red-300">
                                                 <?php echo htmlspecialchars($asset_name); ?> <span class="text-sm font-normal text-gray-500">(<?php echo count($items); ?>)</span>
                                             </h4>
-                                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                                                <table class="w-full text-sm">
+                                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+                                                <table class="w-full min-w-[540px] text-sm">
                                                     <thead class="bg-gray-50">
                                                         <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
                                                             <th class="px-6 py-3 font-medium">Asset No.</th>
@@ -330,8 +330,8 @@ $current_page = 'audit';
                                             <h4 class="text-md font-semibold text-gray-700 mb-2 pl-2 border-l-2 border-amber-300">
                                                 <?php echo htmlspecialchars($asset_name); ?> <span class="text-sm font-normal text-gray-500">(<?php echo count($items); ?>)</span>
                                             </h4>
-                                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                                                <table class="w-full text-sm">
+                                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+                                                <table class="w-full min-w-[440px] text-sm">
                                                     <thead class="bg-gray-50">
                                                         <tr class="text-left text-xs text-gray-500 uppercase tracking-wider">
                                                             <th class="px-6 py-3 font-medium">Asset No.</th>

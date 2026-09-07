@@ -504,8 +504,8 @@ $current_page = $pageView;
 
     <div id="mainContent" class="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300 ease-in-out h-screen overflow-hidden">
 
-      <header class="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6 gap-4 shrink-0">
-        <div class="flex items-center gap-2 flex-1 min-w-0">
+      <header class="topbar h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 lg:px-6 gap-4 shrink-0">
+        <div class="topbar-search-row flex items-center gap-2 flex-1 min-w-0">
           <button id="menuBtn" class="p-2 -ml-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0">
             <i data-lucide="menu" style="width:20px;height:20px"></i>
           </button>
@@ -532,7 +532,7 @@ $current_page = $pageView;
         </div>
 
 
-        <div class="flex items-center gap-3 sm:gap-4 shrink-0">
+        <div class="topbar-actions flex items-center gap-3 sm:gap-4 shrink-0">
           <div id="notification-wrapper" class="notification-wrapper">
               <button type="button" class="notification-bell" aria-label="Notifications">
                   <i data-lucide="bell" style="width:19px;height:19px"></i>
