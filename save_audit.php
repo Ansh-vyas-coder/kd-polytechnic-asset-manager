@@ -18,6 +18,10 @@ $audit_id = isset($_POST['audit_id']) ? (int)$_POST['audit_id'] : 0;
 $posted_assets = isset($_POST['assets']) ? $_POST['assets'] : [];
 $misplaced_asset_ids = isset($_POST['misplaced_assets']) ? $_POST['misplaced_assets'] : [];
 $misplaced_borrowed_asset_ids = isset($_POST['misplaced_borrowed_assets']) ? $_POST['misplaced_borrowed_assets'] : [];
+$relocate_asset_ids = isset($_POST['relocate_assets']) ? $_POST['relocate_assets'] : [];
+$relocate_borrowed_asset_ids = isset($_POST['relocate_borrowed_assets']) ? $_POST['relocate_borrowed_assets'] : [];
+$relocate_asset_ids = array_unique(array_map('intval', is_array($relocate_asset_ids) ? $relocate_asset_ids : []));
+$relocate_borrowed_asset_ids = array_unique(array_map('intval', is_array($relocate_borrowed_asset_ids) ? $relocate_borrowed_asset_ids : []));
 
 if ($audit_id <= 0) {
     header("Location: dashboard.php?view=audit&status=error&message=" . urlencode("Invalid audit ID."));
@@ -147,6 +151,7 @@ try {
     // 4. Process 'Misplaced' owned assets
     if (!empty($misplaced_asset_ids)) {
         $asset_details_stmt = $conn->prepare("SELECT location FROM assets WHERE id = ?");
+        $update_asset_location_stmt = $conn->prepare("UPDATE assets SET location = ? WHERE id = ? AND (location IS NULL OR location <> ?)");
         $update_missing_stmt = $conn->prepare(
             "UPDATE audit_items
              SET verification_status = 'Present', scanned_location_id = ?, `condition` = 'Good', note = ?
@@ -170,15 +175,24 @@ try {
             $update_note = 'Found at location: ' . $location_id;
             $update_missing_stmt->bind_param("ssi", $location_id, $update_note, $asset_id);
             $update_missing_stmt->execute();
+
+            // A location move requires an explicit confirmation from the audit page.
+            // Do not infer consent simply because the asset was logged as misplaced.
+            if (in_array($asset_id, $relocate_asset_ids, true)) {
+                $update_asset_location_stmt->bind_param("sis", $location_id, $asset_id, $location_id);
+                $update_asset_location_stmt->execute();
+            }
         }
         $asset_details_stmt->close();
         $update_missing_stmt->close();
+        $update_asset_location_stmt->close();
     }
     $insert_item_stmt->close();
 
     // 4.5. Process 'Misplaced' borrowed assets
     if (!empty($misplaced_borrowed_asset_ids)) {
         $borrowed_details_stmt = $conn->prepare("SELECT location FROM borrowed_assets WHERE id = ?");
+        $update_borrowed_location_stmt = $conn->prepare("UPDATE borrowed_assets SET location = ? WHERE id = ? AND (location IS NULL OR location <> ?)");
         $insert_misplaced_borrowed_stmt = $conn->prepare(
             "INSERT INTO borrowed_audit_items (audit_id, borrowed_asset_id, expected_location_id, scanned_location_id, verification_status, `condition`, note) VALUES (?, ?, ?, ?, ?, ?, ?)"
         );
@@ -194,9 +208,15 @@ try {
 
             $insert_misplaced_borrowed_stmt->bind_param("iisssss", $audit_id, $asset_id, $expected_location, $location_id, $status, $condition, $note);
             $insert_misplaced_borrowed_stmt->execute();
+
+            if (in_array($asset_id, $relocate_borrowed_asset_ids, true)) {
+                $update_borrowed_location_stmt->bind_param("sis", $location_id, $asset_id, $location_id);
+                $update_borrowed_location_stmt->execute();
+            }
         }
         $borrowed_details_stmt->close();
         $insert_misplaced_borrowed_stmt->close();
+        $update_borrowed_location_stmt->close();
     }
 
     // 5. Update the main audit status to 'Completed'
