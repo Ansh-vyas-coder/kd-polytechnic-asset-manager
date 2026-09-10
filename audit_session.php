@@ -282,11 +282,25 @@ $current_page = 'audit'; // for sidebar active state
         </div>
     </div>
 
+    <div id="locationChangeModal" class="fixed inset-0 z-[110] hidden items-center justify-center bg-slate-900/70 p-4" role="dialog" aria-modal="true" aria-labelledby="locationChangeTitle">
+        <div class="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl">
+            <h2 id="locationChangeTitle" class="text-lg font-bold text-gray-900">Review misplaced item locations</h2>
+            <p class="mt-2 text-sm leading-6 text-gray-600">Select the items whose official location should be changed to this audit room. Unticked items will remain assigned to their current room.</p>
+            <div id="locationChangeItems" class="mt-4 max-h-[50vh] space-y-2 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-3"></div>
+            <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button type="button" id="locationChangeNo" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">No, keep all locations</button>
+                <button type="button" id="locationChangeYes" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">Yes, change selected locations</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // --- Auto-Save and State Management ---
         const auditId = <?php echo $audit_id; ?>;
+        const auditLocation = <?php echo json_encode($location_id, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         const mainForm = document.querySelector('form[action="save_audit.php"]');
         let isSubmitting = false;
+        let isCompletingAudit = false;
 
         // --- LocalStorage Keys ---
         const misplacedStorageKey = `audit_${auditId}_misplaced`;
@@ -393,6 +407,59 @@ $current_page = 'audit'; // for sidebar active state
         const feedbackDiv = document.getElementById('misplacedSearchFeedback');
         const container = document.getElementById('misplacedItemsContainer');
 
+        function chooseLocationsToChange() {
+            const modal = document.getElementById('locationChangeModal');
+            const itemsContainer = document.getElementById('locationChangeItems');
+            const yesButton = document.getElementById('locationChangeYes');
+            const noButton = document.getElementById('locationChangeNo');
+
+            itemsContainer.replaceChildren();
+            misplacedAssets.forEach(asset => {
+                const isBorrowed = asset.source === 'borrowed';
+                const compositeId = isBorrowed ? `borrowed_${asset.id}` : `asset_${asset.id}`;
+                const label = document.createElement('label');
+                label.className = 'flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 bg-white p-3 hover:border-blue-300';
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.value = compositeId;
+                checkbox.className = 'location-change-checkbox mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500';
+
+                const details = document.createElement('div');
+                details.className = 'min-w-0 flex-1';
+                const name = document.createElement('p');
+                name.className = 'font-semibold text-sm text-gray-800';
+                name.textContent = asset.asset_name || 'Unnamed item';
+                const meta = document.createElement('p');
+                meta.className = 'mt-1 text-xs text-gray-600';
+                meta.textContent = `Asset No: ${asset.asset_no || 'Not available'}${asset.item_no ? `  •  Item No: ${asset.item_no}` : ''}`;
+                const locations = document.createElement('p');
+                locations.className = 'mt-1 text-xs font-medium text-blue-700';
+                locations.textContent = `${asset.location || 'No current location'}  →  ${auditLocation}`;
+                details.append(name, meta, locations);
+                label.append(checkbox, details);
+                itemsContainer.appendChild(label);
+            });
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            noButton.focus();
+
+            return new Promise(resolve => {
+                const finish = (selectedIds) => {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                    yesButton.removeEventListener('click', onYes);
+                    noButton.removeEventListener('click', onNo);
+                    resolve(selectedIds);
+                };
+                const onYes = () => finish(new Set([...itemsContainer.querySelectorAll('.location-change-checkbox:checked')].map(input => input.value)));
+                const onNo = () => finish(new Set());
+                yesButton.addEventListener('click', onYes);
+                noButton.addEventListener('click', onNo);
+            });
+        }
+
         function addMisplacedItem(asset) {
             const isBorrowed = asset.source === 'borrowed';
             const compositeId = isBorrowed ? `borrowed_${asset.id}` : `asset_${asset.id}`;
@@ -487,6 +554,39 @@ $current_page = 'audit'; // for sidebar active state
                 feedbackDiv.textContent = 'Item removed.';
                 feedbackDiv.className = 'text-xs mt-2 h-4 text-gray-500';
             }
+        });
+
+        function addRelocationInput(asset) {
+            const isBorrowed = asset.source === 'borrowed';
+            const compositeId = isBorrowed ? `borrowed_${asset.id}` : `asset_${asset.id}`;
+            if (document.getElementById(`relocate-input-${compositeId}`)) return;
+
+            const relocateInput = document.createElement('input');
+            relocateInput.type = 'hidden';
+            relocateInput.name = isBorrowed ? 'relocate_borrowed_assets[]' : 'relocate_assets[]';
+            relocateInput.value = asset.id;
+            relocateInput.id = `relocate-input-${compositeId}`;
+            mainForm.appendChild(relocateInput);
+        }
+
+        // Ask about all misplaced items only when the auditor completes the audit.
+        // Each Yes creates a relocation field; No creates no such field, so the
+        // server cannot update that item's official location.
+        mainForm.addEventListener('submit', async (event) => {
+            if (isSubmitting || isCompletingAudit) return;
+            event.preventDefault();
+            isCompletingAudit = true;
+
+            mainForm.querySelectorAll('[id^="relocate-input-"]').forEach(input => input.remove());
+            const selectedRelocations = await chooseLocationsToChange();
+            for (const asset of misplacedAssets) {
+                const compositeId = asset.source === 'borrowed' ? `borrowed_${asset.id}` : `asset_${asset.id}`;
+                if (selectedRelocations.has(compositeId)) addRelocationInput(asset);
+            }
+
+            isSubmitting = true;
+            clearAuditStorage();
+            mainForm.submit();
         });
 
         lucide.createIcons();

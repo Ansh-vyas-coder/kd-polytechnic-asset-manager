@@ -4,8 +4,8 @@ require 'db.php';
 
 header('Content-Type: application/json');
 
-// Security check: ensure user is logged in and is an admin
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+// Security check: audit staff may also log an unexpected item in their own audit.
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'staff'])) {
     http_response_code(403);
     echo json_encode(['error' => 'Unauthorized']);
     exit();
@@ -21,7 +21,7 @@ if (empty($asset_no) || $audit_id <= 0) {
 }
 
 // Get the location of the current audit
-$audit_stmt = $conn->prepare("SELECT location_id FROM audits WHERE id = ?");
+$audit_stmt = $conn->prepare("SELECT location_id, audited_by_user_id FROM audits WHERE id = ? AND status = 'In Progress'");
 $audit_stmt->bind_param("i", $audit_id);
 $audit_stmt->execute();
 $audit_result = $audit_stmt->get_result();
@@ -33,10 +33,15 @@ if (!$audit_session) {
     echo json_encode(['error' => 'Audit session not found.']);
     exit();
 }
+if ($_SESSION['role'] === 'staff' && (int)$audit_session['audited_by_user_id'] !== (int)$_SESSION['user_id']) {
+    http_response_code(403);
+    echo json_encode(['error' => 'Unauthorized']);
+    exit();
+}
 $audit_location = $audit_session['location_id'];
 
 // Find the asset by its asset_no
-$asset_stmt = $conn->prepare("SELECT id, asset_name, asset_no, location, 'dept' AS source FROM assets WHERE asset_no = ? AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL) LIMIT 1");
+$asset_stmt = $conn->prepare("SELECT id, asset_name, asset_no, item_no, location, 'dept' AS source FROM assets WHERE asset_no = ? AND retire_at IS NULL AND (transferred = 0 OR transferred IS NULL) LIMIT 1");
 $asset_stmt->bind_param("s", $asset_no);
 $asset_stmt->execute();
 $asset_result = $asset_stmt->get_result();
@@ -45,7 +50,7 @@ $asset_stmt->close();
 
 if (!$asset) {
     // Check in borrowed_assets table
-    $borrowed_stmt = $conn->prepare("SELECT id, asset_name, asset_no, location, 'borrowed' AS source FROM borrowed_assets WHERE asset_no = ? AND (status IS NULL OR status <> 'Returned') LIMIT 1");
+    $borrowed_stmt = $conn->prepare("SELECT id, asset_name, asset_no, item_no, location, 'borrowed' AS source FROM borrowed_assets WHERE asset_no = ? AND (status IS NULL OR status <> 'Returned') LIMIT 1");
     $borrowed_stmt->bind_param("s", $asset_no);
     $borrowed_stmt->execute();
     $asset = $borrowed_stmt->get_result()->fetch_assoc();
