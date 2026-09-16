@@ -70,72 +70,7 @@ $current_page = 'audit';
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <link rel="stylesheet" href="loader/loader.css" />
-  <link rel="stylesheet" href="notifications.css" />
-    <script>
-        tailwind.config = {
-            theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } }
-        };
-    </script>
-    <style>
-        html, body { font-family: 'Inter', sans-serif; }
-    </style>
-</head>
-<body class="h-screen bg-gray-50 text-gray-900 antialiased">
-    <?php include 'loader/loader.html'; ?>
-    <div class="h-screen flex overflow-hidden">
-        <?php include 'sidebar.php'; ?>
-        <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden"></div>
-
-        <div id="mainContent" class="flex-1 flex flex-col min-w-0 lg:ml-64 transition-all duration-300 ease-in-out h-screen overflow-hidden">
-        <?php include 'topbar.php'; ?>
-
-            <div class="flex-1 overflow-y-auto flex flex-col">
-                <main class="flex-1 bg-gray-50 p-4 lg:p-6">
-                    <div class="max-w-7xl mx-auto">
-                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-                            <div>
-                                <h1 class="text-2xl font-bold text-gray-900 tracking-tight"><?php echo htmlspecialchars($page_title); ?></h1>
-                                <p class="text-sm text-gray-500 mt-1">Showing all relevant audits, from most recent to oldest.</p>
-                            </div>
-    $audits_stmt = $conn->prepare("
-        SELECT a.id, a.location_id, a.audit_date, u.full_name as assigned_to_name, a.status
-        FROM audits a
-        JOIN users u ON a.audited_by_user_id = u.id
-        WHERE a.status = 'Assigned' AND a.audited_by_user_id = ?
-        ORDER BY a.audit_date DESC
-    ");
-    $audits_stmt->bind_param("i", $_SESSION['user_id']);
-    $audits_stmt->execute();
-    $audits_result = $audits_stmt->get_result();
-    if ($audits_result) {
-        $all_audits = $audits_result->fetch_all(MYSQLI_ASSOC);
-    }
-    $audits_stmt->close();
-}
-
-// Helper function to generate initials
-function getInitials($name) {
-    $words = explode(' ', $name);
-    $initials = '';
-    foreach ($words as $word) {
-        $initials .= strtoupper(substr($word, 0, 1));
-    }
-    return substr($initials, 0, 2);
-}
-
-$current_page = 'audit';
-?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><?php echo htmlspecialchars($page_title); ?> - KDP Asset Manager</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-    <link rel="stylesheet" href="loader/loader.css" />
-  <link rel="stylesheet" href="notifications.css" />
+    <link rel="stylesheet" href="notifications.css" />
     <script>
         tailwind.config = {
             theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } }
