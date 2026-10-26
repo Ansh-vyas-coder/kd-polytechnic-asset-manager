@@ -7,6 +7,31 @@ if (file_exists(__DIR__ . '/mail-config.php')) {
     require_once __DIR__ . '/mail-config.sample.php';
 }
 
+// Dynamic server domain helper
+if (!function_exists('get_system_server_domain')) {
+    function get_system_server_domain(): string {
+        $host = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? '');
+        if (strpos($host, ':') !== false) {
+            $host = explode(':', $host)[0];
+        }
+        $host = preg_replace('/^www\./i', '', trim($host));
+        if (empty($host) || in_array(strtolower($host), ['localhost', '127.0.0.1', '::1'])) {
+            return 'localhost';
+        }
+        return strtolower($host);
+    }
+}
+
+if (!function_exists('get_default_from_email')) {
+    function get_default_from_email(): string {
+        $domain = get_system_server_domain();
+        if ($domain !== 'localhost' && strpos($domain, '.') !== false) {
+            return 'noreply@' . $domain;
+        }
+        return 'noreply@kdpolytechnic.ac.in';
+    }
+}
+
 // Fallback constants if not defined
 if (!defined('MAIL_SMTP_ENABLED')) define('MAIL_SMTP_ENABLED', false);
 if (!defined('MAIL_SMTP_HOST')) define('MAIL_SMTP_HOST', 'smtp.gmail.com');
@@ -14,7 +39,7 @@ if (!defined('MAIL_SMTP_PORT')) define('MAIL_SMTP_PORT', 587);
 if (!defined('MAIL_SMTP_ENCRYPTION')) define('MAIL_SMTP_ENCRYPTION', 'tls');
 if (!defined('MAIL_SMTP_USER')) define('MAIL_SMTP_USER', '');
 if (!defined('MAIL_SMTP_PASS')) define('MAIL_SMTP_PASS', '');
-if (!defined('MAIL_FROM_ADDRESS')) define('MAIL_FROM_ADDRESS', 'noreply@kdpolytechnic.ac.in');
+if (!defined('MAIL_FROM_ADDRESS')) define('MAIL_FROM_ADDRESS', get_default_from_email());
 if (!defined('MAIL_FROM_NAME')) define('MAIL_FROM_NAME', 'K.D. Polytechnic Asset Manager');
 
 /**
@@ -34,7 +59,7 @@ function get_app_base_url(): string {
 }
 
 /**
- * Sends an email using SMTP socket connection or falls back gracefully.
+ * Sends an email using Hosting Mail Server (PHP mail() / Sendmail) or SMTP socket connection.
  */
 function send_system_email(string $to_email, string $to_name, string $subject, string $html_body, string $plain_text = ''): array {
     $to_email = trim($to_email);
@@ -46,33 +71,31 @@ function send_system_email(string $to_email, string $to_name, string $subject, s
         $plain_text = strip_tags(str_replace(['<br>', '<br/>', '<br />', '</p>'], "\n", $html_body));
     }
 
-    // Determine effective from email
-    $effective_from = defined('MAIL_FROM_ADDRESS') ? MAIL_FROM_ADDRESS : '';
+    $domain = get_system_server_domain();
+
+    // Determine effective From address
+    $effective_from = defined('MAIL_FROM_ADDRESS') ? trim(MAIL_FROM_ADDRESS) : '';
     if (MAIL_SMTP_ENABLED && !empty(MAIL_SMTP_USER) && filter_var(MAIL_SMTP_USER, FILTER_VALIDATE_EMAIL)) {
         if (stripos(MAIL_SMTP_HOST, 'gmail') !== false || stripos(MAIL_SMTP_HOST, 'yahoo') !== false || empty($effective_from)) {
             $effective_from = MAIL_SMTP_USER;
         }
     }
+
+    // For hosting server mail: ensure From domain matches hosting domain so SPF/anti-spoofing filters pass
     if (empty($effective_from) || !filter_var($effective_from, FILTER_VALIDATE_EMAIL)) {
-        $effective_from = 'noreply@' . ($_SERVER['HTTP_HOST'] ?? 'kdpolytechnic.ac.in');
+        $effective_from = get_default_from_email();
+    } else {
+        // If effective_from is the placeholder 'noreply@kdpolytechnic.ac.in' but the site is hosted on a live custom domain,
+        // automatically align with the current hosting domain to prevent unrouteable sender rejection
+        if ($domain !== 'localhost' && strtolower($domain) !== 'kdpolytechnic.ac.in' && strtolower($effective_from) === 'noreply@kdpolytechnic.ac.in') {
+            $effective_from = 'noreply@' . $domain;
+        }
     }
 
     $boundary = "==Multipart_Boundary_x" . md5(microtime()) . "x";
     $from_name_encoded = "=?UTF-8?B?" . base64_encode(MAIL_FROM_NAME) . "?=";
     $to_name_encoded   = "=?UTF-8?B?" . base64_encode($to_name) . "?=";
     $subject_encoded   = "=?UTF-8?B?" . base64_encode($subject) . "?=";
-
-    // Headers
-    $headers = [];
-    $headers[] = "From: {$from_name_encoded} <{$effective_from}>";
-    $headers[] = "Reply-To: {$from_name_encoded} <{$effective_from}>";
-    $headers[] = "To: {$to_name_encoded} <{$to_email}>";
-    $headers[] = "Date: " . date('r');
-    $headers[] = "Message-ID: <" . md5(uniqid(microtime(), true)) . "@" . ($_SERVER['SERVER_NAME'] ?? 'localhost') . ">";
-    $headers[] = "Subject: {$subject_encoded}";
-    $headers[] = "MIME-Version: 1.0";
-    $headers[] = "Content-Type: multipart/alternative; boundary=\"{$boundary}\"";
-    $headers[] = "X-Mailer: PHP/" . phpversion();
 
     // Body
     $body = "--{$boundary}\r\n";
@@ -88,10 +111,21 @@ function send_system_email(string $to_email, string $to_name, string $subject, s
 
     $smtp_result = null;
 
-    // 1. Try Live SMTP if enabled
+    // 1. If Live SMTP is explicitly enabled and configured, try it
     if (MAIL_SMTP_ENABLED && !empty(MAIL_SMTP_HOST) && !empty(MAIL_SMTP_USER) && !empty(MAIL_SMTP_PASS)) {
+        $smtp_headers = [
+            "From: {$from_name_encoded} <{$effective_from}>",
+            "Reply-To: {$from_name_encoded} <{$effective_from}>",
+            "To: {$to_name_encoded} <{$to_email}>",
+            "Date: " . date('r'),
+            "Message-ID: <" . md5(uniqid(microtime(), true)) . "@" . ($domain !== 'localhost' ? $domain : 'localhost') . ">",
+            "Subject: {$subject_encoded}",
+            "MIME-Version: 1.0",
+            "Content-Type: multipart/alternative; boundary=\"{$boundary}\"",
+            "X-Mailer: PHP/" . phpversion()
+        ];
         try {
-            $smtp_result = send_via_smtp($to_email, $headers, $body, $effective_from);
+            $smtp_result = send_via_smtp($to_email, $smtp_headers, $body, $effective_from);
             if ($smtp_result['success']) {
                 log_email_record($to_email, $subject, 'SMTP (Delivered)', $html_body);
                 return ['success' => true, 'transport' => 'smtp', 'message' => 'Email sent via SMTP successfully.'];
@@ -103,30 +137,63 @@ function send_system_email(string $to_email, string $to_name, string $subject, s
         }
     }
 
-    // 2. Try hosting built-in PHP mail()
-    $raw_headers = implode("\r\n", [
+    // 2. Hosting Mail Server (Primary default delivery via PHP mail() / Sendmail)
+    $is_win = (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN');
+    $header_eol = $is_win ? "\r\n" : "\n"; // RFC compliant: Linux MTAs convert \n to \r\n
+
+    $mail_headers = [
         "From: {$from_name_encoded} <{$effective_from}>",
         "Reply-To: {$from_name_encoded} <{$effective_from}>",
+        "Return-Path: <{$effective_from}>",
+        "X-Sender: <{$effective_from}>",
+        "Date: " . date('r'),
+        "Message-ID: <" . md5(uniqid(microtime(), true)) . "@" . ($domain !== 'localhost' ? $domain : 'localhost') . ">",
         "MIME-Version: 1.0",
-        "Content-Type: multipart/alternative; boundary=\"{$boundary}\""
-    ]);
+        "Content-Type: multipart/alternative; boundary=\"{$boundary}\"",
+        "X-Mailer: PHP/" . phpversion()
+    ];
+    $raw_headers = implode($header_eol, $mail_headers);
 
     $sender_param = "-f" . $effective_from;
-    $mail_sent = @mail($to_email, $subject_encoded, $body, $raw_headers, $sender_param);
-    if (!$mail_sent) {
-        $mail_sent = @mail($to_email, $subject_encoded, $body, $raw_headers);
+    $mail_sent = false;
+    $last_php_err = '';
+
+    if (function_exists('mail')) {
+        error_clear_last();
+        // 1st attempt: With envelope sender parameter (-f)
+        $mail_sent = @mail($to_email, $subject_encoded, $body, $raw_headers, $sender_param);
+        if (!$mail_sent) {
+            // 2nd attempt: Without 5th parameter (some shared hosts disallow -f)
+            $mail_sent = @mail($to_email, $subject_encoded, $body, $raw_headers);
+        }
+        if (!$mail_sent) {
+            $err = error_get_last();
+            if (!empty($err['message'])) {
+                $last_php_err = $err['message'];
+            }
+        }
     }
+
+    // 3rd attempt: If PHP mail() returned false or is disabled, try local server relay on 127.0.0.1:25
+    if (!$mail_sent && $domain !== 'localhost') {
+        $relay_res = try_local_hosting_relay($to_email, $effective_from, $from_name_encoded, $subject_encoded, $boundary, $plain_text, $html_body, $domain);
+        if ($relay_res['success']) {
+            $mail_sent = true;
+        } else {
+            if (!empty($relay_res['error'])) {
+                $last_php_err .= ' [Local MTA: ' . $relay_res['error'] . ']';
+            }
+        }
+    }
+
     if ($mail_sent) {
-        log_email_record($to_email, $subject, 'PHP mail()', $html_body);
-        return ['success' => true, 'transport' => 'mail', 'message' => 'Email sent via hosting PHP mail().'];
+        log_email_record($to_email, $subject, 'Hosting Mail Server (Delivered)', $html_body);
+        return ['success' => true, 'transport' => 'mail', 'message' => 'Email sent via hosting mail server successfully.'];
     }
 
     // 3. Fallback evaluation
-    $host_header = $_SERVER['HTTP_HOST'] ?? 'localhost';
-    $is_localhost = in_array(strtolower($host_header), ['localhost', '127.0.0.1', '::1']) || strpos(strtolower($host_header), 'localhost:') === 0;
-
-    if ($is_localhost) {
-        // Localhost development fallback
+    if ($domain === 'localhost') {
+        // Localhost development mode: record to local log so developers can test OTP/emails without live MTA
         log_email_record($to_email, $subject, 'Simulated (Localhost Logged)', $html_body);
         return [
             'success' => true,
@@ -135,10 +202,15 @@ function send_system_email(string $to_email, string $to_name, string $subject, s
         ];
     }
 
-    // Live Hosting: Do not fake success! Return descriptive error
-    $err_desc = !empty($smtp_result['error'])
-        ? $smtp_result['error']
-        : 'PHP mail() function is disabled or blocked on this hosting server, and Live SMTP is not configured. Please open Admin -> Email Settings to enter your SMTP details.';
+    // Live Hosting: Return descriptive error
+    $err_desc = 'Hosting server mail delivery failed.';
+    if (!empty($last_php_err)) {
+        $err_desc .= ' (' . $last_php_err . ')';
+    } elseif (!empty($smtp_result['error'])) {
+        $err_desc .= ' (' . $smtp_result['error'] . ')';
+    } else {
+        $err_desc .= ' Please verify with your hosting provider that PHP mail() or outgoing mail is permitted on this domain.';
+    }
 
     log_email_record($to_email, $subject, 'FAILED: ' . $err_desc, $html_body);
     return [
@@ -146,6 +218,110 @@ function send_system_email(string $to_email, string $to_name, string $subject, s
         'transport' => 'none',
         'error' => $err_desc
     ];
+}
+
+/**
+ * Fallback direct local MTA relay (127.0.0.1:25) when PHP mail() function is disabled or blocked in php.ini.
+ */
+function try_local_hosting_relay(string $to_email, string $from_email, string $from_name_encoded, string $subject_encoded, string $boundary, string $plain_text, string $html_body, string $domain): array {
+    $hosts = ['127.0.0.1', 'localhost'];
+    $port = 25;
+    $timeout = 2;
+    $socket = null;
+    $errno = 0;
+    $errstr = '';
+
+    foreach ($hosts as $h) {
+        $socket = @fsockopen($h, $port, $errno, $errstr, $timeout);
+        if ($socket) break;
+    }
+
+    if (!$socket) {
+        return ['success' => false, 'error' => "Port 25 local socket unavailable ({$errstr})"];
+    }
+
+    stream_set_timeout($socket, $timeout);
+
+    $read = function() use ($socket) {
+        $resp = '';
+        while ($l = fgets($socket, 515)) {
+            $resp .= $l;
+            if (substr($l, 3, 1) === ' ') break;
+        }
+        return $resp;
+    };
+
+    $write = function(string $cmd) use ($socket) {
+        fputs($socket, $cmd . "\r\n");
+    };
+
+    try {
+        $greeting = $read();
+        if ((int)substr($greeting, 0, 3) !== 220) {
+            fclose($socket);
+            return ['success' => false, 'error' => 'Greeting failed: ' . trim($greeting)];
+        }
+
+        $helo_host = ($domain !== 'localhost') ? $domain : 'localhost';
+        $write("HELO {$helo_host}");
+        $r = $read();
+        if ((int)substr($r, 0, 3) !== 250) {
+            fclose($socket);
+            return ['success' => false, 'error' => 'HELO failed: ' . trim($r)];
+        }
+
+        $write("MAIL FROM:<{$from_email}>");
+        $r = $read();
+        if ((int)substr($r, 0, 3) !== 250) {
+            fclose($socket);
+            return ['success' => false, 'error' => 'MAIL FROM failed: ' . trim($r)];
+        }
+
+        $write("RCPT TO:<{$to_email}>");
+        $r = $read();
+        if ((int)substr($r, 0, 3) !== 250) {
+            fclose($socket);
+            return ['success' => false, 'error' => 'RCPT TO failed: ' . trim($r)];
+        }
+
+        $write("DATA");
+        $r = $read();
+        if ((int)substr($r, 0, 3) !== 354) {
+            fclose($socket);
+            return ['success' => false, 'error' => 'DATA initiation failed: ' . trim($r)];
+        }
+
+        $data = "From: {$from_name_encoded} <{$from_email}>\r\n" .
+                "Reply-To: {$from_name_encoded} <{$from_email}>\r\n" .
+                "To: <{$to_email}>\r\n" .
+                "Subject: {$subject_encoded}\r\n" .
+                "Date: " . date('r') . "\r\n" .
+                "Message-ID: <" . md5(uniqid(microtime(), true)) . "@{$helo_host}>\r\n" .
+                "MIME-Version: 1.0\r\n" .
+                "Content-Type: multipart/alternative; boundary=\"{$boundary}\"\r\n\r\n" .
+                "--{$boundary}\r\n" .
+                "Content-Type: text/plain; charset=\"UTF-8\"\r\n" .
+                "Content-Transfer-Encoding: base64\r\n\r\n" .
+                chunk_split(base64_encode($plain_text)) . "\r\n" .
+                "--{$boundary}\r\n" .
+                "Content-Type: text/html; charset=\"UTF-8\"\r\n" .
+                "Content-Transfer-Encoding: base64\r\n\r\n" .
+                chunk_split(base64_encode($html_body)) . "\r\n" .
+                "--{$boundary}--\r\n.\r\n";
+
+        $write($data);
+        $r = $read();
+        $write("QUIT");
+        fclose($socket);
+
+        if ((int)substr($r, 0, 3) === 250) {
+            return ['success' => true];
+        }
+        return ['success' => false, 'error' => 'DATA commit failed: ' . trim($r)];
+    } catch (\Throwable $e) {
+        if (is_resource($socket)) fclose($socket);
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
 }
 
 /**

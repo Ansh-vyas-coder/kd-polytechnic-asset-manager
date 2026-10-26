@@ -357,41 +357,43 @@ $current_page = 'manage-users';
   </div>
 </div>
 
-<!-- Modal for Verification Email Sent -->
+<!-- Modal for Verification Email Sent (Hosting Production Ready) -->
 <div id="verificationModal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
-  <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg transform transition-all" id="verificationModalContent">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md transform transition-all overflow-hidden" id="verificationModalContent">
     <div class="p-6 text-center">
-      <div class="w-16 h-16 mx-auto flex items-center justify-center bg-blue-100 rounded-full mb-4 ring-8 ring-blue-50">
-        <i data-lucide="mail-check" class="text-blue-600 w-8 h-8"></i>
+      <div class="w-16 h-16 mx-auto flex items-center justify-center bg-emerald-100 rounded-full mb-4 ring-8 ring-emerald-50">
+        <i data-lucide="mail-check" class="text-emerald-600 w-8 h-8"></i>
       </div>
-      <h3 class="text-xl font-bold text-gray-900" id="verificationModalTitle">Verification Email Sent!</h3>
+      <h3 class="text-xl font-bold text-gray-900" id="verificationModalTitle">User Created Successfully!</h3>
       <p class="text-sm text-gray-600 mt-2">
-        An activation email with a verification button has been sent to <strong id="verificationModalEmail" class="text-slate-800"></strong> for user <strong id="verificationModalUser" class="text-slate-800"></strong>.
+        An activation email has been sent to <strong id="verificationModalEmail" class="text-slate-800"></strong> for user <strong id="verificationModalUser" class="text-slate-800"></strong>.
       </p>
-      <div class="mt-4 p-3.5 bg-blue-50/80 rounded-xl text-xs text-blue-900 border border-blue-200/60 leading-relaxed text-left">
-        <span class="font-bold block mb-1">🔐 Next Step for User:</span>
-        <ol class="list-decimal list-inside space-y-1 text-slate-700">
-          <li>User clicks the <strong>Verify Email &amp; Get Password</strong> button in the email.</li>
-          <li>Email is verified, and a secure password is auto-generated.</li>
-          <li>The password is sent to their email so they can log in immediately!</li>
-        </ol>
+
+      <div class="mt-5 p-4 bg-slate-50 rounded-xl text-xs text-slate-700 border border-slate-200/80 leading-relaxed text-left space-y-1.5">
+        <span class="font-bold text-slate-900 block flex items-center gap-1.5">
+          <i data-lucide="shield-check" class="w-4 h-4 text-blue-600"></i> Next Step for User:
+        </span>
+        <p class="text-slate-600">
+          The user should open their email inbox and click the <strong>Verify Email &amp; Get Password</strong> button. Their password will be generated automatically and emailed to them.
+        </p>
       </div>
-      <div class="mt-4 text-left">
-        <label class="text-xs font-semibold text-gray-500 uppercase tracking-wider block">Verification Link (Direct Test / Share Link)</label>
-        <div class="relative mt-1">
-          <input id="verificationModalLink" type="text" readonly class="w-full bg-gray-50 border border-gray-300 rounded-lg text-xs font-mono py-2.5 px-3 text-gray-800 focus:outline-none pr-10">
-          <button id="copyVerifyLinkBtn" type="button" title="Copy Link" class="absolute top-1/2 right-2 -translate-y-1/2 p-1.5 rounded-md text-gray-500 hover:bg-gray-200 transition">
-            <i data-lucide="clipboard" class="w-4 h-4"></i>
-          </button>
-        </div>
-        <span id="copyVerifyFeedback" class="text-xs font-medium text-emerald-600 h-4 block mt-1 transition-opacity opacity-0">✓ Link copied to clipboard!</span>
+
+      <!-- Hidden field for manual copy fallback -->
+      <input id="verificationModalLink" type="hidden" value="">
+      
+      <!-- Subtle manual fallback if user didn't get email -->
+      <div class="mt-4 pt-3 border-t border-gray-100 flex items-center justify-center gap-2 text-xs text-gray-500">
+        <span>Email not received?</span>
+        <button id="copyVerifyLinkBtn" type="button" class="text-blue-600 font-semibold hover:underline inline-flex items-center gap-1">
+          <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+          <span>Copy Activation Link</span>
+        </button>
       </div>
+      <span id="copyVerifyFeedback" class="text-xs font-medium text-emerald-600 h-4 block mt-1 transition-opacity opacity-0">✓ Activation link copied to clipboard!</span>
     </div>
-    <div class="bg-gray-50 px-6 py-4 rounded-b-xl flex gap-3">
-      <a id="testVerifyLinkBtn" href="#" target="_blank" class="flex-1 inline-flex justify-center items-center gap-1.5 rounded-lg border border-blue-600 text-blue-600 px-4 py-2.5 text-xs font-bold hover:bg-blue-50 transition">
-        <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Open Link
-      </a>
-      <button id="closeVerificationModalBtn" type="button" class="flex-1 inline-flex justify-center rounded-lg border border-transparent bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-blue-700 transition">
+
+    <div class="bg-gray-50 px-6 py-4 rounded-b-xl">
+      <button id="closeVerificationModalBtn" type="button" class="w-full inline-flex justify-center rounded-lg border border-transparent bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-blue-700 transition">
         Done
       </button>
     </div>
@@ -484,7 +486,6 @@ $current_page = 'manage-users';
     const verificationModalUser = document.getElementById('verificationModalUser');
     const verificationModalEmail = document.getElementById('verificationModalEmail');
     const verificationModalLink = document.getElementById('verificationModalLink');
-    const testVerifyLinkBtn = document.getElementById('testVerifyLinkBtn');
     const closeVerificationModalBtn = document.getElementById('closeVerificationModalBtn');
     const copyVerifyLinkBtn = document.getElementById('copyVerifyLinkBtn');
     const copyVerifyFeedback = document.getElementById('copyVerifyFeedback');
@@ -498,12 +499,11 @@ $current_page = 'manage-users';
       const verifyLink = urlParams.get('verify_link') || '';
 
       if (verificationModalTitle) {
-        verificationModalTitle.textContent = status === 'verification_resent' ? 'Verification Email Resent!' : 'Verification Email Sent!';
+        verificationModalTitle.textContent = status === 'verification_resent' ? 'Verification Email Resent!' : 'User Created Successfully!';
       }
       if (verificationModalUser) verificationModalUser.textContent = userName;
       if (verificationModalEmail) verificationModalEmail.textContent = email;
       if (verificationModalLink) verificationModalLink.value = verifyLink;
-      if (testVerifyLinkBtn) testVerifyLinkBtn.href = verifyLink;
       if (verificationModal) verificationModal.classList.remove('hidden');
       if (window.lucide) lucide.createIcons();
     } else if (status === 'user_added') {

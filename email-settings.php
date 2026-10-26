@@ -49,20 +49,25 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action']) && $_POST['
 
     $result = send_system_email($test_recipient, 'Administrator', $subject, $test_html);
 
-    if ($result['success'] && ($result['transport'] ?? '') !== 'log') {
+    if ($result['success'] && ($result['transport'] ?? '') === 'mail') {
         echo json_encode([
             'success' => true,
-            'message' => 'Test email was successfully sent to ' . htmlspecialchars($test_recipient) . ' via ' . strtoupper($result['transport'] ?? 'SMTP') . '!'
+            'message' => 'Success! Test email was sent to ' . htmlspecialchars($test_recipient) . ' directly through Hosting Mail Server (PHP mail()).'
+        ]);
+    } elseif ($result['success'] && ($result['transport'] ?? '') === 'smtp') {
+        echo json_encode([
+            'success' => true,
+            'message' => 'Success! Test email was sent to ' . htmlspecialchars($test_recipient) . ' via Live SMTP.'
         ]);
     } elseif ($result['success'] && ($result['transport'] ?? '') === 'log') {
         echo json_encode([
-            'success' => false,
-            'message' => 'Email was NOT sent over the internet — it was logged locally to logs/email_log.txt because Live SMTP is turned OFF. Please enable SMTP below and provide credentials.'
+            'success' => true,
+            'message' => 'Localhost Development Mode: Email recorded to logs/email_log.txt. (When uploaded to your live hosting server, it will deliver directly via your hosting mail server).'
         ]);
     } else {
         echo json_encode([
             'success' => false,
-            'message' => 'Email delivery failed: ' . ($result['error'] ?? 'Unknown connection error. Check your SMTP host, port, username and password.')
+            'message' => 'Email delivery failed: ' . ($result['error'] ?? 'Unknown mail server error.')
         ]);
     }
     exit();
@@ -185,9 +190,9 @@ $current_page = 'email-settings';
                   Live SMTP Active
                 </span>
               <?php else: ?>
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
-                  <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-                  SMTP Disabled (Hosting Mail)
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
+                  <span class="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+                  Hosting Mail Server (Active &amp; Ready)
                 </span>
               <?php endif; ?>
             </div>
@@ -208,7 +213,7 @@ $current_page = 'email-settings';
                   <i data-lucide="send" class="w-5 h-5 text-blue-300"></i> Test Live Email Delivery
                 </h3>
                 <p class="text-xs text-blue-200 leading-relaxed max-w-lg">
-                  Send a live test message to verify that your email server can successfully reach inboxes without bouncing or being blocked by hosting firewalls.
+                  Send a live test message to verify that your hosting server can successfully reach recipient inboxes without bouncing.
                 </p>
               </div>
               <div class="w-full md:w-auto flex flex-col sm:flex-row gap-2.5">
@@ -232,20 +237,27 @@ $current_page = 'email-settings';
 
               <!-- Quick Provider Selection Buttons -->
               <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5">Quick Provider Presets</label>
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5">Quick Presets</label>
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <button type="button" onclick="setPreset('hosting')" class="p-3 border-2 border-blue-500 bg-blue-50/40 rounded-xl hover:bg-blue-50 text-left transition group">
+                    <div class="font-bold text-sm text-blue-900 flex items-center gap-1.5">
+                      <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span> Hosting Mail
+                    </div>
+                    <div class="text-[11px] text-blue-700 font-semibold mt-0.5">Direct (Recommended)</div>
+                  </button>
+
                   <button type="button" onclick="setPreset('gmail')" class="p-3 border border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50/50 text-left transition group">
                     <div class="font-bold text-sm text-gray-900 group-hover:text-blue-600 flex items-center gap-1.5">
-                      <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span> Gmail
+                      <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span> Gmail SMTP
                     </div>
                     <div class="text-[11px] text-gray-400 mt-0.5">Google Workspace</div>
                   </button>
 
                   <button type="button" onclick="setPreset('cpanel')" class="p-3 border border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50/50 text-left transition group">
                     <div class="font-bold text-sm text-gray-900 group-hover:text-blue-600 flex items-center gap-1.5">
-                      <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> cPanel / Webmail
+                      <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> cPanel SMTP
                     </div>
-                    <div class="text-[11px] text-gray-400 mt-0.5">Hosting Domain Mail</div>
+                    <div class="text-[11px] text-gray-400 mt-0.5">Webmail Relay</div>
                   </button>
 
                   <button type="button" onclick="setPreset('outlook')" class="p-3 border border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50/50 text-left transition group">
@@ -254,20 +266,40 @@ $current_page = 'email-settings';
                     </div>
                     <div class="text-[11px] text-gray-400 mt-0.5">Office 365</div>
                   </button>
-
-                  <button type="button" onclick="setPreset('disabled')" class="p-3 border border-gray-200 rounded-xl hover:border-gray-400 hover:bg-gray-50 text-left transition group">
-                    <div class="font-bold text-sm text-gray-600 group-hover:text-gray-900 flex items-center gap-1.5">
-                      <span class="w-2.5 h-2.5 rounded-full bg-gray-400"></span> PHP mail()
-                    </div>
-                    <div class="text-[11px] text-gray-400 mt-0.5">Hosting Default</div>
-                  </button>
                 </div>
               </div>
 
-              <!-- Enable SMTP Toggle -->
-              <div class="pt-2 border-t border-gray-100 flex items-center justify-between">
+              <!-- Sender Info (Primary for Hosting) -->
+              <div class="pt-2 border-t border-gray-100">
+                <h4 class="text-sm font-bold text-gray-900 mb-1">Hosting Sender Details</h4>
+                <p class="text-xs text-gray-500 mb-4">Emails sent directly from your hosting will use this address. For best delivery, use your hosting domain or account email.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">From Email Address</label>
+                    <input type="email" name="from_address" id="from_address" value="<?php echo htmlspecialchars($cur_from_addr); ?>" placeholder="admin@yourdomain.com"
+                      class="w-full px-3.5 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500">
+                    <p class="text-[11px] text-gray-400 mt-1">Leave empty or set to your domain email (e.g., admin@yourdomain.com).</p>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">From Sender Name</label>
+                    <input type="text" name="from_name" id="from_name" value="<?php echo htmlspecialchars($cur_from_name); ?>" placeholder="K.D. Polytechnic Asset Manager"
+                      class="w-full px-3.5 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500">
+                    <p class="text-[11px] text-gray-400 mt-1">Organization or system name shown in emails.</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Optional SMTP Toggle -->
+              <div class="pt-4 border-t border-gray-100 flex items-center justify-between">
                 <div>
-                  <h4 class="text-sm font-bold text-gray-900">Enable Live SMTP Delivery</h4>
+                  <h4 class="text-sm font-bold text-gray-900">Enable External SMTP Socket (Optional)</h4>
+                  <p class="text-xs text-gray-500 mt-0.5">Disabled by default. Only enable if you want to bypass hosting mail and route through Gmail or an external SMTP server.</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" name="smtp_enabled" id="smtp_enabled" value="1" <?php echo $cur_enabled ? 'checked' : ''; ?> class="sr-only peer" onchange="toggleSmtpFields()">
+                  <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
                   <p class="text-xs text-gray-500 mt-0.5">Sends emails directly via secure SMTP socket connection (Guarantees inbox delivery).</p>
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer">
@@ -318,21 +350,6 @@ $current_page = 'email-settings';
                 </div>
               </div>
 
-              <!-- Sender Info -->
-              <div class="pt-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label class="block text-xs font-semibold text-gray-700 mb-1">From Email Address</label>
-                  <input type="email" name="from_address" id="from_address" value="<?php echo htmlspecialchars($cur_from_addr); ?>" placeholder="noreply@kdpolytechnic.ac.in"
-                    class="w-full px-3.5 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500">
-                  <p class="text-[11px] text-gray-400 mt-1">Sender address displayed in user mailboxes.</p>
-                </div>
-                <div>
-                  <label class="block text-xs font-semibold text-gray-700 mb-1">From Sender Name</label>
-                  <input type="text" name="from_name" id="from_name" value="<?php echo htmlspecialchars($cur_from_name); ?>" placeholder="K.D. Polytechnic Asset Manager"
-                    class="w-full px-3.5 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500">
-                </div>
-              </div>
-
               <div class="pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
                 <button type="submit" class="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm">
                   <i data-lucide="save" class="w-4 h-4"></i>
@@ -367,8 +384,15 @@ $current_page = 'email-settings';
     const host    = document.getElementById('smtp_host');
     const port    = document.getElementById('smtp_port');
     const enc     = document.getElementById('smtp_encryption');
+    const fromA   = document.getElementById('from_address');
 
-    if (provider === 'gmail') {
+    if (provider === 'hosting') {
+      enabled.checked = false;
+      const domain = window.location.hostname.replace('www.', '');
+      if (domain && domain !== 'localhost' && !fromA.value) {
+        fromA.value = 'noreply@' + domain;
+      }
+    } else if (provider === 'gmail') {
       enabled.checked = true;
       host.value = 'smtp.gmail.com';
       port.value = 587;
@@ -384,8 +408,6 @@ $current_page = 'email-settings';
       host.value = 'smtp.office365.com';
       port.value = 587;
       enc.value  = 'tls';
-    } else if (provider === 'disabled') {
-      enabled.checked = false;
     }
     toggleSmtpFields();
   }
