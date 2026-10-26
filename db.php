@@ -1,11 +1,16 @@
 <?php
 // db.php - Database Connection File
 
-$host = "localhost";
-$port = 3306;
-$username = "root"; // Default XAMPP username
-$password = "";     // Default XAMPP password (blank)
-$database = "smart_asset_manager";
+// Check for custom db-config.php (for production hosting)
+if (file_exists(__DIR__ . '/db-config.php')) {
+    require_once __DIR__ . '/db-config.php';
+}
+
+$host     = defined('DB_HOST') ? DB_HOST : (getenv('DB_HOST') ?: "localhost");
+$port     = defined('DB_PORT') ? (int)DB_PORT : ((int)getenv('DB_PORT') ?: 3306);
+$username = defined('DB_USER') ? DB_USER : (getenv('DB_USER') ?: "root");
+$password = defined('DB_PASS') ? DB_PASS : (getenv('DB_PASS') !== false && getenv('DB_PASS') !== '' ? getenv('DB_PASS') : "");
+$database = defined('DB_NAME') ? DB_NAME : (getenv('DB_NAME') ?: "smart_asset_manager");
 
 // Create the connection
 $conn = new mysqli($host, $username, $password, $database, $port);
@@ -13,6 +18,9 @@ $conn = new mysqli($host, $username, $password, $database, $port);
 if ($conn->connect_error) {
     die("Database Connection Failed: " . $conn->connect_error);
 }
+
+// Set charset to utf8mb4 for unicode compatibility
+$conn->set_charset("utf8mb4");
 
 // If the code makes it down here, it means it connected successfully! 
 

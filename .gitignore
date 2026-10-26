@@ -1,4 +1,11 @@
 vendor/
 
-# Gemini API key — copy gemini-config.sample.php to this file and add your key
+# Configuration files with credentials
 gemini-config.php
+mail-config.php
+db-config.php
+
+# Logs and temporary files
+logs/*.txt
+logs/*.log
+scratch/

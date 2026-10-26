@@ -2,6 +2,7 @@
 session_start();
 require 'db.php';
 require_once 'notification_utils.php';
+require_once 'mailer.php';
 
 // Security check: admin only
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
@@ -112,6 +113,28 @@ if ($stmt->execute()) {
     $message = "You have been assigned to audit the location: " . htmlspecialchars($location_id);
     $link = "dashboard.php?view=audit";
     create_notification($conn, $assign_to_user_id, $message, $link);
+
+    // Send email notification to the assigned staff member
+    $user_q = $conn->prepare("SELECT full_name, email FROM users WHERE id = ? LIMIT 1");
+    if ($user_q) {
+        $user_q->bind_param("i", $assign_to_user_id);
+        $user_q->execute();
+        $assigned_user = $user_q->get_result()->fetch_assoc();
+        $user_q->close();
+
+        if ($assigned_user && !empty($assigned_user['email'])) {
+            $assigned_by_name = $_SESSION['user_name'] ?? 'Administrator';
+            $audit_url = get_app_base_url() . "/dashboard.php?view=audit";
+            send_audit_assigned_email(
+                $assigned_user['full_name'],
+                $assigned_user['email'],
+                $location_id,
+                $assigned_by_name,
+                $audit_url
+            );
+        }
+    }
+
     header("Location: dashboard.php?view=audit&status=success&message=" . urlencode("Audit for '{$location_id}' assigned successfully."));
 } else {
     $error_message = urlencode($stmt->error);

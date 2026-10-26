@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * topbar.php - Shared top navigation bar
  * Include after sidebar.php inside the mainContent wrapper.
@@ -100,8 +100,8 @@ if (!function_exists('getInitials')) {
                 </div>
                 <div class="p-1.5">
                     <button id="changePasswordBtn" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
-                        <i data-lucide="key-round" style="width:16px;height:16px"></i>
-                        Change Password
+                        <i data-lucide="shield-check" style="width:16px;height:16px"></i>
+                        Password &amp; Email
                     </button>
                     <a href="logout.php" class="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
                         <i data-lucide="log-out" style="width:16px;height:16px"></i>
@@ -112,3 +112,4 @@ if (!function_exists('getInitials')) {
         </div>
     </div>
 </header>
+<?php include_once __DIR__ . '/profile_security_modal.php'; ?>

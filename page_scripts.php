@@ -1,40 +1,7 @@
 <?php /* page_scripts.php - Common scripts included at bottom of every standalone page */ ?>
 
-<!-- Change Password Modal (shared) -->
-<div id="passwordModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
-        <div class="flex items-center justify-between mb-5">
-            <h3 class="text-lg font-bold text-gray-900">Change Password</h3>
-            <button id="closeModalBtn" class="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600">
-                <i data-lucide="x" style="width:18px;height:18px"></i>
-            </button>
-        </div>
-        <div id="modal-notification" class="hidden mb-4 p-3 rounded-lg text-sm font-medium"></div>
-        <form id="changePasswordForm" class="space-y-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
-                <input type="password" name="current_password" required
-                       class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300" />
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
-                <input type="password" name="new_password" required
-                       class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300" />
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
-                <input type="password" name="confirm_password" required
-                       class="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300" />
-            </div>
-            <div class="flex justify-end gap-3 pt-2">
-                <button type="button" id="cancelModalBtn"
-                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition">Cancel</button>
-                <button type="submit"
-                        class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition">Save Changes</button>
-            </div>
-        </form>
-    </div>
-</div>
+<!-- Profile Security Modal (shared across pages) -->
+<?php include_once __DIR__ . '/profile_security_modal.php'; ?>
 
 <!-- QR Scanner Modal (shared) -->
 <div id="qrScannerModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4">
@@ -91,48 +58,6 @@
         if (!btn.contains(e.target) && !dropdown.contains(e.target))
             dropdown.classList.add('hidden');
     });
-})();
-
-// ─── Change Password Modal ───
-(function() {
-    const changeBtn    = document.getElementById('changePasswordBtn');
-    const modal        = document.getElementById('passwordModal');
-    const closeBtn     = document.getElementById('closeModalBtn');
-    const cancelBtn    = document.getElementById('cancelModalBtn');
-    const form         = document.getElementById('changePasswordForm');
-    const notif        = document.getElementById('modal-notification');
-    const dropdown     = document.getElementById('userMenuDropdown');
-
-    if (!changeBtn || !modal) return;
-
-    changeBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (dropdown) dropdown.classList.add('hidden');
-        modal.classList.remove('hidden');
-        if (form) form.reset();
-        if (notif) notif.classList.add('hidden');
-    });
-
-    [closeBtn, cancelBtn].forEach(b => {
-        if (b) b.addEventListener('click', () => modal.classList.add('hidden'));
-    });
-    modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.add('hidden'); });
-
-    if (form) {
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const data = new FormData(form);
-            const res  = await fetch('change-password.php', { method: 'POST', body: data });
-            const json = await res.json();
-            if (notif) {
-                notif.textContent  = json.message || (json.success ? 'Password changed.' : 'Error.');
-                notif.className    = 'mb-4 p-3 rounded-lg text-sm font-medium ' +
-                                     (json.success ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800');
-                notif.classList.remove('hidden');
-                if (json.success) { form.reset(); setTimeout(() => modal.classList.add('hidden'), 1500); }
-            }
-        });
-    }
 })();
 
 // ─── Global Search ───

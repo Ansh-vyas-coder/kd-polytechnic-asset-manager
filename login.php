@@ -17,7 +17,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = $_POST['password'];
 
     // Securely query the database for this email
-    $stmt = $conn->prepare("SELECT id, full_name, password_hash, role FROM users WHERE email = ?");
+    $stmt = $conn->prepare("SELECT id, full_name, password_hash, role, email_verified FROM users WHERE email = ?");
     $stmt->bind_param("s", $email);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -25,6 +25,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($result->num_rows === 1) {
         $user = $result->fetch_assoc();
         
+        // Check if user has verified their email
+        if (isset($user['email_verified']) && (int)$user['email_verified'] === 0) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Your email has not been verified yet. Please click the verification button sent to your email to receive your password and activate your account.'
+            ]);
+            $stmt->close();
+            exit();
+        }
+
         // Verify the submitted password against the stored hash
         if (password_verify($password, $user['password_hash'])) {
             // Success! Store their data in the session

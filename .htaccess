@@ -1,1 +1,32 @@
-ErrorDocument 404 /myapp/bg-code/kd-polytechnic-asset-manager/404.php
+# K.D. Polytechnic Asset Manager - Apache Configuration
+
+# Default index file
+DirectoryIndex login.html index.php index.html
+
+# Prevent directory browsing
+<IfModule mod_autoindex.c>
+    Options -Indexes
+</IfModule>
+
+# Custom 404 page
+ErrorDocument 404 /404.php
+
+# Protect sensitive files and directories
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+<FilesMatch "(schema\.sql|\.sql|\.log|\.env|composer\.json|composer\.lock)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Protect database and mail config files from direct web access
+<FilesMatch "(db-config\.php|mail-config\.php)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Enable UTF-8 encoding
+AddDefaultCharset UTF-8
