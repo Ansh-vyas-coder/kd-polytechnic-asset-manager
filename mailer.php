@@ -46,6 +46,17 @@ function send_system_email(string $to_email, string $to_name, string $subject, s
         $plain_text = strip_tags(str_replace(['<br>', '<br/>', '<br />', '</p>'], "\n", $html_body));
     }
 
+    // Determine effective from email
+    $effective_from = defined('MAIL_FROM_ADDRESS') ? MAIL_FROM_ADDRESS : '';
+    if (MAIL_SMTP_ENABLED && !empty(MAIL_SMTP_USER) && filter_var(MAIL_SMTP_USER, FILTER_VALIDATE_EMAIL)) {
+        if (stripos(MAIL_SMTP_HOST, 'gmail') !== false || stripos(MAIL_SMTP_HOST, 'yahoo') !== false || empty($effective_from)) {
+            $effective_from = MAIL_SMTP_USER;
+        }
+    }
+    if (empty($effective_from) || !filter_var($effective_from, FILTER_VALIDATE_EMAIL)) {
+        $effective_from = 'noreply@' . ($_SERVER['HTTP_HOST'] ?? 'kdpolytechnic.ac.in');
+    }
+
     $boundary = "==Multipart_Boundary_x" . md5(microtime()) . "x";
     $from_name_encoded = "=?UTF-8?B?" . base64_encode(MAIL_FROM_NAME) . "?=";
     $to_name_encoded   = "=?UTF-8?B?" . base64_encode($to_name) . "?=";
@@ -53,7 +64,8 @@ function send_system_email(string $to_email, string $to_name, string $subject, s
 
     // Headers
     $headers = [];
-    $headers[] = "From: {$from_name_encoded} <" . MAIL_FROM_ADDRESS . ">";
+    $headers[] = "From: {$from_name_encoded} <{$effective_from}>";
+    $headers[] = "Reply-To: {$from_name_encoded} <{$effective_from}>";
     $headers[] = "To: {$to_name_encoded} <{$to_email}>";
     $headers[] = "Date: " . date('r');
     $headers[] = "Message-ID: <" . md5(uniqid(microtime(), true)) . "@" . ($_SERVER['SERVER_NAME'] ?? 'localhost') . ">";
@@ -74,33 +86,33 @@ function send_system_email(string $to_email, string $to_name, string $subject, s
     $body .= chunk_split(base64_encode($html_body)) . "\r\n";
     $body .= "--{$boundary}--\r\n";
 
+    $smtp_result = null;
+
     // 1. Try Live SMTP if enabled
     if (MAIL_SMTP_ENABLED && !empty(MAIL_SMTP_HOST) && !empty(MAIL_SMTP_USER) && !empty(MAIL_SMTP_PASS)) {
         try {
-            $smtp_result = send_via_smtp($to_email, $headers, $body);
+            $smtp_result = send_via_smtp($to_email, $headers, $body, $effective_from);
             if ($smtp_result['success']) {
                 log_email_record($to_email, $subject, 'SMTP (Delivered)', $html_body);
                 return ['success' => true, 'transport' => 'smtp', 'message' => 'Email sent via SMTP successfully.'];
             }
-            // If SMTP failed, log error and attempt fallback
             log_email_record($to_email, $subject, 'SMTP Failed: ' . ($smtp_result['error'] ?? 'Unknown'), $html_body);
         } catch (\Throwable $e) {
+            $smtp_result = ['success' => false, 'error' => $e->getMessage()];
             log_email_record($to_email, $subject, 'SMTP Exception: ' . $e->getMessage(), $html_body);
         }
     }
 
     // 2. Try hosting built-in PHP mail()
     $raw_headers = implode("\r\n", [
-        "From: {$from_name_encoded} <" . MAIL_FROM_ADDRESS . ">",
+        "From: {$from_name_encoded} <{$effective_from}>",
+        "Reply-To: {$from_name_encoded} <{$effective_from}>",
         "MIME-Version: 1.0",
         "Content-Type: multipart/alternative; boundary=\"{$boundary}\""
     ]);
-    
-    // In live hosting, mail() uses sendmail/postfix.
-    $from_email_clean = filter_var(MAIL_FROM_ADDRESS, FILTER_VALIDATE_EMAIL) ? MAIL_FROM_ADDRESS : '';
-    $sender_param = !empty($from_email_clean) ? "-f" . $from_email_clean : '';
-    
-    $mail_sent = !empty($sender_param) ? @mail($to_email, $subject_encoded, $body, $raw_headers, $sender_param) : false;
+
+    $sender_param = "-f" . $effective_from;
+    $mail_sent = @mail($to_email, $subject_encoded, $body, $raw_headers, $sender_param);
     if (!$mail_sent) {
         $mail_sent = @mail($to_email, $subject_encoded, $body, $raw_headers);
     }
@@ -109,24 +121,46 @@ function send_system_email(string $to_email, string $to_name, string $subject, s
         return ['success' => true, 'transport' => 'mail', 'message' => 'Email sent via hosting PHP mail().'];
     }
 
-    // 3. Fallback: Log email record locally
-    log_email_record($to_email, $subject, 'Simulated (Local Environment Logged)', $html_body);
+    // 3. Fallback evaluation
+    $host_header = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $is_localhost = in_array(strtolower($host_header), ['localhost', '127.0.0.1', '::1']) || strpos(strtolower($host_header), 'localhost:') === 0;
+
+    if ($is_localhost) {
+        // Localhost development fallback
+        log_email_record($to_email, $subject, 'Simulated (Localhost Logged)', $html_body);
+        return [
+            'success' => true,
+            'transport' => 'log',
+            'message' => 'Email recorded to local log (Localhost development mode).'
+        ];
+    }
+
+    // Live Hosting: Do not fake success! Return descriptive error
+    $err_desc = !empty($smtp_result['error'])
+        ? $smtp_result['error']
+        : 'PHP mail() function is disabled or blocked on this hosting server, and Live SMTP is not configured. Please open Admin -> Email Settings to enter your SMTP details.';
+
+    log_email_record($to_email, $subject, 'FAILED: ' . $err_desc, $html_body);
     return [
-        'success' => true,
-        'transport' => 'log',
-        'message' => 'Email recorded to local log (Live SMTP disabled or localhost environment).'
+        'success' => false,
+        'transport' => 'none',
+        'error' => $err_desc
     ];
 }
 
 /**
- * Socket-level SMTP client with TLS/SSL support.
+ * Socket-level SMTP client with TLS/SSL support and automatic port fallback.
  */
-function send_via_smtp(string $to_email, array $headers, string $body): array {
+function send_via_smtp(string $to_email, array $headers, string $body, string $from_address = ''): array {
     $host = MAIL_SMTP_HOST;
-    $port = MAIL_SMTP_PORT;
+    $port = (int)MAIL_SMTP_PORT;
     $enc  = strtolower(MAIL_SMTP_ENCRYPTION);
     $user = MAIL_SMTP_USER;
     $pass = MAIL_SMTP_PASS;
+
+    if (empty($from_address)) {
+        $from_address = defined('MAIL_FROM_ADDRESS') ? MAIL_FROM_ADDRESS : $user;
+    }
 
     $connect_host = ($enc === 'ssl' || $port == 465) ? "ssl://{$host}" : "tcp://{$host}";
     $timeout = 10;
@@ -140,8 +174,17 @@ function send_via_smtp(string $to_email, array $headers, string $body): array {
     ]);
 
     $socket = @stream_socket_client($connect_host . ":{$port}", $errno, $errstr, $timeout, STREAM_CLIENT_CONNECT, $context);
+    
+    // Automatic fallback to port 465 SSL if port 587 TLS fails to connect (common on shared hostings)
+    if (!$socket && ($port == 587 || $enc === 'tls')) {
+        $connect_host = "ssl://{$host}";
+        $port = 465;
+        $enc = 'ssl';
+        $socket = @stream_socket_client($connect_host . ":{$port}", $errno, $errstr, $timeout, STREAM_CLIENT_CONNECT, $context);
+    }
+
     if (!$socket) {
-        return ['success' => false, 'error' => "Cannot connect to SMTP {$connect_host}:{$port} - {$errstr} ({$errno})"];
+        return ['success' => false, 'error' => "Cannot connect to SMTP {$host}:{$port} - {$errstr} ({$errno}). Hosting firewall may be blocking outbound SMTP ports. Try Port 465 with SSL."];
     }
 
     stream_set_timeout($socket, $timeout);
@@ -183,7 +226,7 @@ function send_via_smtp(string $to_email, array $headers, string $body): array {
             $expect(220, "STARTTLS");
             $crypto_ok = stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
             if (!$crypto_ok) {
-                throw new \Exception("STARTTLS negotiation failed.");
+                throw new \Exception("STARTTLS encryption handshake failed.");
             }
             $expect(250, "EHLO {$server_name}");
         }
@@ -196,7 +239,7 @@ function send_via_smtp(string $to_email, array $headers, string $body): array {
         }
 
         // Sender & Recipient
-        $expect(250, "MAIL FROM:<" . MAIL_FROM_ADDRESS . ">");
+        $expect(250, "MAIL FROM:<{$from_address}>");
         $expect(250, "RCPT TO:<{$to_email}>");
 
         // Send Data
@@ -217,9 +260,6 @@ function send_via_smtp(string $to_email, array $headers, string $body): array {
     }
 }
 
-/**
- * Logs sent/simulated emails to logs/email_log.txt for local audit and testing.
- */
 function log_email_record(string $to_email, string $subject, string $status, string $content = ''): void {
     $dir = __DIR__ . '/logs';
     if (!is_dir($dir)) {
