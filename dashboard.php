@@ -14,6 +14,19 @@ if (!isset($_SESSION['user_id'])) {
   exit();
 }
 
+// Background Monthly Asset Report auto-dispatch on new month rollover (Admin only)
+if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin') {
+    $current_month_marker = date('Y-m');
+    $last_report_marker_file = __DIR__ . '/logs/last_monthly_report_month.txt';
+    $last_report_sent = file_exists($last_report_marker_file) ? trim(@file_get_contents($last_report_marker_file)) : '';
+    if ($last_report_sent !== $current_month_marker) {
+        if (!defined('MONTHLY_REPORT_INCLUDED')) {
+            define('MONTHLY_REPORT_INCLUDED', true);
+        }
+        require_once __DIR__ . '/send-monthly-report.php';
+    }
+}
+
 $pageView = isset($_GET['view']) ? $_GET['view'] : 'dashboard';
 if ($_SESSION['role'] !== 'admin') {
   if (!in_array($pageView, ['my-assets', 'audit', 'dashboard'])) {

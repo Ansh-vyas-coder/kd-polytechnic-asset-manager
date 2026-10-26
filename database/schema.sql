@@ -1,10 +1,16 @@
 -- 1. USERS TABLE (The foundation for the Login Page)
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     full_name VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     role ENUM('admin', 'staff') DEFAULT 'staff',
+    email_verified TINYINT(1) NOT NULL DEFAULT 1,
+    email_verified_at DATETIME NULL DEFAULT NULL,
+    verification_token VARCHAR(64) NULL DEFAULT NULL,
+    verification_token_expires DATETIME NULL DEFAULT NULL,
+    password_otp VARCHAR(255) NULL DEFAULT NULL,
+    password_otp_expires DATETIME NULL DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -213,4 +219,34 @@ ALTER TABLE assets ADD COLUMN IF NOT EXISTS status_marked_by VARCHAR(100) NULL A
 ALTER TABLE assets ADD COLUMN IF NOT EXISTS status_marked_role ENUM('admin', 'staff') NULL AFTER status_marked_by;
 ALTER TABLE assets ADD COLUMN IF NOT EXISTS status_marked_at TIMESTAMP NULL DEFAULT NULL AFTER status_marked_role;
 ALTER TABLE assets ADD COLUMN IF NOT EXISTS status_marked_note TEXT NULL AFTER status_marked_at;
+
+-- Email verification columns for users table
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified TINYINT(1) NOT NULL DEFAULT 1 AFTER role;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at DATETIME NULL DEFAULT NULL AFTER email_verified;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token VARCHAR(64) NULL DEFAULT NULL AFTER email_verified_at;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token_expires DATETIME NULL DEFAULT NULL AFTER verification_token;
+
+-- Password Change OTP columns
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_otp VARCHAR(255) NULL DEFAULT NULL AFTER verification_token_expires;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_otp_expires DATETIME NULL DEFAULT NULL AFTER password_otp;
+
+-- Email Change Requests table
+CREATE TABLE IF NOT EXISTS `email_change_requests` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL,
+  `current_email` VARCHAR(100) NOT NULL,
+  `new_email` VARCHAR(100) NOT NULL,
+  `verification_token` VARCHAR(64) NOT NULL,
+  `token_expires` DATETIME NOT NULL,
+  `email_verified` TINYINT(1) DEFAULT 0,
+  `email_verified_at` DATETIME NULL DEFAULT NULL,
+  `status` ENUM('pending_verification', 'pending_admin_approval', 'approved', 'rejected') DEFAULT 'pending_verification',
+  `requested_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `actioned_by_user_id` INT NULL DEFAULT NULL,
+  `actioned_at` DATETIME NULL DEFAULT NULL,
+  `rejection_reason` VARCHAR(255) NULL DEFAULT NULL,
+  INDEX (`user_id`),
+  INDEX (`verification_token`),
+  INDEX (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
